@@ -66,14 +66,7 @@ func (d *InMemoryDataset) GetSample(dimIndices []uint) ([]any, error) {
 		return nil, DimensionsError{len(d.Dimensions), len(dimIndices)}
 	}
 
-	tileIndex := uint(0)
-	inTileIndex := uint(0)
-	mul := uint(1)
-	for dInd, index := range dimIndices {
-		tileIndex += (index / uint(d.Dimensions[dInd].TileSize)) * mul
-		inTileIndex += (index % uint(d.Dimensions[dInd].TileSize))
-		mul *= uint(d.Dimensions[dInd].TileSize)
-	}
+	tileIndex, inTileIndex := d.dimIndicesToTileIndices(dimIndices)
 
 	sample := make([]any, len(d.Fields))
 
@@ -103,14 +96,7 @@ func (d *InMemoryDataset) GetSampleField(dimIndices []uint, fieldId uint) (any, 
 		return nil, DimensionsError{len(d.Dimensions), len(dimIndices)}
 	}
 
-	tileIndex := uint(0)
-	inTileIndex := uint(0)
-	mul := uint(1)
-	for dInd, index := range dimIndices {
-		tileIndex += (index / uint(d.Dimensions[dInd].TileSize)) * mul
-		inTileIndex += (index % uint(d.Dimensions[dInd].TileSize))
-		mul *= uint(d.Dimensions[dInd].TileSize)
-	}
+	tileIndex, inTileIndex := d.dimIndicesToTileIndices(dimIndices)
 	if d.Separated {
 		tileIndex += uint(d.Tiles()) * uint(fieldId)
 		inTileIndex *= uint(d.Fields[fieldId].Size())
@@ -126,14 +112,7 @@ func (d *InMemoryDataset) SetSample(dimIndices []uint, sample []any) error {
 		return DimensionsError{len(d.Dimensions), len(dimIndices)}
 	}
 
-	tileIndex := uint(0)
-	inTileIndex := uint(0)
-	mul := uint(1)
-	for dInd, index := range dimIndices {
-		tileIndex += (index / uint(d.Dimensions[dInd].TileSize)) * mul
-		inTileIndex += (index % uint(d.Dimensions[dInd].TileSize))
-		mul *= uint(d.Dimensions[dInd].TileSize)
-	}
+	tileIndex, inTileIndex := d.dimIndicesToTileIndices(dimIndices)
 
 	if d.Separated {
 		for fieldId, field := range d.Fields {
@@ -158,14 +137,7 @@ func (d *InMemoryDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldV
 		return DimensionsError{len(d.Dimensions), len(dimIndices)}
 	}
 
-	tileIndex := uint(0)
-	inTileIndex := uint(0)
-	mul := uint(1)
-	for dInd, index := range dimIndices {
-		tileIndex += (index / uint(d.Dimensions[dInd].TileSize)) * mul
-		inTileIndex += (index % uint(d.Dimensions[dInd].TileSize))
-		mul *= uint(d.Dimensions[dInd].TileSize)
-	}
+	tileIndex, inTileIndex := d.dimIndicesToTileIndices(dimIndices)
 	if d.Separated {
 		tileIndex += uint(d.Tiles()) * uint(fieldId)
 		inTileIndex *= uint(d.Fields[fieldId].Size())
@@ -175,4 +147,18 @@ func (d *InMemoryDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldV
 
 	d.Fields[fieldId].Write(d.TileSet[tileIndex][inTileIndex:], fieldVal)
 	return nil
+}
+
+func (d *InMemoryDataset) dimIndicesToTileIndices(dimIndices []uint) (tileIndex uint, inTileIndex uint) {
+	tileIndex = uint(0)
+	inTileIndex = uint(0)
+	tileMul := uint(1)
+	inTileMul := uint(1)
+	for dInd, index := range dimIndices {
+		tileIndex += (index / uint(d.Dimensions[dInd].TileSize)) * tileMul
+		inTileIndex += (index % uint(d.Dimensions[dInd].TileSize)) * inTileMul
+		tileMul *= uint(d.Dimensions[dInd].Tiles())
+		inTileMul *= uint(d.Dimensions[dInd].TileSize)
+	}
+	return
 }

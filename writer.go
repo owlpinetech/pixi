@@ -20,7 +20,7 @@ func WriteSummary(w io.Writer, s Summary) error {
 	}
 
 	// write all metadata strings
-	err = binary.Write(w, binary.BigEndian, len(s.Metadata))
+	err = binary.Write(w, binary.BigEndian, uint32(len(s.Metadata)))
 	if err != nil {
 		return err
 	}
@@ -32,7 +32,7 @@ func WriteSummary(w io.Writer, s Summary) error {
 	}
 
 	// write all dataset headers
-	err = binary.Write(w, binary.BigEndian, len(s.Datasets))
+	err = binary.Write(w, binary.BigEndian, uint32(len(s.Datasets)))
 	if err != nil {
 		return err
 	}

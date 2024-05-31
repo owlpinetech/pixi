@@ -10,6 +10,23 @@ type InMemoryDataset struct {
 	TileSet [][]byte
 }
 
+func NewInMemoryDataset(separated bool, compression Compression, dims []Dimension, fields []Field) (*InMemoryDataset, error) {
+	memSet := &InMemoryDataset{}
+	memSet.Separated = separated
+	memSet.Compression = compression
+	memSet.Dimensions = dims
+	memSet.Fields = fields
+	if separated {
+		memSet.TileSet = make([][]byte, memSet.Tiles()*len(fields))
+	} else {
+		memSet.TileSet = make([][]byte, memSet.Tiles())
+	}
+	for tileInd := 0; tileInd < len(memSet.TileSet); tileInd++ {
+		memSet.TileSet[tileInd] = make([]byte, memSet.TileSize(tileInd))
+	}
+	return memSet, nil
+}
+
 func ReadInMemory(r io.ReadSeeker, ds DataSet) (InMemoryDataset, error) {
 	inMem := InMemoryDataset{DataSet: ds}
 
@@ -64,20 +81,14 @@ func (d *InMemoryDataset) GetSample(dimIndices []uint) ([]any, error) {
 		for fieldId, field := range d.Fields {
 			fieldTile := tileIndex + uint(d.Tiles())*uint(fieldId)
 			fieldOffset := inTileIndex * uint(field.Size())
-			fieldVal, err := field.Read(d.TileSet[fieldTile][fieldOffset:])
-			if err != nil {
-				return nil, err
-			}
+			fieldVal := field.Read(d.TileSet[fieldTile][fieldOffset:])
 			sample[fieldId] = fieldVal
 		}
 	} else {
 		inTileIndex *= uint(d.SampleSize())
 		data := d.TileSet[tileIndex]
 		for fieldId, field := range d.Fields {
-			fieldVal, err := field.Read(data[inTileIndex:])
-			if err != nil {
-				return nil, err
-			}
+			fieldVal := field.Read(data[inTileIndex:])
 			sample[fieldId] = fieldVal
 
 			inTileIndex += uint(field.Size())
@@ -107,7 +118,7 @@ func (d *InMemoryDataset) GetSampleField(dimIndices []uint, fieldId uint) (any, 
 		inTileIndex *= uint(d.SampleSize())
 	}
 
-	return d.Fields[fieldId].Read(d.TileSet[tileIndex][inTileIndex:])
+	return d.Fields[fieldId].Read(d.TileSet[tileIndex][inTileIndex:]), nil
 }
 
 func (d *InMemoryDataset) SetSample(dimIndices []uint, sample []any) error {
@@ -128,19 +139,13 @@ func (d *InMemoryDataset) SetSample(dimIndices []uint, sample []any) error {
 		for fieldId, field := range d.Fields {
 			fieldTile := tileIndex + uint(d.Tiles())*uint(fieldId)
 			fieldOffset := inTileIndex * uint(field.Size())
-			err := field.Write(d.TileSet[fieldTile][fieldOffset:], sample[fieldId])
-			if err != nil {
-				return err
-			}
+			field.Write(d.TileSet[fieldTile][fieldOffset:], sample[fieldId])
 		}
 	} else {
 		inTileIndex *= uint(d.SampleSize())
 		data := d.TileSet[tileIndex]
 		for fieldId, field := range d.Fields {
-			err := field.Write(data[inTileIndex:], sample[fieldId])
-			if err != nil {
-				return err
-			}
+			field.Write(data[inTileIndex:], sample[fieldId])
 			inTileIndex += uint(field.Size())
 		}
 	}
@@ -168,5 +173,6 @@ func (d *InMemoryDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldV
 		inTileIndex *= uint(d.SampleSize())
 	}
 
-	return d.Fields[fieldId].Write(d.TileSet[tileIndex][inTileIndex:], fieldVal)
+	d.Fields[fieldId].Write(d.TileSet[tileIndex][inTileIndex:], fieldVal)
+	return nil
 }

@@ -1,18 +1,318 @@
 package pixi
 
-import "io"
+import (
+	"io"
+)
 
 type CacheTile struct {
-	Data []byte
+	Dirty bool
+	Data  []byte
 }
 
 type CacheDataset struct {
 	DataSet
-	Tiles  map[int]CacheTile
-	Reader io.ReadSeeker
+	TileCache  map[uint]*CacheTile
+	MaxInCache uint
+	Backing    io.ReadWriteSeeker
 }
 
-func ReadCached(r io.ReadSeeker, ds DataSet) (CacheDataset, error) {
-	cached := CacheDataset{DataSet: ds, Tiles: make(map[int]CacheTile), Reader: r}
+func NewCacheDataset(separated bool, compression Compression, dims []Dimension, fields []Field, backing io.ReadWriteSeeker, maxInCache uint, offset int64) (*CacheDataset, error) {
+	cacheSet := &CacheDataset{}
+	cacheSet.Separated = separated
+	cacheSet.Compression = compression
+	cacheSet.Dimensions = dims
+	cacheSet.Fields = fields
+	cacheSet.Backing = backing
+	cacheSet.TileCache = make(map[uint]*CacheTile, maxInCache)
+	cacheSet.Offset = offset
+
+	// populate backing data store with empty data
+	tileCount := cacheSet.Tiles()
+	if separated {
+		tileCount *= len(fields)
+	}
+	_, err := backing.Seek(offset, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
+	buf := make([]byte, 0)
+	for i := 0; i < tileCount; i++ {
+		tileSize := cacheSet.TileSize(i)
+		if tileSize != int64(len(buf)) {
+			buf = make([]byte, tileSize)
+		}
+		_, err := backing.Write(buf)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return cacheSet, nil
+}
+
+func ReadCached(r io.ReadWriteSeeker, ds DataSet) (CacheDataset, error) {
+	cached := CacheDataset{DataSet: ds, TileCache: make(map[uint]*CacheTile), Backing: r}
 	return cached, nil
+}
+
+func (d *CacheDataset) GetSample(dimIndices []uint) ([]any, error) {
+	if len(d.Dimensions) != len(dimIndices) {
+		return nil, DimensionsError{len(d.Dimensions), len(dimIndices)}
+	}
+
+	tileIndex := uint(0)
+	inTileIndex := uint(0)
+	mul := uint(1)
+	for dInd, index := range dimIndices {
+		tileIndex += (index / uint(d.Dimensions[dInd].TileSize)) * mul
+		inTileIndex += (index % uint(d.Dimensions[dInd].TileSize))
+		mul *= uint(d.Dimensions[dInd].TileSize)
+	}
+
+	sample := make([]any, len(d.Fields))
+
+	if d.Separated {
+		for fieldId, field := range d.Fields {
+			fieldTile := tileIndex + uint(d.Tiles())*uint(fieldId)
+			fieldOffset := inTileIndex * uint(field.Size())
+
+			// TODO: locking for safe concurrent access
+			var cached *CacheTile
+			if tile, ok := d.TileCache[fieldTile]; ok {
+				cached = tile
+			} else {
+				loaded, err := d.loadTile(tileIndex)
+				if err != nil {
+					return nil, err
+				} else {
+					cached = &loaded
+				}
+			}
+
+			fieldVal := field.Read(cached.Data[fieldOffset:])
+			sample[fieldId] = fieldVal
+		}
+	} else {
+		inTileIndex *= uint(d.SampleSize())
+
+		// TODO: locking for safe concurrent access
+		var cached *CacheTile
+		if tile, ok := d.TileCache[tileIndex]; ok {
+			cached = tile
+		} else {
+			loaded, err := d.loadTile(tileIndex)
+			if err != nil {
+				return nil, err
+			} else {
+				cached = &loaded
+			}
+		}
+
+		for fieldId, field := range d.Fields {
+			fieldVal := field.Read(cached.Data[inTileIndex:])
+			sample[fieldId] = fieldVal
+
+			inTileIndex += uint(field.Size())
+		}
+	}
+
+	return sample, nil
+}
+
+func (d *CacheDataset) GetSampleField(dimIndices []uint, fieldId uint) (any, error) {
+	if len(d.Dimensions) != len(dimIndices) {
+		return nil, DimensionsError{len(d.Dimensions), len(dimIndices)}
+	}
+
+	tileIndex := uint(0)
+	inTileIndex := uint(0)
+	mul := uint(1)
+	for dInd, index := range dimIndices {
+		tileIndex += (index / uint(d.Dimensions[dInd].TileSize)) * mul
+		inTileIndex += (index % uint(d.Dimensions[dInd].TileSize))
+		mul *= uint(d.Dimensions[dInd].TileSize)
+	}
+	if d.Separated {
+		tileIndex += uint(d.Tiles()) * uint(fieldId)
+		inTileIndex *= uint(d.Fields[fieldId].Size())
+	} else {
+		inTileIndex *= uint(d.SampleSize())
+	}
+
+	// TODO: locking for safe concurrent access
+	var cached *CacheTile
+	if tile, ok := d.TileCache[tileIndex]; ok {
+		cached = tile
+	} else {
+		loaded, err := d.loadTile(tileIndex)
+		if err != nil {
+			return nil, err
+		} else {
+			cached = &loaded
+		}
+	}
+
+	return d.Fields[fieldId].Read(cached.Data[inTileIndex:]), nil
+}
+
+func (d *CacheDataset) SetSample(dimIndices []uint, sample []any) error {
+	if len(d.Dimensions) != len(dimIndices) {
+		return DimensionsError{len(d.Dimensions), len(dimIndices)}
+	}
+
+	tileIndex := uint(0)
+	inTileIndex := uint(0)
+	mul := uint(1)
+	for dInd, index := range dimIndices {
+		tileIndex += (index / uint(d.Dimensions[dInd].TileSize)) * mul
+		inTileIndex += (index % uint(d.Dimensions[dInd].TileSize))
+		mul *= uint(d.Dimensions[dInd].TileSize)
+	}
+
+	if d.Separated {
+		for fieldId, field := range d.Fields {
+			fieldTile := tileIndex + uint(d.Tiles())*uint(fieldId)
+			fieldOffset := inTileIndex * uint(field.Size())
+
+			// TODO: locking for safe concurrent access
+			var cached *CacheTile
+			if tile, ok := d.TileCache[fieldTile]; ok {
+				cached = tile
+			} else {
+				loaded, err := d.loadTile(tileIndex)
+				if err != nil {
+					return err
+				} else {
+					cached = &loaded
+				}
+			}
+
+			field.Write(cached.Data[fieldOffset:], sample[fieldId])
+		}
+	} else {
+		inTileIndex *= uint(d.SampleSize())
+
+		// TODO: locking for safe concurrent access
+		var cached *CacheTile
+		if tile, ok := d.TileCache[tileIndex]; ok {
+			cached = tile
+		} else {
+			loaded, err := d.loadTile(tileIndex)
+			if err != nil {
+				return err
+			} else {
+				cached = &loaded
+			}
+		}
+
+		for fieldId, field := range d.Fields {
+			field.Write(cached.Data[inTileIndex:], sample[fieldId])
+			inTileIndex += uint(field.Size())
+		}
+	}
+
+	return nil
+}
+
+func (d *CacheDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal any) error {
+	if len(d.Dimensions) != len(dimIndices) {
+		return DimensionsError{len(d.Dimensions), len(dimIndices)}
+	}
+
+	tileIndex := uint(0)
+	inTileIndex := uint(0)
+	mul := uint(1)
+	for dInd, index := range dimIndices {
+		tileIndex += (index / uint(d.Dimensions[dInd].TileSize)) * mul
+		inTileIndex += (index % uint(d.Dimensions[dInd].TileSize))
+		mul *= uint(d.Dimensions[dInd].TileSize)
+	}
+	if d.Separated {
+		tileIndex += uint(d.Tiles()) * uint(fieldId)
+		inTileIndex *= uint(d.Fields[fieldId].Size())
+	} else {
+		inTileIndex *= uint(d.SampleSize())
+	}
+
+	// TODO: locking for safe concurrent access
+	var cached *CacheTile
+	if tile, ok := d.TileCache[tileIndex]; ok {
+		cached = tile
+	} else {
+		loaded, err := d.loadTile(tileIndex)
+		if err != nil {
+			return err
+		} else {
+			cached = &loaded
+		}
+	}
+
+	cached.Dirty = true
+	d.Fields[fieldId].Write(cached.Data[inTileIndex:], fieldVal)
+	return nil
+}
+
+func (d *CacheDataset) loadTile(tileIndex uint) (CacheTile, error) {
+	for len(d.TileCache) >= int(d.MaxInCache) {
+		err := d.evict()
+		if err != nil {
+			return CacheTile{}, err
+		}
+	}
+
+	read, err := d.readTile(tileIndex)
+	return CacheTile{Data: read}, err
+}
+
+func (d *CacheDataset) evict() error {
+	var first uint
+	for k := range d.TileCache {
+		first = k
+	}
+
+	if d.TileCache[first].Dirty {
+		err := d.writeTile(d.TileCache[first].Data, first)
+		if err != nil {
+			return err
+		}
+	}
+
+	delete(d.TileCache, first)
+	return nil
+}
+
+func (d *CacheDataset) readTile(tileIndex uint) ([]byte, error) {
+	tileOffset := d.Offset
+	if d.Separated {
+		for iterInd := tileIndex; iterInd > 0; iterInd = iterInd - uint(d.Tiles()) {
+			tileOffset += d.TileSize(int(iterInd)) * int64(d.Tiles())
+		}
+	}
+	tileOffset += d.TileSize(int(tileIndex)) * int64(tileIndex)
+	d.Backing.Seek(tileOffset, io.SeekStart)
+
+	buf := make([]byte, d.TileSize(int(tileIndex)))
+	_, err := d.Backing.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
+func (d *CacheDataset) writeTile(data []byte, tileIndex uint) error {
+	tileOffset := d.Offset
+	if d.Separated {
+		for iterInd := tileIndex; iterInd > 0; iterInd = iterInd - uint(d.Tiles()) {
+			tileOffset += d.TileSize(int(iterInd)) * int64(d.Tiles())
+		}
+	}
+	tileOffset += d.TileSize(int(tileIndex)) * int64(tileIndex)
+	d.Backing.Seek(tileOffset, io.SeekStart)
+
+	_, err := d.Backing.Write(data)
+	if err != nil {
+		return err
+	}
+	return nil
 }

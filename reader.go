@@ -141,6 +141,9 @@ func ReadDataSet(r io.Reader) (DataSet, error) {
 	// read field types
 	fieldTypes := make([]FieldType, fieldCount)
 	err = binary.Read(r, binary.BigEndian, fieldTypes)
+	if err != nil {
+		return dataSet, err
+	}
 
 	// read field names
 	fieldNames := make([]string, fieldCount)

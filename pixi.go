@@ -89,6 +89,9 @@ type Dimension struct {
 	TileSize int32
 }
 
+// Returns the number of tiles in this dimension.
+// The number of tiles is calculated by dividing the size of the dimension by the tile size,
+// and then rounding up to the nearest whole number if there are any remaining bytes that do not fit into a full tile.
 func (d Dimension) Tiles() int {
 	if d.Size <= 0 {
 		return 0
@@ -166,6 +169,10 @@ func (f FieldType) Size() int64 {
 	}
 }
 
+// This function reads the value of a given FieldType from the provided raw byte slice.
+// The read operation is type-dependent, with each field type having its own specific method
+// for reading values. This ensures that the correct data is read and converted into the
+// expected format.
 func (f FieldType) Read(raw []byte) any {
 	switch f {
 	case FieldUnknown:
@@ -198,10 +205,6 @@ func (f FieldType) Read(raw []byte) any {
 // This function writes a value of any type into bytes according to the specified FieldType.
 // The written bytes are stored in the provided byte array. This function will panic if
 // the FieldType is unknown or if an unsupported field type is encountered.
-
-// Parameters:
-// - raw: The byte array where the written bytes will be stored.
-// - val: The value to be written, which can be of any type that matches a FieldType.
 func (f FieldType) Write(raw []byte, val any) {
 	switch f {
 	case FieldUnknown:

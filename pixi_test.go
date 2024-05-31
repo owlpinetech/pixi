@@ -329,3 +329,32 @@ func TestFieldType_Write(t *testing.T) {
 		}
 	}
 }
+
+func TestDimensionTiles(t *testing.T) {
+	tests := []struct {
+		name     string
+		size     int64
+		tileSize int32
+		want     int
+	}{
+		{"small size, small tile", 100, 10, 10},
+		{"medium size, medium tile", 500, 50, 10},
+		{"large size, large tile", 2000, 100, 20},
+		{"zero size", 0, 10, 0},
+		{"negative size", -100, 10, 0},
+		{"tile not multiple", 100, 11, 10},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			dimension := Dimension{
+				Size:     test.size,
+				TileSize: test.tileSize,
+			}
+			got := dimension.Tiles()
+			if got != test.want {
+				t.Errorf("got %d, want %d", got, test.want)
+			}
+		})
+	}
+}

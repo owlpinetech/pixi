@@ -253,6 +253,11 @@ func (d *CacheDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal 
 	return nil
 }
 
+// Load a tile from the cache or disk, if it's not in memory.
+//
+// This function is responsible for loading a tile into memory if it's not already there.
+// It does this by first checking if the tile exists in the cache, and if so, returns it directly.
+// If not, it reads the tile from disk and caches it before returning.
 func (d *CacheDataset) loadTile(tileIndex uint) (CacheTile, error) {
 	for len(d.TileCache) >= int(d.MaxInCache) {
 		err := d.evict()
@@ -265,6 +270,10 @@ func (d *CacheDataset) loadTile(tileIndex uint) (CacheTile, error) {
 	return CacheTile{Data: read}, err
 }
 
+// Evicts the oldest cached tile and writes its data to the underlying storage.
+// This method is used when the cache exceeds its maximum size.
+// It ensures that all changes made by this dataset are persisted.
+// Return an error if there was an issue with persisting or evicting a tile, nil otherwise
 func (d *CacheDataset) evict() error {
 	var first uint
 	for k := range d.TileCache {
@@ -282,6 +291,9 @@ func (d *CacheDataset) evict() error {
 	return nil
 }
 
+// Read a tile from the backing storage.
+// This function reads a tile from the underlying storage and returns its data as a byte slice.
+// The offset of the tile in the storage is determined by the `tileIndex`.
 func (d *CacheDataset) readTile(tileIndex uint) ([]byte, error) {
 	tileOffset := d.Offset
 	if d.Separated {
@@ -300,6 +312,8 @@ func (d *CacheDataset) readTile(tileIndex uint) ([]byte, error) {
 	return buf, nil
 }
 
+// This function writes a tile from memory back to the underlying storage.
+// The offset of the tile in the storage is determined by the `tileIndex`.
 func (d *CacheDataset) writeTile(data []byte, tileIndex uint) error {
 	tileOffset := d.Offset
 	if d.Separated {

@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	PixiFileType string = "pixi"
-	PixiVersion  int64  = 1
+	PixiFileType string = "pixi" // Every file starts with these four bytes.
+	PixiVersion  int64  = 1      // Every file has a version number as the second set of four bytes.
 )
 
 type Summary struct {
@@ -15,15 +15,25 @@ type Summary struct {
 	Datasets []DataSet
 }
 
+// Information about how data is stored and organized for a particular data set
+// inside a pixi file.
 type DataSet struct {
+	// Indicates whether the fields of the dataset are stored separated or contiguously. If true,
+	// values for each field are stored next to each other. If false, the default, values for each
+	// index are stored next to each other, with values for different fields stored next to each
+	// other at the same index.
 	Separated   bool
-	Compression Compression
-	Dimensions  []Dimension
-	Fields      []Field
-	TileBytes   []int64
-	Offset      int64
+	Compression Compression // The type of compression used on this dataset (e.g., gzip, lz4).
+	// An array of Dimension structs representing the dimensions and tiling of this dataset.
+	// No dimensions equals an empty dataset.
+	Dimensions []Dimension
+	Fields     []Field // An array of Field structs representing the fields in this dataset.
+	TileBytes  []int64 // An array of int64 values representing (compressed) size of each tile in bytes for this dataset.
+	Offset     int64   // The offset into the file where this dataset starts.
 }
 
+// The size in bytes of each sample in the data set. Each field has a fixed size, and a sample
+// is made up of one element of each field, so the sample size is the sum of all field sizes.
 func (d DataSet) SampleSize() int64 {
 	sampleSize := int64(0)
 	for _, f := range d.Fields {
@@ -32,6 +42,8 @@ func (d DataSet) SampleSize() int64 {
 	return sampleSize
 }
 
+// The on-disk size in bytes of the (potentially compressed) data set. Does not include the dataset
+// header size.
 func (d DataSet) DataSize() int64 {
 	size := int64(0)
 	for _, b := range d.TileBytes {
@@ -48,6 +60,8 @@ func (d DataSet) Tiles() int {
 	return tiles
 }
 
+// The number of samples per tile in the data set. Each tile has the same number of samples,
+// regardless of if the data is stored separated or continguous.
 func (d DataSet) TileSamples() int64 {
 	samples := int64(1)
 	for _, d := range d.Dimensions {
@@ -56,6 +70,8 @@ func (d DataSet) TileSamples() int64 {
 	return samples
 }
 
+// The total number of samples in the data set. If the tile size of any dimension is not
+// a multiple of the dimension size, the 'padding' samples are not included in the count.
 func (d DataSet) Samples() int64 {
 	samples := int64(1)
 	for _, dim := range d.Dimensions {
@@ -64,6 +80,10 @@ func (d DataSet) Samples() int64 {
 	return samples
 }
 
+// The size of a single tile in bytes. For contiguous files, the size of each tile is always
+// the same. However, for separated data sets, each field is tiled (so the number of on-disk
+// tiles is actually fieldCount * Tiles()). Hence, the tile size changes depending on which
+// field is being accessed.
 func (d DataSet) TileSize(tileIndex int) int64 {
 	if d.Tiles() == 0 {
 		return 0
@@ -76,6 +96,8 @@ func (d DataSet) TileSize(tileIndex int) int64 {
 	}
 }
 
+// The offset from the start of the on-disk (potentially compressed) file in which the tile
+// is stored. Relative to the start of the file, not the data set Offset.
 func (d DataSet) TileOffset(tileIndex int) int64 {
 	dataStart := d.Offset
 	for i := 0; i < tileIndex; i++ {

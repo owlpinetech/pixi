@@ -79,7 +79,7 @@ func (d *CacheDataset) GetSample(dimIndices []uint) ([]any, error) {
 				if err != nil {
 					return nil, err
 				} else {
-					cached = &loaded
+					cached = loaded
 				}
 			}
 
@@ -98,7 +98,7 @@ func (d *CacheDataset) GetSample(dimIndices []uint) ([]any, error) {
 			if err != nil {
 				return nil, err
 			} else {
-				cached = &loaded
+				cached = loaded
 			}
 		}
 
@@ -135,7 +135,7 @@ func (d *CacheDataset) GetSampleField(dimIndices []uint, fieldId uint) (any, err
 		if err != nil {
 			return nil, err
 		} else {
-			cached = &loaded
+			cached = loaded
 		}
 	}
 
@@ -163,7 +163,7 @@ func (d *CacheDataset) SetSample(dimIndices []uint, sample []any) error {
 				if err != nil {
 					return err
 				} else {
-					cached = &loaded
+					cached = loaded
 				}
 			}
 
@@ -181,7 +181,7 @@ func (d *CacheDataset) SetSample(dimIndices []uint, sample []any) error {
 			if err != nil {
 				return err
 			} else {
-				cached = &loaded
+				cached = loaded
 			}
 		}
 
@@ -216,7 +216,7 @@ func (d *CacheDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal 
 		if err != nil {
 			return err
 		} else {
-			cached = &loaded
+			cached = loaded
 		}
 	}
 
@@ -230,16 +230,17 @@ func (d *CacheDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal 
 // This function is responsible for loading a tile into memory if it's not already there.
 // It does this by first checking if the tile exists in the cache, and if so, returns it directly.
 // If not, it reads the tile from disk and caches it before returning.
-func (d *CacheDataset) loadTile(tileIndex uint) (CacheTile, error) {
+func (d *CacheDataset) loadTile(tileIndex uint) (*CacheTile, error) {
 	for len(d.TileCache) >= int(d.MaxInCache) {
 		err := d.evict()
 		if err != nil {
-			return CacheTile{}, err
+			return nil, err
 		}
 	}
 
 	read, err := d.readTile(tileIndex)
-	return CacheTile{Data: read}, err
+	d.TileCache[tileIndex] = &CacheTile{Data: read}
+	return d.TileCache[tileIndex], err
 }
 
 // Evicts the oldest cached tile and writes its data to the underlying storage.

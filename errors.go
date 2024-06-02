@@ -8,6 +8,12 @@ func (e FormatError) Error() string {
 	return "pixi: format error - " + string(e)
 }
 
+type UnsupportedError string
+
+func (e UnsupportedError) Error() string {
+	return "pixi: unsupported action - " + string(e)
+}
+
 type DimensionsError struct {
 	GivenDims  int
 	ActualDims int

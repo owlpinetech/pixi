@@ -337,6 +337,7 @@ func TestDimensionTiles(t *testing.T) {
 		tileSize int32
 		want     int
 	}{
+		{"size same as tile size", 10, 10, 1},
 		{"small size, small tile", 100, 10, 10},
 		{"medium size, medium tile", 500, 50, 10},
 		{"large size, large tile", 2000, 100, 20},

@@ -21,21 +21,18 @@ type AppendDataset struct {
 	Backing          io.ReadWriteSeeker
 }
 
-func NewAppendDataset(separated bool, compression Compression, dims []Dimension, fields []Field, backing io.ReadWriteSeeker, maxInCache uint, offset int64) (*AppendDataset, error) {
-	appendSet := &AppendDataset{}
-	appendSet.Separated = separated
-	appendSet.Compression = compression
-	appendSet.Dimensions = dims
-	appendSet.Fields = fields
+func NewAppendDataset(d DataSet, backing io.ReadWriteSeeker, maxInCache uint, offset int64) (*AppendDataset, error) {
+	appendSet := &AppendDataset{DataSet: d}
 	appendSet.Backing = backing
 	appendSet.ReadCache = make(map[uint]*AppendTile, maxInCache)
 	appendSet.Offset = offset
 	appendSet.WritingTileIndex = 0
 	appendSet.WritingTile = AppendTile{Data: make([]byte, appendSet.TileSize(0))}
+	appendSet.ReadCache[appendSet.WritingTileIndex] = &appendSet.WritingTile
 
 	diskTileCount := appendSet.Tiles()
-	if separated {
-		diskTileCount *= len(fields)
+	if appendSet.Separated {
+		diskTileCount *= len(appendSet.Fields)
 	}
 	appendSet.TileBytes = make([]int64, diskTileCount)
 
@@ -151,6 +148,7 @@ func (d *AppendDataset) SetSample(dimIndices []uint, sample []any) error {
 			}
 			d.WritingTileIndex += 1
 			d.WritingTile = AppendTile{Data: make([]byte, d.TileSize(int(d.WritingTileIndex)))}
+			d.ReadCache[d.WritingTileIndex] = &d.WritingTile
 		} else {
 			return RangeError{Specified: int(tileIndex), ValidMin: int(d.WritingTileIndex), ValidMax: int(d.WritingTileIndex)}
 		}
@@ -187,6 +185,7 @@ func (d *AppendDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal
 			}
 			d.WritingTileIndex += 1
 			d.WritingTile = AppendTile{Data: make([]byte, d.TileSize(int(d.WritingTileIndex)))}
+			d.ReadCache[d.WritingTileIndex] = &d.WritingTile
 		} else {
 			return RangeError{Specified: int(tileIndex), ValidMin: int(d.WritingTileIndex), ValidMax: int(d.WritingTileIndex)}
 		}

@@ -54,6 +54,70 @@ func TestWriteCompressTile(t *testing.T) {
 	}
 }
 
+func TestAppendDatasetEvict(t *testing.T) {
+	readCache := make(map[uint]*AppendTile)
+	appendDataset := &AppendDataset{ReadCache: readCache}
+
+	// Test that evict returns nil when cache is empty
+	if err := appendDataset.evict(); err != nil {
+		t.Errorf("expected evict to return nil, got %v", err)
+	}
+
+	// Test that evict removes the first element from the cache
+	appendDataset.ReadCache = map[uint]*AppendTile{1: {}, 2: {}, 3: {}}
+	if err := appendDataset.evict(); err != nil {
+		t.Errorf("expected evict to return nil, got %v", err)
+	}
+	if len(appendDataset.ReadCache) != 2 {
+		t.Errorf("expected ReadCache to have length 2 after evict, has length %d", len(appendDataset.ReadCache))
+	}
+	if err := appendDataset.evict(); err != nil {
+		t.Errorf("expected evict to return nil, got %v", err)
+	}
+	if len(appendDataset.ReadCache) != 1 {
+		t.Errorf("expected ReadCache to have length 1 after second evict, has length %d", len(appendDataset.ReadCache))
+	}
+}
+
+func TestAppendAddTileToCache(t *testing.T) {
+	// Create a new AppendDataset with maxInCache set to 3
+	d := &AppendDataset{MaxInCache: 3, ReadCache: make(map[uint]*AppendTile)}
+
+	// Add tiles to the cache and verify they are added correctly
+	for i := uint(0); i < 5; i++ {
+		tileIndex := i
+		tile := AppendTile{Data: []byte{byte(i)}}
+		err := d.addTileToCache(tileIndex, tile)
+		if err != nil {
+			t.Errorf("addTileToCache failed: %v", err)
+			return
+		}
+	}
+
+	// Verify that the cache has 3 tiles (including eviction of older tiles if needed)
+	if len(d.ReadCache) != 3 {
+		t.Errorf("Expected ReadCache length to be 3, got %d", len(d.ReadCache))
+		return
+	}
+
+	// Add another tile and verify it replaces the oldest tile in the cache
+	for i := uint(5); i < 8; i++ {
+		tileIndex := i
+		tile := AppendTile{Data: []byte{byte(i)}}
+		err := d.addTileToCache(tileIndex, tile)
+		if err != nil {
+			t.Errorf("addTileToCache failed: %v", err)
+			return
+		}
+	}
+
+	// Verify that the cache has 3 tiles (after evicting older tiles if needed)
+	if len(d.ReadCache) != 3 {
+		t.Errorf("Expected ReadCache length to be 3, got %d", len(d.ReadCache))
+		return
+	}
+}
+
 func TestAppendSetGetSeparatedSampleField(t *testing.T) {
 	buf := NewBuffer(10)
 	under := DataSet{
@@ -138,7 +202,7 @@ func TestAppendSetGetSeparatedSampleField(t *testing.T) {
 	}
 }
 
-func TestAppendSetGetSeparatedSample(t *testing.T) {
+func TestAppendSetGetContinguousSample(t *testing.T) {
 	buf := NewBuffer(10)
 	under := DataSet{
 		Separated:   false,
@@ -199,6 +263,57 @@ func TestAppendSetGetSeparatedSample(t *testing.T) {
 		}
 		if dataset.WritingTileIndex != tc.expectedWriteIndex {
 			t.Errorf("expected writing tile index to be %d, got %d", tc.expectedWriteIndex, dataset.WritingTileIndex)
+		}
+	}
+}
+
+func TestAppendAllReadAllSample(t *testing.T) {
+	buf := NewBuffer(10)
+	under := DataSet{
+		Separated:   false,
+		Compression: CompressionGzip,
+		Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+		Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
+	}
+	dataset, err := NewAppendDataset(under, buf, 1, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for ytile := 0; ytile < 2; ytile++ {
+		for xtile := 0; xtile < 2; xtile++ {
+			for x := 0; x < 2; x++ {
+				for y := 0; y < 2; y++ {
+					err := dataset.SetSample([]uint{uint(xtile*2 + x), uint(ytile*2 + y)}, []any{1.2, int16(-13), uint64(54321)})
+					if err != nil {
+						t.Fatal(err)
+					}
+					if dataset.WritingTileIndex != uint(xtile)+uint(ytile)*2 {
+						t.Errorf("expected %d,%d tile index to be %d, got %d", xtile, ytile, uint(xtile)+uint(ytile)*2, dataset.WritingTileIndex)
+					}
+				}
+			}
+		}
+	}
+
+	for x := 0; x < 4; x++ {
+		for y := 0; y < 4; y++ {
+			val, err := dataset.GetSample([]uint{uint(x), uint(y)})
+			if err != nil {
+				t.Fatalf("failed to get sample: %s", err)
+			}
+			if val[0].(float64) != 1.2 {
+				t.Errorf("expected first sample field to be 1.2, got %v", val[0].(float64))
+			}
+			if val[1].(int16) != int16(-13) {
+				t.Errorf("expected first sample field to be 1.2, got %v", val[1].(float64))
+			}
+			if val[2].(uint64) != uint64(54321) {
+				t.Errorf("expected first sample field to be 1.2, got %v", val[2].(float64))
+			}
+			if len(dataset.ReadCache) > int(dataset.MaxInCache) {
+				t.Errorf("expected read cache length to be less than %d, got %d", dataset.MaxInCache, len(dataset.ReadCache))
+			}
 		}
 	}
 }

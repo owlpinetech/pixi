@@ -248,9 +248,13 @@ func (d *CacheDataset) loadTile(tileIndex uint) (*CacheTile, error) {
 // It ensures that all changes made by this dataset are persisted.
 // Return an error if there was an issue with persisting or evicting a tile, nil otherwise
 func (d *CacheDataset) evict() error {
+	if len(d.TileCache) <= 0 {
+		return nil
+	}
 	var first uint
 	for k := range d.TileCache {
 		first = k
+		break
 	}
 
 	if d.TileCache[first].Dirty {

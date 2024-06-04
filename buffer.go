@@ -53,6 +53,8 @@ func (b *buffer) Seek(offset int64, whence int) (int64, error) {
 		panic("pixi: invalid whence in buffer seek")
 	}
 
+	newOffset = min(newOffset, len(b.buf))
+
 	if newOffset != b.pos {
 		b.pos = newOffset
 	}

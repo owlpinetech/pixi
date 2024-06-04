@@ -3,7 +3,6 @@ package pixi
 import (
 	"bytes"
 	"compress/flate"
-	"compress/gzip"
 	"io"
 )
 
@@ -21,10 +20,12 @@ type AppendDataset struct {
 	Backing          io.ReadWriteSeeker
 }
 
+// Creates a new append dataset. It initializes the internal data structures and sets up the backing store.
 func NewAppendDataset(d DataSet, backing io.ReadWriteSeeker, maxInCache uint, offset int64) (*AppendDataset, error) {
 	appendSet := &AppendDataset{DataSet: d}
 	appendSet.Backing = backing
-	appendSet.ReadCache = make(map[uint]*AppendTile, maxInCache)
+	appendSet.ReadCache = make(map[uint]*AppendTile)
+	appendSet.MaxInCache = maxInCache
 	appendSet.Offset = offset
 	appendSet.WritingTileIndex = 0
 	appendSet.WritingTile = AppendTile{Data: make([]byte, appendSet.TileSize(0))}
@@ -75,7 +76,7 @@ func (d *AppendDataset) GetSample(dimIndices []uint) ([]any, error) {
 			sample[fieldId] = fieldVal
 		}
 	} else {
-		inTileIndex *= uint(d.SampleSize())
+		fieldOffset := inTileIndex * uint(d.SampleSize())
 
 		// TODO: locking for safe concurrent access
 		var cached *AppendTile
@@ -91,10 +92,10 @@ func (d *AppendDataset) GetSample(dimIndices []uint) ([]any, error) {
 		}
 
 		for fieldId, field := range d.Fields {
-			fieldVal := field.Read(cached.Data[inTileIndex:])
+			fieldVal := field.Read(cached.Data[fieldOffset:])
 			sample[fieldId] = fieldVal
 
-			inTileIndex += uint(field.Size())
+			fieldOffset += uint(field.Size())
 		}
 	}
 
@@ -148,7 +149,10 @@ func (d *AppendDataset) SetSample(dimIndices []uint, sample []any) error {
 			}
 			d.WritingTileIndex += 1
 			d.WritingTile = AppendTile{Data: make([]byte, d.TileSize(int(d.WritingTileIndex)))}
-			d.ReadCache[d.WritingTileIndex] = &d.WritingTile
+			err = d.addTileToCache(d.WritingTileIndex, d.WritingTile)
+			if err != nil {
+				return err
+			}
 		} else {
 			return RangeError{Specified: int(tileIndex), ValidMin: int(d.WritingTileIndex), ValidMax: int(d.WritingTileIndex)}
 		}
@@ -183,9 +187,12 @@ func (d *AppendDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal
 			if err != nil {
 				return err
 			}
-			d.WritingTileIndex += 1
+			d.WritingTileIndex = tileIndex
 			d.WritingTile = AppendTile{Data: make([]byte, d.TileSize(int(d.WritingTileIndex)))}
-			d.ReadCache[d.WritingTileIndex] = &d.WritingTile
+			err = d.addTileToCache(d.WritingTileIndex, d.WritingTile)
+			if err != nil {
+				return err
+			}
 		} else {
 			return RangeError{Specified: int(tileIndex), ValidMin: int(d.WritingTileIndex), ValidMax: int(d.WritingTileIndex)}
 		}
@@ -195,21 +202,29 @@ func (d *AppendDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal
 	return nil
 }
 
+func (d *AppendDataset) addTileToCache(tileIndex uint, tile AppendTile) error {
+	for len(d.ReadCache) >= int(d.MaxInCache) {
+		err := d.evict()
+		if err != nil {
+			return err
+		}
+	}
+
+	d.ReadCache[tileIndex] = &tile
+	return nil
+}
+
 // Load a tile from the cache or disk, if it's not in memory.
 //
 // This function is responsible for loading a tile into memory if it's not already there.
 // It does this by first checking if the tile exists in the cache, and if so, returns it directly.
 // If not, it reads the tile from disk and caches it before returning.
 func (d *AppendDataset) loadTile(tileIndex uint) (*AppendTile, error) {
-	for len(d.ReadCache) >= int(d.MaxInCache) {
-		err := d.evict()
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	read, err := d.readTile(tileIndex)
-	d.ReadCache[tileIndex] = &AppendTile{Data: read}
+	if err != nil {
+		return nil, err
+	}
+	err = d.addTileToCache(tileIndex, AppendTile{Data: read})
 	return d.ReadCache[tileIndex], err
 }
 
@@ -218,9 +233,13 @@ func (d *AppendDataset) loadTile(tileIndex uint) (*AppendTile, error) {
 // It ensures that all changes made by this dataset are persisted.
 // Return an error if there was an issue with persisting or evicting a tile, nil otherwise
 func (d *AppendDataset) evict() error {
+	if len(d.ReadCache) == 0 {
+		return nil
+	}
 	var first uint
 	for k := range d.ReadCache {
 		first = k
+		break
 	}
 
 	delete(d.ReadCache, first)
@@ -247,29 +266,25 @@ func (d *AppendDataset) readTile(tileIndex uint) ([]byte, error) {
 		}
 		return buf, nil
 	case CompressionGzip:
-		gzRdr, err := gzip.NewReader(d.Backing)
-		if err != nil {
+		gzRdr := flate.NewReader(d.Backing)
+		defer gzRdr.Close()
+		_, err := gzRdr.Read(buf)
+		if err != nil && err != io.EOF {
 			return nil, err
 		}
-		_, err = gzRdr.Read(buf)
-		if err != nil {
-			gzRdr.Close()
-			return nil, err
-		}
-		gzRdr.Close()
 	}
 
 	return buf, nil
 }
 
+// This function takes in a byte slice and a tile index as input, and writes the contents of the slice to the backing storage at the specified tile offset.
+// The function is responsible for handling both uncompressed and gzip-compressed data.
+// If there was an issue with writing the tile, this function will return an error. Otherwise, it returns nil.
 func (d *AppendDataset) writeCompressTile(data []byte, tileIndex uint) error {
 	tileOffset := d.Offset
-	if d.Separated {
-		for iterInd := tileIndex; iterInd > 0; iterInd = iterInd - uint(d.Tiles()) {
-			tileOffset += d.TileSize(int(iterInd)) * int64(d.Tiles())
-		}
+	for _, bytes := range d.TileBytes {
+		tileOffset += bytes
 	}
-	tileOffset += d.TileSize(int(tileIndex)) * int64(tileIndex)
 	d.Backing.Seek(tileOffset, io.SeekStart)
 
 	tileSize := 0
@@ -304,6 +319,7 @@ func (d *AppendDataset) writeCompressTile(data []byte, tileIndex uint) error {
 	return nil
 }
 
+// This function takes a slice of dimension indices and converts them into a tile index.
 func (d *AppendDataset) dimIndicesToTileIndices(dimIndices []uint) (tileIndex uint, inTileIndex uint) {
 	tileIndex = uint(0)
 	inTileIndex = uint(0)

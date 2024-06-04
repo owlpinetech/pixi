@@ -282,7 +282,7 @@ func (d *AppendDataset) readTile(tileIndex uint) ([]byte, error) {
 // If there was an issue with writing the tile, this function will return an error. Otherwise, it returns nil.
 func (d *AppendDataset) writeCompressTile(data []byte, tileIndex uint) error {
 	tileOffset := d.Offset
-	for _, bytes := range d.TileBytes {
+	for _, bytes := range d.TileBytes[:tileIndex] {
 		tileOffset += bytes
 	}
 	d.Backing.Seek(tileOffset, io.SeekStart)

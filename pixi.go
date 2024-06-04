@@ -53,9 +53,9 @@ func (d DataSet) DataSize() int64 {
 }
 
 func (d DataSet) Tiles() int {
-	tiles := 0
+	tiles := 1
 	for _, t := range d.Dimensions {
-		tiles += t.Tiles()
+		tiles *= t.Tiles()
 	}
 	return tiles
 }

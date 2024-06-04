@@ -203,7 +203,7 @@ func TestPixiTileSize(t *testing.T) {
 				TileBytes:   []int64{},
 				Offset:      0,
 			},
-			wantSize: 0,
+			wantSize: 4,
 		},
 		{
 			name: "One dimension with tile size 5 and one field with size 2",
@@ -224,6 +224,39 @@ func TestPixiTileSize(t *testing.T) {
 			gotSize := test.dataset.TileSize(0)
 			if gotSize != test.wantSize {
 				t.Errorf("TileSize() = %d, want %d", gotSize, test.wantSize)
+			}
+		})
+	}
+}
+
+func TestPixiTiles(t *testing.T) {
+	tests := []struct {
+		name      string
+		dims      []Dimension
+		separated bool
+		want      int
+	}{
+		{
+			name:      "two rows of 4 tiles",
+			dims:      []Dimension{{Size: 86400, TileSize: 21600}, {Size: 43200, TileSize: 21600}},
+			separated: false,
+			want:      8,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dataSet := DataSet{
+				Separated:   tc.separated,
+				Compression: CompressionNone,
+				Dimensions:  tc.dims,
+				Fields:      []Field{},
+				TileBytes:   []int64{},
+				Offset:      0,
+			}
+
+			if dataSet.Tiles() != tc.want {
+				t.Errorf("PixiTiles() = %d, want %d", dataSet.Tiles(), tc.want)
 			}
 		})
 	}
@@ -344,6 +377,8 @@ func TestDimensionTiles(t *testing.T) {
 		{"zero size", 0, 10, 0},
 		{"negative size", -100, 10, 0},
 		{"tile not multiple", 100, 11, 10},
+		{"large multiple", 86400, 21600, 4},
+		{"half large multiple", 43200, 21600, 2},
 	}
 
 	for _, test := range tests {

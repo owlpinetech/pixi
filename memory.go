@@ -10,14 +10,10 @@ type InMemoryDataset struct {
 	TileSet [][]byte
 }
 
-func NewInMemoryDataset(separated bool, compression Compression, dims []Dimension, fields []Field) (*InMemoryDataset, error) {
-	memSet := &InMemoryDataset{}
-	memSet.Separated = separated
-	memSet.Compression = compression
-	memSet.Dimensions = dims
-	memSet.Fields = fields
-	if separated {
-		memSet.TileSet = make([][]byte, memSet.Tiles()*len(fields))
+func NewInMemoryDataset(d DataSet) (*InMemoryDataset, error) {
+	memSet := &InMemoryDataset{DataSet: d}
+	if d.Separated {
+		memSet.TileSet = make([][]byte, memSet.Tiles()*len(d.Fields))
 	} else {
 		memSet.TileSet = make([][]byte, memSet.Tiles())
 	}

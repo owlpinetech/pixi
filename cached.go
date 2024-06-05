@@ -16,20 +16,17 @@ type CacheDataset struct {
 	Backing    io.ReadWriteSeeker
 }
 
-func NewCacheDataset(separated bool, compression Compression, dims []Dimension, fields []Field, backing io.ReadWriteSeeker, maxInCache uint, offset int64) (*CacheDataset, error) {
-	cacheSet := &CacheDataset{}
-	cacheSet.Separated = separated
-	cacheSet.Compression = compression
-	cacheSet.Dimensions = dims
-	cacheSet.Fields = fields
+func NewCacheDataset(d DataSet, backing io.ReadWriteSeeker, maxInCache uint, offset int64) (*CacheDataset, error) {
+	cacheSet := &CacheDataset{DataSet: d}
 	cacheSet.Backing = backing
+	cacheSet.MaxInCache = maxInCache
 	cacheSet.TileCache = make(map[uint]*CacheTile, maxInCache)
 	cacheSet.Offset = offset
 
 	// populate backing data store with empty data
 	tileCount := cacheSet.Tiles()
-	if separated {
-		tileCount *= len(fields)
+	if cacheSet.Separated {
+		tileCount *= len(cacheSet.Fields)
 	}
 	_, err := backing.Seek(offset, io.SeekStart)
 	if err != nil {
@@ -87,7 +84,7 @@ func (d *CacheDataset) GetSample(dimIndices []uint) ([]any, error) {
 			sample[fieldId] = fieldVal
 		}
 	} else {
-		inTileIndex *= uint(d.SampleSize())
+		fieldOffset := inTileIndex * uint(d.SampleSize())
 
 		// TODO: locking for safe concurrent access
 		var cached *CacheTile
@@ -103,10 +100,10 @@ func (d *CacheDataset) GetSample(dimIndices []uint) ([]any, error) {
 		}
 
 		for fieldId, field := range d.Fields {
-			fieldVal := field.Read(cached.Data[inTileIndex:])
+			fieldVal := field.Read(cached.Data[fieldOffset:])
 			sample[fieldId] = fieldVal
 
-			inTileIndex += uint(field.Size())
+			fieldOffset += uint(field.Size())
 		}
 	}
 
@@ -168,9 +165,10 @@ func (d *CacheDataset) SetSample(dimIndices []uint, sample []any) error {
 			}
 
 			field.Write(cached.Data[fieldOffset:], sample[fieldId])
+			cached.Dirty = true
 		}
 	} else {
-		inTileIndex *= uint(d.SampleSize())
+		fieldOffset := inTileIndex * uint(d.SampleSize())
 
 		// TODO: locking for safe concurrent access
 		var cached *CacheTile
@@ -186,9 +184,10 @@ func (d *CacheDataset) SetSample(dimIndices []uint, sample []any) error {
 		}
 
 		for fieldId, field := range d.Fields {
-			field.Write(cached.Data[inTileIndex:], sample[fieldId])
-			inTileIndex += uint(field.Size())
+			field.Write(cached.Data[fieldOffset:], sample[fieldId])
+			fieldOffset += uint(field.Size())
 		}
+		cached.Dirty = true
 	}
 
 	return nil

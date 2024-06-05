@@ -202,6 +202,17 @@ func (d *AppendDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal
 	return nil
 }
 
+func (d *AppendDataset) Finalize() error {
+	// last tile won't have been written yet
+	err := d.writeCompressTile(d.WritingTile.Data, d.WritingTileIndex)
+	if err != nil {
+		return err
+	}
+	d.WritingTileIndex += 1
+	d.WritingTile = AppendTile{}
+	return d.addTileToCache(d.WritingTileIndex, d.WritingTile)
+}
+
 func (d *AppendDataset) addTileToCache(tileIndex uint, tile AppendTile) error {
 	for len(d.ReadCache) >= int(d.MaxInCache) {
 		err := d.evict()

@@ -303,13 +303,13 @@ func TestAppendAllReadAllSample(t *testing.T) {
 				t.Fatalf("failed to get sample: %s", err)
 			}
 			if val[0].(float64) != 1.2 {
-				t.Errorf("expected first sample field to be 1.2, got %v", val[0].(float64))
+				t.Errorf("expected first sample field to be 1.2, got %v", val[0])
 			}
 			if val[1].(int16) != int16(-13) {
-				t.Errorf("expected first sample field to be 1.2, got %v", val[1].(float64))
+				t.Errorf("expected second sample field to be -13, got %v", val[1])
 			}
 			if val[2].(uint64) != uint64(54321) {
-				t.Errorf("expected first sample field to be 1.2, got %v", val[2].(float64))
+				t.Errorf("expected third sample field to be 54321, got %v", val[2])
 			}
 			if len(dataset.ReadCache) > int(dataset.MaxInCache) {
 				t.Errorf("expected read cache length to be less than %d, got %d", dataset.MaxInCache, len(dataset.ReadCache))

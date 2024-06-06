@@ -49,6 +49,9 @@ func NewCacheDataset(d DataSet, backing io.ReadWriteSeeker, maxInCache uint, off
 }
 
 func ReadCached(r io.ReadWriteSeeker, ds DataSet, maxInCache uint) (*CacheDataset, error) {
+	if ds.Compression != CompressionNone {
+		return nil, UnsupportedError("CacheDataset type currently does not supported compressed data sets")
+	}
 	cached := &CacheDataset{DataSet: ds, TileCache: make(map[uint]*CacheTile), Backing: r, MaxInCache: maxInCache}
 	return cached, nil
 }

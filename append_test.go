@@ -1,6 +1,7 @@
 package pixi
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -339,15 +340,16 @@ func TestAppendAllReadAllSampleField(t *testing.T) {
 				for y := 0; y < int(dataset.Dimensions[1].TileSize); y++ {
 					xDimInd := uint(xtile*int(dataset.Dimensions[0].TileSize) + x)
 					yDimInd := uint(ytile*int(dataset.Dimensions[1].TileSize) + y)
-					err := dataset.SetSampleField([]uint{xDimInd, yDimInd}, 0, 1.2)
+					fmt.Println("setting pixel in test:", xDimInd, yDimInd)
+					err := dataset.SetSampleField([]uint{xDimInd, yDimInd}, 0, 1.5+float64(xDimInd))
 					if err != nil {
 						t.Fatal(err)
 					}
-					err = dataset.SetSampleField([]uint{xDimInd, yDimInd}, 1, int16(-13))
+					err = dataset.SetSampleField([]uint{xDimInd, yDimInd}, 1, int16(-xDimInd))
 					if err != nil {
 						t.Fatal(err)
 					}
-					err = dataset.SetSampleField([]uint{xDimInd, yDimInd}, 2, uint64(54321))
+					err = dataset.SetSampleField([]uint{xDimInd, yDimInd}, 2, uint64(yDimInd))
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -355,6 +357,7 @@ func TestAppendAllReadAllSampleField(t *testing.T) {
 			}
 		}
 	}
+	dataset.Finalize()
 
 	for x := 0; x < int(dataset.Dimensions[0].Size); x++ {
 		for y := 0; y < int(dataset.Dimensions[1].Size); y++ {
@@ -370,14 +373,14 @@ func TestAppendAllReadAllSampleField(t *testing.T) {
 			if err != nil {
 				t.Fatalf("failed to get sample 2: %s", err)
 			}
-			if val0.(float64) != 1.2 {
-				t.Errorf("expected first sample field to be 1.2, got %v", val0)
+			if val0.(float64) != 1.5+float64(x) {
+				t.Errorf("expected first sample field at %d,%d to be %v, got %v", x, y, 1.5+float64(x), val0)
 			}
-			if val1.(int16) != int16(-13) {
-				t.Errorf("expected second sample field to be -13, got %v", val1)
+			if val1.(int16) != int16(-x) {
+				t.Errorf("expected second sample field at %d,%d to be %v, got %v", x, y, int16(-x), val1)
 			}
-			if val2.(uint64) != uint64(54321) {
-				t.Errorf("expected third sample field to be 54321, got %v", val2)
+			if val2.(uint64) != uint64(y) {
+				t.Errorf("expected third sample field at %d,%d to be %v, got %v", x, y, uint64(y), val2)
 			}
 			if len(dataset.ReadCache) > int(dataset.MaxInCache) {
 				t.Errorf("expected read cache length to be less than %d, got %d", dataset.MaxInCache, len(dataset.ReadCache))

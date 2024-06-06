@@ -84,7 +84,7 @@ func ReadMetadata(r io.Reader) (string, string, error) {
 	if err != nil {
 		return string(key), "", err
 	}
-	val := make([]byte, keyCount)
+	val := make([]byte, valCount)
 	err = binary.Read(r, binary.BigEndian, val)
 	if err != nil {
 		return string(key), "", err

@@ -30,7 +30,7 @@ func TestWriteCompressTile(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			buf := NewBuffer(10)
-			under := DataSet{
+			under := Summary{
 				Separated:   false,
 				Compression: tc.compression,
 				Dimensions:  []Dimension{{Size: int64(len(tc.data)), TileSize: int32(len(tc.data))}},
@@ -121,7 +121,7 @@ func TestAppendAddTileToCache(t *testing.T) {
 
 func TestAppendSetGetSeparatedSampleField(t *testing.T) {
 	buf := NewBuffer(10)
-	under := DataSet{
+	under := Summary{
 		Separated:   false,
 		Compression: CompressionNone,
 		Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
@@ -205,7 +205,7 @@ func TestAppendSetGetSeparatedSampleField(t *testing.T) {
 
 func TestAppendSetGetContinguousSample(t *testing.T) {
 	buf := NewBuffer(10)
-	under := DataSet{
+	under := Summary{
 		Separated:   false,
 		Compression: CompressionNone,
 		Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
@@ -270,7 +270,7 @@ func TestAppendSetGetContinguousSample(t *testing.T) {
 
 func TestAppendAllReadAllSample(t *testing.T) {
 	buf := NewBuffer(10)
-	under := DataSet{
+	under := Summary{
 		Separated:   false,
 		Compression: CompressionGzip,
 		Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
@@ -321,7 +321,7 @@ func TestAppendAllReadAllSample(t *testing.T) {
 
 func TestAppendAllReadAllSampleField(t *testing.T) {
 	buf := NewBuffer(10)
-	under := DataSet{
+	under := Summary{
 		Separated:   false,
 		Compression: CompressionNone,
 		Dimensions:  []Dimension{{Size: 8, TileSize: 2}, {Size: 8, TileSize: 2}},

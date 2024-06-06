@@ -93,7 +93,7 @@ func TestCacheDatasetEvict(t *testing.T) {
 
 func TestCacheAllReadAllSample(t *testing.T) {
 	buf := NewBuffer(10)
-	under := DataSet{
+	under := Summary{
 		Separated:   false,
 		Compression: CompressionNone,
 		Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
@@ -141,7 +141,7 @@ func TestCacheAllReadAllSample(t *testing.T) {
 
 func TestCacheAllReadAllSampleField(t *testing.T) {
 	buf := NewBuffer(10)
-	under := DataSet{
+	under := Summary{
 		Separated:   false,
 		Compression: CompressionNone,
 		Dimensions:  []Dimension{{Size: 8, TileSize: 2}, {Size: 8, TileSize: 2}},

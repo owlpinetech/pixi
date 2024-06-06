@@ -6,12 +6,12 @@ import (
 )
 
 type InMemoryDataset struct {
-	DataSet
+	Summary
 	TileSet [][]byte
 }
 
-func NewInMemoryDataset(d DataSet) (*InMemoryDataset, error) {
-	memSet := &InMemoryDataset{DataSet: d}
+func NewInMemoryDataset(d Summary) (*InMemoryDataset, error) {
+	memSet := &InMemoryDataset{Summary: d}
 	if d.Separated {
 		memSet.TileSet = make([][]byte, memSet.Tiles()*len(d.Fields))
 	} else {
@@ -23,8 +23,8 @@ func NewInMemoryDataset(d DataSet) (*InMemoryDataset, error) {
 	return memSet, nil
 }
 
-func ReadInMemory(r io.ReadSeeker, ds DataSet) (InMemoryDataset, error) {
-	inMem := InMemoryDataset{DataSet: ds}
+func ReadInMemory(r io.ReadSeeker, ds Summary) (InMemoryDataset, error) {
+	inMem := InMemoryDataset{Summary: ds}
 
 	tiles := make([][]byte, len(ds.TileBytes))
 	r.Seek(ds.Offset, io.SeekStart)

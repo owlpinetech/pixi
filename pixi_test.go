@@ -10,12 +10,12 @@ import (
 func TestPixiSampleSize(t *testing.T) {
 	tests := []struct {
 		name     string
-		dataset  DataSet
+		dataset  Summary
 		wantSize int64
 	}{
 		{
 			name: "Empty dataset",
-			dataset: DataSet{
+			dataset: Summary{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{},
@@ -27,7 +27,7 @@ func TestPixiSampleSize(t *testing.T) {
 		},
 		{
 			name: "One field with size 1",
-			dataset: DataSet{
+			dataset: Summary{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{},
@@ -39,7 +39,7 @@ func TestPixiSampleSize(t *testing.T) {
 		},
 		{
 			name: "One field with size 2",
-			dataset: DataSet{
+			dataset: Summary{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{},
@@ -51,7 +51,7 @@ func TestPixiSampleSize(t *testing.T) {
 		},
 		{
 			name: "Multiple fields",
-			dataset: DataSet{
+			dataset: Summary{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{},
@@ -76,12 +76,12 @@ func TestPixiSampleSize(t *testing.T) {
 func TestPixiSamples(t *testing.T) {
 	tests := []struct {
 		name     string
-		dataset  DataSet
+		dataset  Summary
 		wantSize int64
 	}{
 		{
 			name: "Empty dataset",
-			dataset: DataSet{
+			dataset: Summary{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{},
@@ -93,7 +93,7 @@ func TestPixiSamples(t *testing.T) {
 		},
 		{
 			name: "One dimension with size 10",
-			dataset: DataSet{
+			dataset: Summary{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 10}},
@@ -105,7 +105,7 @@ func TestPixiSamples(t *testing.T) {
 		},
 		{
 			name: "Multiple dimensions",
-			dataset: DataSet{
+			dataset: Summary{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 2}, {Size: 3}},
@@ -130,12 +130,12 @@ func TestPixiSamples(t *testing.T) {
 func TestPixiTileSize(t *testing.T) {
 	tests := []struct {
 		name     string
-		dataset  DataSet
+		dataset  Summary
 		wantSize int64
 	}{
 		{
 			name: "Empty dataset",
-			dataset: DataSet{
+			dataset: Summary{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{},
@@ -147,7 +147,7 @@ func TestPixiTileSize(t *testing.T) {
 		},
 		{
 			name: "One dimension with size 10",
-			dataset: DataSet{
+			dataset: Summary{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 10, TileSize: 10}},
@@ -159,7 +159,7 @@ func TestPixiTileSize(t *testing.T) {
 		},
 		{
 			name: "Two dimensions with sizes 10 and 8",
-			dataset: DataSet{
+			dataset: Summary{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 10, TileSize: 5}, {Size: 8, TileSize: 4}},
@@ -171,7 +171,7 @@ func TestPixiTileSize(t *testing.T) {
 		},
 		{
 			name: "Three dimensions with sizes 4, 2, and 1",
-			dataset: DataSet{
+			dataset: Summary{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 4, TileSize: 4}, {Size: 2, TileSize: 2}, {Size: 1, TileSize: 1}},
@@ -183,7 +183,7 @@ func TestPixiTileSize(t *testing.T) {
 		},
 		{
 			name: "Separate fields with always has first field size * tile size",
-			dataset: DataSet{
+			dataset: Summary{
 				Separated:   true,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 20, TileSize: 5}, {Size: 10, TileSize: 5}},
@@ -195,7 +195,7 @@ func TestPixiTileSize(t *testing.T) {
 		},
 		{
 			name: "One field with size 10",
-			dataset: DataSet{
+			dataset: Summary{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{},
@@ -207,7 +207,7 @@ func TestPixiTileSize(t *testing.T) {
 		},
 		{
 			name: "One dimension with tile size 5 and one field with size 2",
-			dataset: DataSet{
+			dataset: Summary{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 10, TileSize: 5}},
@@ -246,7 +246,7 @@ func TestPixiTiles(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			dataSet := DataSet{
+			dataSet := Summary{
 				Separated:   tc.separated,
 				Compression: CompressionNone,
 				Dimensions:  tc.dims,

@@ -10,14 +10,14 @@ type CacheTile struct {
 }
 
 type CacheDataset struct {
-	DataSet
+	Summary
 	TileCache  map[uint]*CacheTile
 	MaxInCache uint
 	Backing    io.ReadWriteSeeker
 }
 
-func NewCacheDataset(d DataSet, backing io.ReadWriteSeeker, maxInCache uint, offset int64) (*CacheDataset, error) {
-	cacheSet := &CacheDataset{DataSet: d}
+func NewCacheDataset(d Summary, backing io.ReadWriteSeeker, maxInCache uint, offset int64) (*CacheDataset, error) {
+	cacheSet := &CacheDataset{Summary: d}
 	cacheSet.Backing = backing
 	cacheSet.MaxInCache = maxInCache
 	cacheSet.TileCache = make(map[uint]*CacheTile, maxInCache)
@@ -48,11 +48,11 @@ func NewCacheDataset(d DataSet, backing io.ReadWriteSeeker, maxInCache uint, off
 	return cacheSet, nil
 }
 
-func ReadCached(r io.ReadWriteSeeker, ds DataSet, maxInCache uint) (*CacheDataset, error) {
+func ReadCached(r io.ReadWriteSeeker, ds Summary, maxInCache uint) (*CacheDataset, error) {
 	if ds.Compression != CompressionNone {
 		return nil, UnsupportedError("CacheDataset type currently does not supported compressed data sets")
 	}
-	cached := &CacheDataset{DataSet: ds, TileCache: make(map[uint]*CacheTile), Backing: r, MaxInCache: maxInCache}
+	cached := &CacheDataset{Summary: ds, TileCache: make(map[uint]*CacheTile), Backing: r, MaxInCache: maxInCache}
 	return cached, nil
 }
 

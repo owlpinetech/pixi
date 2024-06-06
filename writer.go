@@ -32,15 +32,9 @@ func WriteSummary(w io.Writer, s Summary) error {
 	}
 
 	// write all dataset headers
-	err = binary.Write(w, binary.BigEndian, uint32(len(s.Datasets)))
+	err = WriteFixedSummary(w, s)
 	if err != nil {
 		return err
-	}
-	for _, d := range s.Datasets {
-		err = WriteDataSet(w, d)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -72,7 +66,7 @@ func WriteMetadata(w io.Writer, key string, val string) error {
 	return nil
 }
 
-func WriteDataSet(w io.Writer, d DataSet) error {
+func WriteFixedSummary(w io.Writer, d Summary) error {
 	tiles := d.Tiles()
 	if d.Separated {
 		tiles *= len(d.Fields)

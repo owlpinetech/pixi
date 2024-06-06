@@ -74,7 +74,7 @@ func TestMemoryAllReadAllSample(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			under := DataSet{
+			under := Summary{
 				Separated:   tc.separated,
 				Compression: tc.compression,
 				Dimensions:  []Dimension{{Size: tc.size, TileSize: tc.tileSize}, {Size: tc.size, TileSize: tc.tileSize}},
@@ -120,7 +120,7 @@ func TestMemoryAllReadAllSample(t *testing.T) {
 }
 
 func TestMemoryAllReadAllSampleField(t *testing.T) {
-	under := DataSet{
+	under := Summary{
 		Separated:   false,
 		Compression: CompressionNone,
 		Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},

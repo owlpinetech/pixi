@@ -29,12 +29,12 @@ func FuzzWriteReadMetadata(f *testing.F) {
 func TestWriteReadDataSet(t *testing.T) {
 	testCases := []struct {
 		name string
-		data DataSet
+		data Summary
 		err  error
 	}{
 		{
 			name: "contig",
-			data: DataSet{
+			data: Summary{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 4, TileSize: 4}, {Size: 4, TileSize: 2}, {Size: 3, TileSize: 3}},
@@ -46,7 +46,7 @@ func TestWriteReadDataSet(t *testing.T) {
 		},
 		{
 			name: "sep",
-			data: DataSet{
+			data: Summary{
 				Separated:   true,
 				Compression: CompressionGzip,
 				Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
@@ -58,7 +58,7 @@ func TestWriteReadDataSet(t *testing.T) {
 		},
 		{
 			name: "err",
-			data: DataSet{
+			data: Summary{
 				Separated:   false,
 				Compression: CompressionGzip,
 				Dimensions:  []Dimension{{Size: 42, TileSize: 12}, {Size: 28, TileSize: 10}},
@@ -73,7 +73,7 @@ func TestWriteReadDataSet(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			buf := new(bytes.Buffer)
-			err := WriteDataSet(buf, tc.data)
+			err := WriteFixedSummary(buf, tc.data)
 			if tc.err != nil {
 				if err == nil {
 					t.Fatalf("expected error %v but got none", tc.err)
@@ -83,7 +83,7 @@ func TestWriteReadDataSet(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ds, err := ReadDataSet(buf)
+			ds, err := ReadFixedSummary(buf)
 			if err != nil {
 				t.Fatal(err)
 			}

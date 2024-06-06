@@ -47,22 +47,14 @@ func ReadSummary(r io.ReadSeeker) (Summary, error) {
 		metadata[key] = val
 	}
 
-	// read all dataset headers
-	var dataSetCount uint32
-	err = binary.Read(r, binary.BigEndian, &dataSetCount)
+	// read the fixed portion of the dataset summary
+	summary, err := ReadFixedSummary(r)
 	if err != nil {
 		return Summary{}, err
 	}
-	dataSets := make([]DataSet, dataSetCount)
-	for i := 0; i < int(dataSetCount); i++ {
-		dataSet, err := ReadDataSet(r)
-		if err != nil {
-			return Summary{}, err
-		}
-		dataSets[i] = dataSet
-	}
+	summary.Metadata = metadata
 
-	return Summary{Metadata: metadata, Datasets: dataSets}, nil
+	return summary, nil
 }
 
 func ReadMetadata(r io.Reader) (string, string, error) {
@@ -93,56 +85,56 @@ func ReadMetadata(r io.Reader) (string, string, error) {
 	return string(key), string(val), nil
 }
 
-func ReadDataSet(r io.Reader) (DataSet, error) {
-	dataSet := DataSet{}
+func ReadFixedSummary(r io.Reader) (Summary, error) {
+	summary := Summary{}
 	var dimCount, fieldCount, configuration uint32
 	err := binary.Read(r, binary.BigEndian, &dimCount)
 	if err != nil {
-		return dataSet, err
+		return summary, err
 	}
 	err = binary.Read(r, binary.BigEndian, &fieldCount)
 	if err != nil {
-		return dataSet, err
+		return summary, err
 	}
 	err = binary.Read(r, binary.BigEndian, &configuration)
 	if err != nil {
-		return dataSet, err
+		return summary, err
 	}
-	dataSet.Separated = configuration != 0
-	err = binary.Read(r, binary.BigEndian, &dataSet.Compression)
+	summary.Separated = configuration != 0
+	err = binary.Read(r, binary.BigEndian, &summary.Compression)
 	if err != nil {
-		return dataSet, err
+		return summary, err
 	}
-	err = binary.Read(r, binary.BigEndian, &dataSet.Offset)
+	err = binary.Read(r, binary.BigEndian, &summary.Offset)
 	if err != nil {
-		return dataSet, err
+		return summary, err
 	}
 
 	// read dimension sizes
 	dimSizes := make([]int64, dimCount)
 	err = binary.Read(r, binary.BigEndian, dimSizes)
 	if err != nil {
-		return dataSet, err
+		return summary, err
 	}
 
 	// read dimension tile sizes
 	tileSizes := make([]int32, dimCount)
 	err = binary.Read(r, binary.BigEndian, tileSizes)
 	if err != nil {
-		return dataSet, err
+		return summary, err
 	}
 
 	dims := make([]Dimension, dimCount)
 	for i := 0; i < int(dimCount); i++ {
 		dims[i] = Dimension{Size: dimSizes[i], TileSize: tileSizes[i]}
 	}
-	dataSet.Dimensions = dims
+	summary.Dimensions = dims
 
 	// read field types
 	fieldTypes := make([]FieldType, fieldCount)
 	err = binary.Read(r, binary.BigEndian, fieldTypes)
 	if err != nil {
-		return dataSet, err
+		return summary, err
 	}
 
 	// read field names
@@ -151,12 +143,12 @@ func ReadDataSet(r io.Reader) (DataSet, error) {
 		var nameLen uint16
 		err := binary.Read(r, binary.BigEndian, &nameLen)
 		if err != nil {
-			return dataSet, err
+			return summary, err
 		}
 		buf := make([]byte, nameLen)
 		_, err = r.Read(buf)
 		if err != nil {
-			return dataSet, err
+			return summary, err
 		}
 		fieldNames[i] = string(buf)
 	}
@@ -165,19 +157,19 @@ func ReadDataSet(r io.Reader) (DataSet, error) {
 	for i := 0; i < int(fieldCount); i++ {
 		fields[i] = Field{Name: fieldNames[i], Type: fieldTypes[i]}
 	}
-	dataSet.Fields = fields
+	summary.Fields = fields
 
 	// read tile bytes
-	tiles := dataSet.Tiles()
-	if dataSet.Separated {
+	tiles := summary.Tiles()
+	if summary.Separated {
 		tiles *= int(fieldCount)
 	}
 	tileBytes := make([]int64, tiles)
 	err = binary.Read(r, binary.BigEndian, tileBytes)
 	if err != nil {
-		return dataSet, err
+		return summary, err
 	}
-	dataSet.TileBytes = tileBytes
+	summary.TileBytes = tileBytes
 
-	return dataSet, nil
+	return summary, nil
 }

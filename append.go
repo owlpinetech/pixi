@@ -12,7 +12,7 @@ type AppendTile struct {
 }
 
 type AppendDataset struct {
-	DataSet
+	Summary
 	WritingTileIndex uint
 	WritingTile      AppendTile
 	ReadCache        map[uint]*AppendTile
@@ -21,8 +21,8 @@ type AppendDataset struct {
 }
 
 // Creates a new append dataset. It initializes the internal data structures and sets up the backing store.
-func NewAppendDataset(d DataSet, backing io.ReadWriteSeeker, maxInCache uint, offset int64) (*AppendDataset, error) {
-	appendSet := &AppendDataset{DataSet: d}
+func NewAppendDataset(d Summary, backing io.ReadWriteSeeker, maxInCache uint, offset int64) (*AppendDataset, error) {
+	appendSet := &AppendDataset{Summary: d}
 	appendSet.Backing = backing
 	appendSet.ReadCache = make(map[uint]*AppendTile)
 	appendSet.MaxInCache = maxInCache
@@ -40,8 +40,8 @@ func NewAppendDataset(d DataSet, backing io.ReadWriteSeeker, maxInCache uint, of
 	return appendSet, nil
 }
 
-func ReadAppend(r io.ReadWriteSeeker, ds DataSet, maxInCache uint) (AppendDataset, error) {
-	appended := AppendDataset{DataSet: ds, ReadCache: make(map[uint]*AppendTile), Backing: r, MaxInCache: maxInCache}
+func ReadAppend(r io.ReadWriteSeeker, ds Summary, maxInCache uint) (AppendDataset, error) {
+	appended := AppendDataset{Summary: ds, ReadCache: make(map[uint]*AppendTile), Backing: r, MaxInCache: maxInCache}
 	return appended, nil
 }
 

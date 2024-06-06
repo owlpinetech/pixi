@@ -40,8 +40,8 @@ func NewAppendDataset(d DataSet, backing io.ReadWriteSeeker, maxInCache uint, of
 	return appendSet, nil
 }
 
-func ReadAppend(r io.ReadWriteSeeker, ds DataSet) (AppendDataset, error) {
-	appended := AppendDataset{DataSet: ds, ReadCache: make(map[uint]*AppendTile), Backing: r}
+func ReadAppend(r io.ReadWriteSeeker, ds DataSet, maxInCache uint) (AppendDataset, error) {
+	appended := AppendDataset{DataSet: ds, ReadCache: make(map[uint]*AppendTile), Backing: r, MaxInCache: maxInCache}
 	return appended, nil
 }
 

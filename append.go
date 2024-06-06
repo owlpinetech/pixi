@@ -220,7 +220,7 @@ func (d *AppendDataset) Finalize() error {
 }
 
 func (d *AppendDataset) addTileToCache(tileIndex uint, tile AppendTile) error {
-	for len(d.ReadCache) >= int(d.MaxInCache) {
+	if len(d.ReadCache) >= int(d.MaxInCache) {
 		err := d.evict()
 		if err != nil {
 			return err

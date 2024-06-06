@@ -48,8 +48,8 @@ func NewCacheDataset(d DataSet, backing io.ReadWriteSeeker, maxInCache uint, off
 	return cacheSet, nil
 }
 
-func ReadCached(r io.ReadWriteSeeker, ds DataSet) (CacheDataset, error) {
-	cached := CacheDataset{DataSet: ds, TileCache: make(map[uint]*CacheTile), Backing: r}
+func ReadCached(r io.ReadWriteSeeker, ds DataSet, maxInCache uint) (*CacheDataset, error) {
+	cached := &CacheDataset{DataSet: ds, TileCache: make(map[uint]*CacheTile), Backing: r, MaxInCache: maxInCache}
 	return cached, nil
 }
 
@@ -236,7 +236,7 @@ func (d *CacheDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal 
 // It does this by first checking if the tile exists in the cache, and if so, returns it directly.
 // If not, it reads the tile from disk and caches it before returning.
 func (d *CacheDataset) loadTile(tileIndex uint) (*CacheTile, error) {
-	for len(d.TileCache) >= int(d.MaxInCache) {
+	if len(d.TileCache) >= int(d.MaxInCache) {
 		err := d.evict()
 		if err != nil {
 			return nil, err

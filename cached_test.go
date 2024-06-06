@@ -45,6 +45,13 @@ func TestCachedDimIndicesToTileIndices(t *testing.T) {
 			expectedTileIndex:   4,
 			expectedInTileIndex: 8,
 		},
+		{
+			name:                "gebco",
+			dimensions:          []Dimension{{Size: 86400, TileSize: 21600 / 4}, {Size: 43200, TileSize: 21600 / 4}},
+			dimIndices:          []uint{0, 5400},
+			expectedTileIndex:   16,
+			expectedInTileIndex: 0,
+		},
 	}
 
 	for _, tt := range tests {
@@ -137,7 +144,7 @@ func TestCacheAllReadAllSampleField(t *testing.T) {
 	under := DataSet{
 		Separated:   false,
 		Compression: CompressionNone,
-		Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+		Dimensions:  []Dimension{{Size: 8, TileSize: 2}, {Size: 8, TileSize: 2}},
 		Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
 	}
 	dataset, err := NewCacheDataset(under, buf, 2, 0)
@@ -145,19 +152,23 @@ func TestCacheAllReadAllSampleField(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	for ytile := 0; ytile < 2; ytile++ {
-		for xtile := 0; xtile < 2; xtile++ {
-			for x := 0; x < 2; x++ {
-				for y := 0; y < 2; y++ {
-					err := dataset.SetSampleField([]uint{uint(xtile*2 + x), uint(ytile*2 + y)}, 0, 1.2)
+	ytiles := dataset.Dimensions[1].Tiles()
+	xtiles := dataset.Dimensions[0].Tiles()
+	for ytile := 0; ytile < ytiles; ytile++ {
+		for xtile := 0; xtile < xtiles; xtile++ {
+			for x := 0; x < int(dataset.Dimensions[0].TileSize); x++ {
+				for y := 0; y < int(dataset.Dimensions[1].TileSize); y++ {
+					xDimInd := uint(xtile*int(dataset.Dimensions[0].TileSize) + x)
+					yDimInd := uint(ytile*int(dataset.Dimensions[1].TileSize) + y)
+					err := dataset.SetSampleField([]uint{xDimInd, yDimInd}, 0, 1.2)
 					if err != nil {
 						t.Fatal(err)
 					}
-					err = dataset.SetSampleField([]uint{uint(xtile*2 + x), uint(ytile*2 + y)}, 1, int16(-13))
+					err = dataset.SetSampleField([]uint{xDimInd, yDimInd}, 1, int16(-13))
 					if err != nil {
 						t.Fatal(err)
 					}
-					err = dataset.SetSampleField([]uint{uint(xtile*2 + x), uint(ytile*2 + y)}, 2, uint64(54321))
+					err = dataset.SetSampleField([]uint{xDimInd, yDimInd}, 2, uint64(54321))
 					if err != nil {
 						t.Fatal(err)
 					}
@@ -166,8 +177,8 @@ func TestCacheAllReadAllSampleField(t *testing.T) {
 		}
 	}
 
-	for x := 0; x < 4; x++ {
-		for y := 0; y < 4; y++ {
+	for x := 0; x < int(dataset.Dimensions[0].Size); x++ {
+		for y := 0; y < int(dataset.Dimensions[1].Size); y++ {
 			val0, err := dataset.GetSampleField([]uint{uint(x), uint(y)}, 0)
 			if err != nil {
 				t.Fatalf("failed to get sample 0: %s", err)

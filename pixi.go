@@ -19,18 +19,45 @@ type Summary struct {
 	// index are stored next to each other, with values for different fields stored next to each
 	// other at the same index.
 	Separated   bool
-	Compression Compression // The type of compression used on this dataset (e.g., gzip, lz4).
+	Compression Compression // The type of compression used on this dataset (e.g., Flate, lz4).
 	// An array of Dimension structs representing the dimensions and tiling of this dataset.
 	// No dimensions equals an empty dataset.
 	Dimensions []Dimension
 	Fields     []Field // An array of Field structs representing the fields in this dataset.
 	TileBytes  []int64 // An array of int64 values representing (compressed) size of each tile in bytes for this dataset.
-	Offset     int64   // The offset into the file where this dataset starts.
+}
+
+func (d *Summary) DiskMetadataSize() int64 {
+	metaSize := int64(4) // 4 bytes to encoded number of pairs
+	for k, v := range d.Metadata {
+		metaSize += 8 // plus eight for encoded size of each key and value
+		metaSize += int64(len([]byte(k)))
+		metaSize += int64(len([]byte(v)))
+	}
+	return metaSize
+}
+
+func (d *Summary) DiskHeaderSize() int64 {
+	headerSize := int64(4)                     // config (separated only currently) is 4 bytes
+	headerSize += 4 * 3                        // 4 bytes for compression, dim count, field count
+	headerSize += int64(len(d.Dimensions)) * 8 // 8 bytes for each dimension size
+	headerSize += int64(len(d.Dimensions)) * 4 // 4 bytes for each dimension tile size
+	headerSize += int64(len(d.Fields)) * 4     // 4 bytes for each field type
+	headerSize += int64(len(d.Fields)) * 4     // 2 bytes for each field name length
+	for _, f := range d.Fields {
+		headerSize += int64(len([]byte(f.Name))) // each field name length in bytes
+	}
+	headerSize += int64(len(d.TileBytes)) * 8 // 8 bytes for each real disk tile size in bytes
+	return headerSize
+}
+
+func (d *Summary) DiskDataStart() int64 {
+	return d.DiskMetadataSize() + d.DiskHeaderSize()
 }
 
 // The size in bytes of each sample in the data set. Each field has a fixed size, and a sample
 // is made up of one element of each field, so the sample size is the sum of all field sizes.
-func (d Summary) SampleSize() int64 {
+func (d *Summary) SampleSize() int64 {
 	sampleSize := int64(0)
 	for _, f := range d.Fields {
 		sampleSize += f.Size()
@@ -40,7 +67,7 @@ func (d Summary) SampleSize() int64 {
 
 // The on-disk size in bytes of the (potentially compressed) data set. Does not include the dataset
 // header size.
-func (d Summary) DataSize() int64 {
+func (d *Summary) DataSize() int64 {
 	size := int64(0)
 	for _, b := range d.TileBytes {
 		size += b
@@ -48,7 +75,7 @@ func (d Summary) DataSize() int64 {
 	return size
 }
 
-func (d Summary) Tiles() int {
+func (d *Summary) Tiles() int {
 	tiles := 1
 	for _, t := range d.Dimensions {
 		tiles *= t.Tiles()
@@ -58,7 +85,7 @@ func (d Summary) Tiles() int {
 
 // The number of samples per tile in the data set. Each tile has the same number of samples,
 // regardless of if the data is stored separated or continguous.
-func (d Summary) TileSamples() int64 {
+func (d *Summary) TileSamples() int64 {
 	samples := int64(1)
 	for _, d := range d.Dimensions {
 		samples *= int64(d.TileSize)
@@ -68,7 +95,7 @@ func (d Summary) TileSamples() int64 {
 
 // The total number of samples in the data set. If the tile size of any dimension is not
 // a multiple of the dimension size, the 'padding' samples are not included in the count.
-func (d Summary) Samples() int64 {
+func (d *Summary) Samples() int64 {
 	samples := int64(1)
 	for _, dim := range d.Dimensions {
 		samples *= dim.Size
@@ -80,7 +107,7 @@ func (d Summary) Samples() int64 {
 // the same. However, for separated data sets, each field is tiled (so the number of on-disk
 // tiles is actually fieldCount * Tiles()). Hence, the tile size changes depending on which
 // field is being accessed.
-func (d Summary) TileSize(tileIndex int) int64 {
+func (d *Summary) TileSize(tileIndex int) int64 {
 	if d.Tiles() == 0 {
 		return 0
 	}
@@ -94,10 +121,10 @@ func (d Summary) TileSize(tileIndex int) int64 {
 
 // The offset from the start of the on-disk (potentially compressed) file in which the tile
 // is stored. Relative to the start of the file, not the data set Offset.
-func (d Summary) TileOffset(tileIndex int) int64 {
-	dataStart := d.Offset
+func (d *Summary) TileOffset(tileIndex int) int64 {
+	dataStart := d.DiskDataStart()
 	for i := 0; i < tileIndex; i++ {
-		dataStart += d.TileBytes[tileIndex]
+		dataStart += d.TileBytes[i]
 	}
 	return dataStart
 }
@@ -255,6 +282,6 @@ func (f FieldType) Write(raw []byte, val any) {
 type Compression uint32
 
 const (
-	CompressionNone Compression = 0
-	CompressionGzip Compression = 1
+	CompressionNone  Compression = 0
+	CompressionFlate Compression = 1
 )

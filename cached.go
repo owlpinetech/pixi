@@ -16,19 +16,27 @@ type CacheDataset struct {
 	Backing    io.ReadWriteSeeker
 }
 
-func NewCacheDataset(d Summary, backing io.ReadWriteSeeker, maxInCache uint, offset int64) (*CacheDataset, error) {
+func NewCacheDataset(d Summary, backing io.ReadWriteSeeker, maxInCache uint) (*CacheDataset, error) {
 	cacheSet := &CacheDataset{Summary: d}
 	cacheSet.Backing = backing
 	cacheSet.MaxInCache = maxInCache
 	cacheSet.TileCache = make(map[uint]*CacheTile, maxInCache)
-	cacheSet.Offset = offset
 
 	// populate backing data store with empty data
 	tileCount := cacheSet.Tiles()
 	if cacheSet.Separated {
 		tileCount *= len(cacheSet.Fields)
 	}
-	_, err := backing.Seek(offset, io.SeekStart)
+	cacheSet.TileBytes = make([]int64, tileCount)
+	for i := range cacheSet.TileBytes {
+		cacheSet.TileBytes[i] = cacheSet.TileSize(i)
+	}
+
+	if err := WriteFixedSummary(backing, cacheSet.Summary); err != nil {
+		return nil, err
+	}
+
+	_, err := backing.Seek(d.DiskDataStart(), io.SeekStart)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +288,7 @@ func (d *CacheDataset) evict() error {
 // This function reads a tile from the underlying storage and returns its data as a byte slice.
 // The offset of the tile in the storage is determined by the `tileIndex`.
 func (d *CacheDataset) readTile(tileIndex uint) ([]byte, error) {
-	tileOffset := d.Offset
+	tileOffset := d.DiskDataStart()
 	if d.Separated {
 		for iterInd := tileIndex; iterInd > 0; iterInd = iterInd - uint(d.Tiles()) {
 			tileOffset += d.TileSize(int(iterInd)) * int64(d.Tiles())
@@ -300,7 +308,7 @@ func (d *CacheDataset) readTile(tileIndex uint) ([]byte, error) {
 // This function writes a tile from memory back to the underlying storage.
 // The offset of the tile in the storage is determined by the `tileIndex`.
 func (d *CacheDataset) writeTile(data []byte, tileIndex uint) error {
-	tileOffset := d.Offset
+	tileOffset := d.DiskDataStart()
 	if d.Separated {
 		for iterInd := tileIndex; iterInd > 0; iterInd = iterInd - uint(d.Tiles()) {
 			tileOffset += d.TileSize(int(iterInd)) * int64(d.Tiles())

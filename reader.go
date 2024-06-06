@@ -105,10 +105,6 @@ func ReadFixedSummary(r io.Reader) (Summary, error) {
 	if err != nil {
 		return summary, err
 	}
-	err = binary.Read(r, binary.BigEndian, &summary.Offset)
-	if err != nil {
-		return summary, err
-	}
 
 	// read dimension sizes
 	dimSizes := make([]int64, dimCount)

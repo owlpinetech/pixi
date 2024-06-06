@@ -1,7 +1,7 @@
 package pixi
 
 import (
-	"compress/gzip"
+	"compress/flate"
 	"io"
 )
 
@@ -27,7 +27,7 @@ func ReadInMemory(r io.ReadSeeker, ds Summary) (InMemoryDataset, error) {
 	inMem := InMemoryDataset{Summary: ds}
 
 	tiles := make([][]byte, len(ds.TileBytes))
-	r.Seek(ds.Offset, io.SeekStart)
+	r.Seek(ds.DiskDataStart(), io.SeekStart)
 	for tileInd := range ds.TileBytes {
 		uncompressedLen := ds.TileSize(tileInd)
 		buf := make([]byte, uncompressedLen)
@@ -39,17 +39,13 @@ func ReadInMemory(r io.ReadSeeker, ds Summary) (InMemoryDataset, error) {
 				return inMem, err
 			}
 			tiles[tileInd] = buf
-		case CompressionGzip:
-			gzRdr, err := gzip.NewReader(r)
+		case CompressionFlate:
+			flateRdr := flate.NewReader(r)
+			defer flateRdr.Close()
+			_, err := flateRdr.Read(buf)
 			if err != nil {
 				return inMem, err
 			}
-			_, err = gzRdr.Read(buf)
-			if err != nil {
-				gzRdr.Close()
-				return inMem, err
-			}
-			gzRdr.Close()
 			tiles[tileInd] = buf
 		}
 	}

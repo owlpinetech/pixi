@@ -99,7 +99,7 @@ func TestCacheAllReadAllSample(t *testing.T) {
 		Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
 		Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
 	}
-	dataset, err := NewCacheDataset(under, buf, 2, 0)
+	dataset, err := NewCacheDataset(under, buf, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestCacheAllReadAllSampleField(t *testing.T) {
 		Dimensions:  []Dimension{{Size: 8, TileSize: 2}, {Size: 8, TileSize: 2}},
 		Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
 	}
-	dataset, err := NewCacheDataset(under, buf, 2, 0)
+	dataset, err := NewCacheDataset(under, buf, 2)
 	if err != nil {
 		t.Fatal(err)
 	}

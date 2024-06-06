@@ -21,12 +21,11 @@ type AppendDataset struct {
 }
 
 // Creates a new append dataset. It initializes the internal data structures and sets up the backing store.
-func NewAppendDataset(d Summary, backing io.ReadWriteSeeker, maxInCache uint, offset int64) (*AppendDataset, error) {
+func NewAppendDataset(d Summary, backing io.ReadWriteSeeker, maxInCache uint) (*AppendDataset, error) {
 	appendSet := &AppendDataset{Summary: d}
 	appendSet.Backing = backing
 	appendSet.ReadCache = make(map[uint]*AppendTile)
 	appendSet.MaxInCache = maxInCache
-	appendSet.Offset = offset
 	appendSet.WritingTileIndex = 0
 	appendSet.WritingTile = AppendTile{Data: make([]byte, appendSet.TileSize(0))}
 	appendSet.ReadCache[appendSet.WritingTileIndex] = &appendSet.WritingTile
@@ -37,6 +36,9 @@ func NewAppendDataset(d Summary, backing io.ReadWriteSeeker, maxInCache uint, of
 	}
 	appendSet.TileBytes = make([]int64, diskTileCount)
 
+	if err := WriteFixedSummary(backing, appendSet.Summary); err != nil {
+		return nil, err
+	}
 	return appendSet, nil
 }
 
@@ -152,7 +154,7 @@ func (d *AppendDataset) SetSample(dimIndices []uint, sample []any) error {
 			}
 			d.WritingTileIndex += 1
 			d.WritingTile = AppendTile{Data: make([]byte, d.TileSize(int(d.WritingTileIndex)))}
-			err = d.addTileToCache(d.WritingTileIndex, d.WritingTile)
+			err = d.addTileToCache(d.WritingTileIndex, d.WritingTile.Data)
 			if err != nil {
 				return err
 			}
@@ -195,7 +197,7 @@ func (d *AppendDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal
 			}
 			d.WritingTileIndex = tileIndex
 			d.WritingTile = AppendTile{Data: make([]byte, d.TileSize(int(d.WritingTileIndex)))}
-			err = d.addTileToCache(d.WritingTileIndex, d.WritingTile)
+			err = d.addTileToCache(d.WritingTileIndex, d.WritingTile.Data)
 			if err != nil {
 				return err
 			}
@@ -216,10 +218,10 @@ func (d *AppendDataset) Finalize() error {
 	}
 	d.WritingTileIndex += 1
 	d.WritingTile = AppendTile{}
-	return d.addTileToCache(d.WritingTileIndex, d.WritingTile)
+	return d.addTileToCache(d.WritingTileIndex, nil)
 }
 
-func (d *AppendDataset) addTileToCache(tileIndex uint, tile AppendTile) error {
+func (d *AppendDataset) addTileToCache(tileIndex uint, data []byte) error {
 	if len(d.ReadCache) >= int(d.MaxInCache) {
 		err := d.evict()
 		if err != nil {
@@ -227,7 +229,7 @@ func (d *AppendDataset) addTileToCache(tileIndex uint, tile AppendTile) error {
 		}
 	}
 
-	d.ReadCache[tileIndex] = &tile
+	d.ReadCache[tileIndex] = &AppendTile{Data: data, Dirty: false}
 	return nil
 }
 
@@ -241,7 +243,7 @@ func (d *AppendDataset) loadTile(tileIndex uint) (*AppendTile, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = d.addTileToCache(tileIndex, AppendTile{Data: read})
+	err = d.addTileToCache(tileIndex, read)
 	return d.ReadCache[tileIndex], err
 }
 
@@ -282,7 +284,7 @@ func (d *AppendDataset) readTile(tileIndex uint) ([]byte, error) {
 			return nil, err
 		}
 		return buf, nil
-	case CompressionGzip:
+	case CompressionFlate:
 		gzRdr := flate.NewReader(d.Backing)
 		defer gzRdr.Close()
 		_, err := gzRdr.Read(buf)
@@ -295,14 +297,11 @@ func (d *AppendDataset) readTile(tileIndex uint) ([]byte, error) {
 }
 
 // This function takes in a byte slice and a tile index as input, and writes the contents of the slice to the backing storage at the specified tile offset.
-// The function is responsible for handling both uncompressed and gzip-compressed data.
+// The function is responsible for handling both uncompressed and compressed data.
 // If there was an issue with writing the tile, this function will return an error. Otherwise, it returns nil.
 func (d *AppendDataset) writeCompressTile(data []byte, tileIndex uint) error {
-	tileOffset := d.Offset
-	for _, bytes := range d.TileBytes[:tileIndex] {
-		tileOffset += bytes
-	}
-	d.Backing.Seek(tileOffset, io.SeekStart)
+	offset := d.TileOffset(int(tileIndex))
+	d.Backing.Seek(offset, io.SeekStart)
 
 	tileSize := 0
 	switch d.Compression {
@@ -312,7 +311,7 @@ func (d *AppendDataset) writeCompressTile(data []byte, tileIndex uint) error {
 			return err
 		}
 		tileSize = written
-	case CompressionGzip:
+	case CompressionFlate:
 		buf := new(bytes.Buffer)
 		gzWtr, err := flate.NewWriter(buf, flate.BestCompression)
 		if err != nil {

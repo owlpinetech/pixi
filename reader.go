@@ -167,10 +167,8 @@ func ReadDataSet(r io.Reader) (DataSet, error) {
 	}
 	dataSet.Fields = fields
 
-	tiles := 0
-	for _, d := range dims {
-		tiles += d.Tiles()
-	}
+	// read tile bytes
+	tiles := dataSet.Tiles()
 	if dataSet.Separated {
 		tiles *= int(fieldCount)
 	}

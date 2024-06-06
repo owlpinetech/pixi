@@ -118,3 +118,63 @@ func TestMemoryAllReadAllSample(t *testing.T) {
 		})
 	}
 }
+
+func TestMemoryAllReadAllSampleField(t *testing.T) {
+	under := DataSet{
+		Separated:   false,
+		Compression: CompressionNone,
+		Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+		Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
+	}
+	dataset, err := NewInMemoryDataset(under)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for ytile := 0; ytile < 2; ytile++ {
+		for xtile := 0; xtile < 2; xtile++ {
+			for x := 0; x < 2; x++ {
+				for y := 0; y < 2; y++ {
+					err := dataset.SetSampleField([]uint{uint(xtile*2 + x), uint(ytile*2 + y)}, 0, 1.2)
+					if err != nil {
+						t.Fatal(err)
+					}
+					err = dataset.SetSampleField([]uint{uint(xtile*2 + x), uint(ytile*2 + y)}, 1, int16(-13))
+					if err != nil {
+						t.Fatal(err)
+					}
+					err = dataset.SetSampleField([]uint{uint(xtile*2 + x), uint(ytile*2 + y)}, 2, uint64(54321))
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+			}
+		}
+	}
+
+	for x := 0; x < 4; x++ {
+		for y := 0; y < 4; y++ {
+			val0, err := dataset.GetSampleField([]uint{uint(x), uint(y)}, 0)
+			if err != nil {
+				t.Fatalf("failed to get sample 0: %s", err)
+			}
+			val1, err := dataset.GetSampleField([]uint{uint(x), uint(y)}, 1)
+			if err != nil {
+				t.Fatalf("failed to get sample 1: %s", err)
+			}
+			val2, err := dataset.GetSampleField([]uint{uint(x), uint(y)}, 2)
+			if err != nil {
+				t.Fatalf("failed to get sample 2: %s", err)
+			}
+			if val0.(float64) != 1.2 {
+				t.Errorf("expected first sample field to be 1.2, got %v", val0)
+			}
+			if val1.(int16) != int16(-13) {
+				t.Errorf("expected second sample field to be -13, got %v", val1)
+			}
+			if val2.(uint64) != uint64(54321) {
+				t.Errorf("expected third sample field to be 54321, got %v", val2)
+			}
+		}
+	}
+}

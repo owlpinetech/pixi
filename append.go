@@ -113,6 +113,9 @@ func (d *AppendDataset) GetSampleField(dimIndices []uint, fieldId uint) (any, er
 		inTileIndex *= uint(d.Fields[fieldId].Size())
 	} else {
 		inTileIndex *= uint(d.SampleSize())
+		for _, field := range d.Fields[:fieldId] {
+			inTileIndex += uint(field.Size())
+		}
 	}
 
 	// TODO: locking for safe concurrent access
@@ -178,6 +181,9 @@ func (d *AppendDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal
 		inTileIndex *= uint(d.Fields[fieldId].Size())
 	} else {
 		inTileIndex *= uint(d.SampleSize())
+		for _, field := range d.Fields[:fieldId] {
+			inTileIndex += uint(field.Size())
+		}
 	}
 
 	// check if we need to move to the next tile or if we're out of range

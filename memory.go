@@ -98,6 +98,9 @@ func (d *InMemoryDataset) GetSampleField(dimIndices []uint, fieldId uint) (any, 
 		inTileIndex *= uint(d.Fields[fieldId].Size())
 	} else {
 		inTileIndex *= uint(d.SampleSize())
+		for _, field := range d.Fields[:fieldId] {
+			inTileIndex += uint(field.Size())
+		}
 	}
 
 	return d.Fields[fieldId].Read(d.TileSet[tileIndex][inTileIndex:]), nil
@@ -139,6 +142,9 @@ func (d *InMemoryDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldV
 		inTileIndex *= uint(d.Fields[fieldId].Size())
 	} else {
 		inTileIndex *= uint(d.SampleSize())
+		for _, field := range d.Fields[:fieldId] {
+			inTileIndex += uint(field.Size())
+		}
 	}
 
 	d.Fields[fieldId].Write(d.TileSet[tileIndex][inTileIndex:], fieldVal)

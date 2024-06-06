@@ -121,6 +121,9 @@ func (d *CacheDataset) GetSampleField(dimIndices []uint, fieldId uint) (any, err
 		inTileIndex *= uint(d.Fields[fieldId].Size())
 	} else {
 		inTileIndex *= uint(d.SampleSize())
+		for _, field := range d.Fields[:fieldId] {
+			inTileIndex += uint(field.Size())
+		}
 	}
 
 	// TODO: locking for safe concurrent access
@@ -204,6 +207,9 @@ func (d *CacheDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal 
 		inTileIndex *= uint(d.Fields[fieldId].Size())
 	} else {
 		inTileIndex *= uint(d.SampleSize())
+		for _, field := range d.Fields[:fieldId] {
+			inTileIndex += uint(field.Size())
+		}
 	}
 
 	// TODO: locking for safe concurrent access

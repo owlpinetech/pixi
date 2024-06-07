@@ -15,6 +15,12 @@ func NewBuffer(initialSize int) *buffer {
 	}
 }
 
+func NewBufferFrom(underlying []byte) *buffer {
+	return &buffer{
+		buf: underlying,
+	}
+}
+
 func (b *buffer) Read(p []byte) (int, error) {
 	if len(p) > 0 && b.pos < len(b.buf) {
 		n := copy(p, b.buf[b.pos:])
@@ -22,6 +28,8 @@ func (b *buffer) Read(p []byte) (int, error) {
 		return n, nil
 	} else if b.pos >= len(b.buf) {
 		return 0, io.EOF
+	} else if len(p) == 0 {
+		return 0, nil
 	} else {
 		return 0, io.ErrUnexpectedEOF
 	}

@@ -42,7 +42,7 @@ func WriteSummary(w io.Writer, s Summary) error {
 
 func WriteMetadata(w io.Writer, key string, val string) error {
 	// write key string
-	err := binary.Write(w, binary.BigEndian, uint32(len(key)))
+	err := binary.Write(w, binary.BigEndian, uint32(len([]byte(key))))
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func WriteMetadata(w io.Writer, key string, val string) error {
 	}
 
 	// write value string
-	err = binary.Write(w, binary.BigEndian, uint32(len(val)))
+	err = binary.Write(w, binary.BigEndian, uint32(len([]byte(val))))
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func WriteFixedSummary(w io.Writer, d Summary) error {
 		}
 	}
 	for _, f := range d.Fields {
-		err = binary.Write(w, binary.BigEndian, uint16(len(f.Name)))
+		err = binary.Write(w, binary.BigEndian, uint16(len([]byte(f.Name))))
 		if err != nil {
 			return err
 		}

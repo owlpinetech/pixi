@@ -35,6 +35,7 @@ func TestWriteReadDataSet(t *testing.T) {
 		{
 			name: "contig",
 			data: Summary{
+				Metadata:    map[string]string{},
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 4, TileSize: 4}, {Size: 4, TileSize: 2}, {Size: 3, TileSize: 3}},
@@ -44,8 +45,21 @@ func TestWriteReadDataSet(t *testing.T) {
 			err: nil,
 		},
 		{
+			name: "no names",
+			data: Summary{
+				Metadata:    map[string]string{},
+				Separated:   false,
+				Compression: CompressionNone,
+				Dimensions:  []Dimension{{Size: 4, TileSize: 4}, {Size: 4, TileSize: 2}, {Size: 3, TileSize: 3}},
+				Fields:      []Field{{Type: FieldInt32}, {Type: FieldInt64}, {Type: FieldInt16}},
+				TileBytes:   []int64{100, 200},
+			},
+			err: nil,
+		},
+		{
 			name: "sep",
 			data: Summary{
+				Metadata:    map[string]string{},
 				Separated:   true,
 				Compression: CompressionFlate,
 				Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
@@ -57,6 +71,7 @@ func TestWriteReadDataSet(t *testing.T) {
 		{
 			name: "err",
 			data: Summary{
+				Metadata:    map[string]string{},
 				Separated:   false,
 				Compression: CompressionFlate,
 				Dimensions:  []Dimension{{Size: 42, TileSize: 12}, {Size: 28, TileSize: 10}},
@@ -69,8 +84,8 @@ func TestWriteReadDataSet(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			buf := new(bytes.Buffer)
-			err := WriteFixedSummary(buf, tc.data)
+			buf := NewBuffer(10)
+			err := WriteSummary(buf, tc.data)
 			if tc.err != nil {
 				if err == nil {
 					t.Fatalf("expected error %v but got none", tc.err)
@@ -80,7 +95,9 @@ func TestWriteReadDataSet(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			ds, err := ReadFixedSummary(buf)
+
+			readBuf := NewBufferFrom(buf.Bytes())
+			ds, err := ReadSummary(readBuf)
 			if err != nil {
 				t.Fatal(err)
 			}

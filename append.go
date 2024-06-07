@@ -36,7 +36,7 @@ func NewAppendDataset(d Summary, backing io.ReadWriteSeeker, maxInCache uint) (*
 	}
 	appendSet.TileBytes = make([]int64, diskTileCount)
 
-	if err := WriteFixedSummary(backing, appendSet.Summary); err != nil {
+	if err := WriteSummary(backing, appendSet.Summary); err != nil {
 		return nil, err
 	}
 	return appendSet, nil
@@ -110,13 +110,14 @@ func (d *AppendDataset) GetSampleField(dimIndices []uint, fieldId uint) (any, er
 	}
 
 	tileIndex, inTileIndex := d.dimIndicesToTileIndices(dimIndices)
+	fieldOffset := inTileIndex
 	if d.Separated {
 		tileIndex += uint(d.Tiles()) * uint(fieldId)
-		inTileIndex *= uint(d.Fields[fieldId].Size())
+		fieldOffset *= uint(d.Fields[fieldId].Size())
 	} else {
-		inTileIndex *= uint(d.SampleSize())
+		fieldOffset *= uint(d.SampleSize())
 		for _, field := range d.Fields[:fieldId] {
-			inTileIndex += uint(field.Size())
+			fieldOffset += uint(field.Size())
 		}
 	}
 
@@ -133,7 +134,7 @@ func (d *AppendDataset) GetSampleField(dimIndices []uint, fieldId uint) (any, er
 		}
 	}
 
-	return d.Fields[fieldId].Read(cached.Data[inTileIndex:]), nil
+	return d.Fields[fieldId].Read(cached.Data[fieldOffset:]), nil
 }
 
 func (d *AppendDataset) SetSample(dimIndices []uint, sample []any) error {
@@ -148,7 +149,7 @@ func (d *AppendDataset) SetSample(dimIndices []uint, sample []any) error {
 	// check if we need to move to the next tile or if we're out of range
 	if tileIndex != d.WritingTileIndex {
 		if tileIndex == d.WritingTileIndex+1 {
-			err := d.writeCompressTile(d.WritingTile.Data, d.WritingTileIndex)
+			err := d.writeTile(d.WritingTile.Data, d.WritingTileIndex)
 			if err != nil {
 				return err
 			}
@@ -178,24 +179,25 @@ func (d *AppendDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal
 	}
 
 	tileIndex, inTileIndex := d.dimIndicesToTileIndices(dimIndices)
+	fieldOffset := inTileIndex
 	if d.Separated {
 		tileIndex += uint(d.Tiles()) * uint(fieldId)
-		inTileIndex *= uint(d.Fields[fieldId].Size())
+		fieldOffset *= uint(d.Fields[fieldId].Size())
 	} else {
-		inTileIndex *= uint(d.SampleSize())
+		fieldOffset *= uint(d.SampleSize())
 		for _, field := range d.Fields[:fieldId] {
-			inTileIndex += uint(field.Size())
+			fieldOffset += uint(field.Size())
 		}
 	}
 
 	// check if we need to move to the next tile or if we're out of range
 	if tileIndex != d.WritingTileIndex {
 		if tileIndex == d.WritingTileIndex+1 {
-			err := d.writeCompressTile(d.WritingTile.Data, d.WritingTileIndex)
+			err := d.writeTile(d.WritingTile.Data, d.WritingTileIndex)
 			if err != nil {
 				return err
 			}
-			d.WritingTileIndex = tileIndex
+			d.WritingTileIndex += 1
 			d.WritingTile = AppendTile{Data: make([]byte, d.TileSize(int(d.WritingTileIndex)))}
 			err = d.addTileToCache(d.WritingTileIndex, d.WritingTile.Data)
 			if err != nil {
@@ -206,18 +208,28 @@ func (d *AppendDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal
 		}
 	}
 
-	d.Fields[fieldId].Write(d.WritingTile.Data[inTileIndex:], fieldVal)
+	d.Fields[fieldId].Write(d.WritingTile.Data[fieldOffset:], fieldVal)
 	return nil
 }
 
 func (d *AppendDataset) Finalize() error {
 	// last tile won't have been written yet
-	err := d.writeCompressTile(d.WritingTile.Data, d.WritingTileIndex)
+	err := d.writeTile(d.WritingTile.Data, d.WritingTileIndex)
 	if err != nil {
 		return err
 	}
 	d.WritingTileIndex += 1
 	d.WritingTile = AppendTile{}
+
+	_, err = d.Backing.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+	err = WriteSummary(d.Backing, d.Summary)
+	if err != nil {
+		return err
+	}
+
 	return d.addTileToCache(d.WritingTileIndex, nil)
 }
 
@@ -269,9 +281,6 @@ func (d *AppendDataset) evict() error {
 // This function reads a tile from the underlying storage and returns its data as a byte slice.
 // The offset of the tile in the storage is determined by the `tileIndex`.
 func (d *AppendDataset) readTile(tileIndex uint) ([]byte, error) {
-	if tileIndex > d.WritingTileIndex {
-		return nil, RangeError{Specified: int(tileIndex), ValidMin: 0, ValidMax: int(d.WritingTileIndex)}
-	}
 	d.Backing.Seek(d.TileOffset(int(tileIndex)), io.SeekStart)
 
 	uncompressedLen := d.TileSize(int(tileIndex))
@@ -299,7 +308,7 @@ func (d *AppendDataset) readTile(tileIndex uint) ([]byte, error) {
 // This function takes in a byte slice and a tile index as input, and writes the contents of the slice to the backing storage at the specified tile offset.
 // The function is responsible for handling both uncompressed and compressed data.
 // If there was an issue with writing the tile, this function will return an error. Otherwise, it returns nil.
-func (d *AppendDataset) writeCompressTile(data []byte, tileIndex uint) error {
+func (d *AppendDataset) writeTile(data []byte, tileIndex uint) error {
 	offset := d.TileOffset(int(tileIndex))
 	d.Backing.Seek(offset, io.SeekStart)
 

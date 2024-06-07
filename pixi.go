@@ -52,7 +52,8 @@ func (d *Summary) DiskHeaderSize() int64 {
 }
 
 func (d *Summary) DiskDataStart() int64 {
-	return d.DiskMetadataSize() + d.DiskHeaderSize()
+	// plus eight for version and file type sequences
+	return 8 + d.DiskMetadataSize() + d.DiskHeaderSize()
 }
 
 // The size in bytes of each sample in the data set. Each field has a fixed size, and a sample

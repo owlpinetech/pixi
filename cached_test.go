@@ -117,6 +117,8 @@ func TestCacheAllReadAllSample(t *testing.T) {
 		}
 	}
 
+	dataset.Finalize()
+
 	for x := 0; x < 4; x++ {
 		for y := 0; y < 4; y++ {
 			val, err := dataset.GetSample([]uint{uint(x), uint(y)})
@@ -140,69 +142,171 @@ func TestCacheAllReadAllSample(t *testing.T) {
 }
 
 func TestCacheAllReadAllSampleField(t *testing.T) {
-	buf := NewBuffer(10)
-	under := Summary{
-		Separated:   false,
-		Compression: CompressionNone,
-		Dimensions:  []Dimension{{Size: 8, TileSize: 2}, {Size: 8, TileSize: 2}},
-		Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
-	}
-	dataset, err := NewCacheDataset(under, buf, 2)
-	if err != nil {
-		t.Fatal(err)
+	testCases := []struct {
+		name        string
+		separated   bool
+		compression Compression
+	}{
+		{name: "sep, no comp", separated: true, compression: CompressionNone},
+		//{name: "sep, comp flate", separated: true, compression: CompressionFlate},
+		{name: "no sep, no comp", separated: false, compression: CompressionNone},
+		//{name: "no sep, comp flate", separated: false, compression: CompressionFlate},
 	}
 
-	ytiles := dataset.Dimensions[1].Tiles()
-	xtiles := dataset.Dimensions[0].Tiles()
-	for ytile := 0; ytile < ytiles; ytile++ {
-		for xtile := 0; xtile < xtiles; xtile++ {
-			for x := 0; x < int(dataset.Dimensions[0].TileSize); x++ {
-				for y := 0; y < int(dataset.Dimensions[1].TileSize); y++ {
-					xDimInd := uint(xtile*int(dataset.Dimensions[0].TileSize) + x)
-					yDimInd := uint(ytile*int(dataset.Dimensions[1].TileSize) + y)
-					err := dataset.SetSampleField([]uint{xDimInd, yDimInd}, 0, 1.2)
-					if err != nil {
-						t.Fatal(err)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			buf := NewBuffer(10)
+			under := Summary{
+				Separated:   tc.separated,
+				Compression: tc.compression,
+				Dimensions:  []Dimension{{Size: 8, TileSize: 2}, {Size: 8, TileSize: 2}},
+				Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
+			}
+			dataset, err := NewCacheDataset(under, buf, 2)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			ytiles := dataset.Dimensions[1].Tiles()
+			xtiles := dataset.Dimensions[0].Tiles()
+			if tc.separated {
+				for ytile := 0; ytile < ytiles; ytile++ {
+					for xtile := 0; xtile < xtiles; xtile++ {
+						for x := 0; x < int(dataset.Dimensions[0].TileSize); x++ {
+							for y := 0; y < int(dataset.Dimensions[1].TileSize); y++ {
+								xDimInd := uint(xtile*int(dataset.Dimensions[0].TileSize) + x)
+								yDimInd := uint(ytile*int(dataset.Dimensions[1].TileSize) + y)
+								err := dataset.SetSampleField([]uint{xDimInd, yDimInd}, 0, 1.5+float64(xDimInd))
+								if err != nil {
+									t.Fatal(err)
+								}
+							}
+						}
 					}
-					err = dataset.SetSampleField([]uint{xDimInd, yDimInd}, 1, int16(-13))
-					if err != nil {
-						t.Fatal(err)
+				}
+				for ytile := 0; ytile < ytiles; ytile++ {
+					for xtile := 0; xtile < xtiles; xtile++ {
+						for x := 0; x < int(dataset.Dimensions[0].TileSize); x++ {
+							for y := 0; y < int(dataset.Dimensions[1].TileSize); y++ {
+								xDimInd := uint(xtile*int(dataset.Dimensions[0].TileSize) + x)
+								yDimInd := uint(ytile*int(dataset.Dimensions[1].TileSize) + y)
+								err = dataset.SetSampleField([]uint{xDimInd, yDimInd}, 1, int16(-xDimInd))
+								if err != nil {
+									t.Fatal(err)
+								}
+							}
+						}
 					}
-					err = dataset.SetSampleField([]uint{xDimInd, yDimInd}, 2, uint64(54321))
-					if err != nil {
-						t.Fatal(err)
+				}
+				for ytile := 0; ytile < ytiles; ytile++ {
+					for xtile := 0; xtile < xtiles; xtile++ {
+						for x := 0; x < int(dataset.Dimensions[0].TileSize); x++ {
+							for y := 0; y < int(dataset.Dimensions[1].TileSize); y++ {
+								xDimInd := uint(xtile*int(dataset.Dimensions[0].TileSize) + x)
+								yDimInd := uint(ytile*int(dataset.Dimensions[1].TileSize) + y)
+								err = dataset.SetSampleField([]uint{xDimInd, yDimInd}, 2, uint64(yDimInd))
+								if err != nil {
+									t.Fatal(err)
+								}
+							}
+						}
+					}
+				}
+			} else {
+				for ytile := 0; ytile < ytiles; ytile++ {
+					for xtile := 0; xtile < xtiles; xtile++ {
+						for x := 0; x < int(dataset.Dimensions[0].TileSize); x++ {
+							for y := 0; y < int(dataset.Dimensions[1].TileSize); y++ {
+								xDimInd := uint(xtile*int(dataset.Dimensions[0].TileSize) + x)
+								yDimInd := uint(ytile*int(dataset.Dimensions[1].TileSize) + y)
+								err := dataset.SetSampleField([]uint{xDimInd, yDimInd}, 0, 1.5+float64(xDimInd))
+								if err != nil {
+									t.Fatal(err)
+								}
+								err = dataset.SetSampleField([]uint{xDimInd, yDimInd}, 1, int16(-xDimInd))
+								if err != nil {
+									t.Fatal(err)
+								}
+								err = dataset.SetSampleField([]uint{xDimInd, yDimInd}, 2, uint64(yDimInd))
+								if err != nil {
+									t.Fatal(err)
+								}
+							}
+						}
 					}
 				}
 			}
-		}
-	}
 
-	for x := 0; x < int(dataset.Dimensions[0].Size); x++ {
-		for y := 0; y < int(dataset.Dimensions[1].Size); y++ {
-			val0, err := dataset.GetSampleField([]uint{uint(x), uint(y)}, 0)
+			dataset.Finalize()
+
+			for x := 0; x < int(dataset.Dimensions[0].Size); x++ {
+				for y := 0; y < int(dataset.Dimensions[1].Size); y++ {
+					val0, err := dataset.GetSampleField([]uint{uint(x), uint(y)}, 0)
+					if err != nil {
+						t.Fatalf("failed to get sample (%d,%d) 0: %s", x, y, err)
+					}
+					val1, err := dataset.GetSampleField([]uint{uint(x), uint(y)}, 1)
+					if err != nil {
+						t.Fatalf("failed to get sample (%d,%d) 1: %s", x, y, err)
+					}
+					val2, err := dataset.GetSampleField([]uint{uint(x), uint(y)}, 2)
+					if err != nil {
+						t.Fatalf("failed to get sample (%d,%d) 2: %s", x, y, err)
+					}
+					if val0.(float64) != 1.5+float64(x) {
+						t.Errorf("expected first sample field at %d,%d to be %v, got %v", x, y, 1.5+float64(x), val0)
+					}
+					if val1.(int16) != int16(-x) {
+						t.Errorf("expected second sample field at %d,%d to be %v, got %v", x, y, int16(-x), val1)
+					}
+					if val2.(uint64) != uint64(y) {
+						t.Errorf("expected third sample field at %d,%d to be %v, got %v", x, y, uint64(y), val2)
+					}
+					if len(dataset.TileCache) > int(dataset.MaxInCache) {
+						t.Errorf("expected read cache length to be less than %d, got %d", dataset.MaxInCache, len(dataset.TileCache))
+					}
+				}
+			}
+
+			rdr := NewBufferFrom(buf.Bytes())
+			rdSummary, err := ReadSummary(rdr)
 			if err != nil {
-				t.Fatalf("failed to get sample 0: %s", err)
+				t.Fatal(err)
 			}
-			val1, err := dataset.GetSampleField([]uint{uint(x), uint(y)}, 1)
+
+			rdDataset, err := ReadCached(rdr, rdSummary, 2)
 			if err != nil {
-				t.Fatalf("failed to get sample 1: %s", err)
+				t.Fatal(err)
 			}
-			val2, err := dataset.GetSampleField([]uint{uint(x), uint(y)}, 2)
-			if err != nil {
-				t.Fatalf("failed to get sample 2: %s", err)
+
+			for x := 0; x < int(dataset.Dimensions[0].Size); x++ {
+				for y := 0; y < int(dataset.Dimensions[1].Size); y++ {
+					val0, err := rdDataset.GetSampleField([]uint{uint(x), uint(y)}, 0)
+					if err != nil {
+						t.Fatalf("failed to get sample (%d,%d) 0: %s", x, y, err)
+					}
+					val1, err := rdDataset.GetSampleField([]uint{uint(x), uint(y)}, 1)
+					if err != nil {
+						t.Fatalf("failed to get sample (%d,%d) 1: %s", x, y, err)
+					}
+					val2, err := rdDataset.GetSampleField([]uint{uint(x), uint(y)}, 2)
+					if err != nil {
+						t.Fatalf("failed to get sample (%d,%d) 2: %s", x, y, err)
+					}
+					if val0.(float64) != 1.5+float64(x) {
+						t.Errorf("expected first sample field at %d,%d to be %v, got %v", x, y, 1.5+float64(x), val0)
+					}
+					if val1.(int16) != int16(-x) {
+						t.Errorf("expected second sample field at %d,%d to be %v, got %v", x, y, int16(-x), val1)
+					}
+					if val2.(uint64) != uint64(y) {
+						t.Errorf("expected third sample field at %d,%d to be %v, got %v", x, y, uint64(y), val2)
+					}
+					if len(rdDataset.TileCache) > int(rdDataset.MaxInCache) {
+						t.Errorf("expected read cache length to be less than %d, got %d", rdDataset.MaxInCache, len(rdDataset.TileCache))
+					}
+				}
 			}
-			if val0.(float64) != 1.2 {
-				t.Errorf("expected first sample field to be 1.2, got %v", val0)
-			}
-			if val1.(int16) != int16(-13) {
-				t.Errorf("expected second sample field to be -13, got %v", val1)
-			}
-			if val2.(uint64) != uint64(54321) {
-				t.Errorf("expected third sample field to be 54321, got %v", val2)
-			}
-			if len(dataset.TileCache) > int(dataset.MaxInCache) {
-				t.Errorf("expected read cache length to be less than %d, got %d", dataset.MaxInCache, len(dataset.TileCache))
-			}
-		}
+		})
 	}
 }

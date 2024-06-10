@@ -32,6 +32,13 @@ func ReadSummary(r io.ReadSeeker) (Summary, error) {
 		return Summary{}, FormatError("reader does not support this version of pixi file")
 	}
 
+	// get header length
+	_, err = r.Read(buf)
+	if err != nil {
+		return Summary{}, err
+	}
+	headerLength := binary.BigEndian.Uint32(buf)
+
 	// read all metadata strings
 	var metadataCount uint32
 	err = binary.Read(r, binary.BigEndian, &metadataCount)
@@ -53,6 +60,10 @@ func ReadSummary(r io.ReadSeeker) (Summary, error) {
 		return Summary{}, err
 	}
 	summary.Metadata = metadata
+
+	if summary.DiskHeaderSize()+summary.DiskMetadataSize() != int64(headerLength) {
+		return Summary{}, FormatError("header length does not match specified header size in file")
+	}
 
 	return summary, nil
 }

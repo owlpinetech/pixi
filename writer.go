@@ -19,6 +19,12 @@ func WriteSummary(w io.Writer, s Summary) error {
 		return err
 	}
 
+	// write header size in bytes
+	err = binary.Write(w, binary.BigEndian, uint32(s.DiskMetadataSize()+s.DiskHeaderSize()))
+	if err != nil {
+		return err
+	}
+
 	// write all metadata strings
 	err = binary.Write(w, binary.BigEndian, uint32(len(s.Metadata)))
 	if err != nil {

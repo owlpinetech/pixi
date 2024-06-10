@@ -47,60 +47,55 @@ func ReadAppend(r io.ReadWriteSeeker, ds Summary, maxInCache uint) (AppendDatase
 	return appended, nil
 }
 
-func (d *AppendDataset) GetSample(dimIndices []uint) ([]any, error) {
+func (d *AppendDataset) GetRawSample(dimIndices []uint) ([]byte, error) {
 	if len(d.Dimensions) != len(dimIndices) {
 		return nil, DimensionsError{len(d.Dimensions), len(dimIndices)}
 	}
 
 	tileIndex, inTileIndex := d.dimIndicesToTileIndices(dimIndices)
 
-	sample := make([]any, len(d.Fields))
-
 	if d.Separated {
+		sample := make([]byte, d.SampleSize())
+		sampleOffset := 0
 		for fieldId, field := range d.Fields {
 			fieldTile := tileIndex + uint(d.Tiles())*uint(fieldId)
 			fieldOffset := inTileIndex * uint(field.Size())
 
-			// TODO: locking for safe concurrent access
-			var cached *AppendTile
-			if tile, ok := d.ReadCache[fieldTile]; ok {
-				cached = tile
-			} else {
-				loaded, err := d.loadTile(fieldTile)
-				if err != nil {
-					return nil, err
-				} else {
-					cached = loaded
-				}
+			cached, err := d.getTile(fieldTile)
+			if err != nil {
+				return nil, err
 			}
 
-			fieldVal := field.Read(cached.Data[fieldOffset:])
-			sample[fieldId] = fieldVal
+			copy(sample[sampleOffset:], cached.Data[fieldOffset:])
+			sampleOffset += int(field.Size())
 		}
+		return sample, nil
 	} else {
 		fieldOffset := inTileIndex * uint(d.SampleSize())
 
-		// TODO: locking for safe concurrent access
-		var cached *AppendTile
-		if tile, ok := d.ReadCache[tileIndex]; ok {
-			cached = tile
-		} else {
-			loaded, err := d.loadTile(tileIndex)
-			if err != nil {
-				return nil, err
-			} else {
-				cached = loaded
-			}
+		cached, err := d.getTile(tileIndex)
+		if err != nil {
+			return nil, err
 		}
 
-		for fieldId, field := range d.Fields {
-			fieldVal := field.Read(cached.Data[fieldOffset:])
-			sample[fieldId] = fieldVal
+		return cached.Data[fieldOffset : fieldOffset+uint(d.SampleSize())], nil
+	}
+}
 
-			fieldOffset += uint(field.Size())
-		}
+func (d *AppendDataset) GetSample(dimIndices []uint) ([]any, error) {
+	raw, err := d.GetRawSample(dimIndices)
+	if err != nil {
+		return nil, err
 	}
 
+	sample := make([]any, len(d.Fields))
+	fieldOffset := 0
+	for fieldId, field := range d.Fields {
+		fieldVal := field.Read(raw[fieldOffset:])
+		sample[fieldId] = fieldVal
+
+		fieldOffset += int(field.Size())
+	}
 	return sample, nil
 }
 
@@ -121,17 +116,9 @@ func (d *AppendDataset) GetSampleField(dimIndices []uint, fieldId uint) (any, er
 		}
 	}
 
-	// TODO: locking for safe concurrent access
-	var cached *AppendTile
-	if tile, ok := d.ReadCache[tileIndex]; ok {
-		cached = tile
-	} else {
-		loaded, err := d.loadTile(tileIndex)
-		if err != nil {
-			return nil, err
-		} else {
-			cached = loaded
-		}
+	cached, err := d.getTile(tileIndex)
+	if err != nil {
+		return nil, err
 	}
 
 	return d.Fields[fieldId].Read(cached.Data[fieldOffset:]), nil
@@ -243,6 +230,22 @@ func (d *AppendDataset) addTileToCache(tileIndex uint, data []byte) error {
 
 	d.ReadCache[tileIndex] = &AppendTile{Data: data, Dirty: false}
 	return nil
+}
+
+func (d *AppendDataset) getTile(tileIndex uint) (*AppendTile, error) {
+	// TODO: locking for safe concurrent access
+	var cached *AppendTile
+	if tile, ok := d.ReadCache[tileIndex]; ok {
+		cached = tile
+	} else {
+		loaded, err := d.loadTile(tileIndex)
+		if err != nil {
+			return nil, err
+		} else {
+			cached = loaded
+		}
+	}
+	return cached, nil
 }
 
 // Load a tile from the cache or disk, if it's not in memory.

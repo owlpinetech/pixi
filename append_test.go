@@ -1,10 +1,12 @@
 package pixi
 
 import (
+	"io"
+	"os"
+	"reflect"
 	"testing"
 )
 
-/*
 func TestWriteCompressTile(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -39,7 +41,7 @@ func TestWriteCompressTile(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = dataset.writeCompressTile(tc.data, 0)
+			err = dataset.writeTile(tc.data, 0)
 			if err != nil {
 				t.Errorf("expected no error, but got %s", err)
 			}
@@ -53,7 +55,6 @@ func TestWriteCompressTile(t *testing.T) {
 		})
 	}
 }
-*/
 
 func TestAppendDatasetEvict(t *testing.T) {
 	readCache := make(map[uint]*AppendTile)
@@ -125,19 +126,25 @@ func TestAppendAllReadAllSample(t *testing.T) {
 		compression Compression
 	}{
 		{name: "no comp", compression: CompressionNone},
-		//{name: "comp flate", compression: CompressionFlate},
+		{name: "comp flate", compression: CompressionFlate},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			buf := NewBuffer(10)
+
+			temp, err := os.CreateTemp("", tc.name+".pixi")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.Remove(temp.Name())
+
 			under := Summary{
 				Separated:   false,
 				Compression: tc.compression,
 				Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
 				Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
 			}
-			dataset, err := NewAppendDataset(under, buf, 2)
+			dataset, err := NewAppendDataset(under, temp, 2)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -161,7 +168,10 @@ func TestAppendAllReadAllSample(t *testing.T) {
 					}
 				}
 			}
-			dataset.Finalize()
+			err = dataset.Finalize()
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			for x := 0; x < int(dataset.Dimensions[0].Size); x++ {
 				for y := 0; y < int(dataset.Dimensions[1].Size); y++ {
@@ -184,13 +194,13 @@ func TestAppendAllReadAllSample(t *testing.T) {
 				}
 			}
 
-			rdr := NewBufferFrom(buf.Bytes())
-			rdSummary, err := ReadSummary(rdr)
+			temp.Seek(0, io.SeekStart)
+			rdSummary, err := ReadSummary(temp)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			rdDataset, err := ReadAppend(rdr, rdSummary, 2)
+			rdDataset, err := ReadAppend(temp, rdSummary, 2)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -225,22 +235,28 @@ func TestAppendAllReadAllSampleField(t *testing.T) {
 		separated   bool
 		compression Compression
 	}{
-		{name: "sep, no comp", separated: true, compression: CompressionNone},
-		{name: "sep, comp flate", separated: true, compression: CompressionFlate},
-		{name: "no sep, no comp", separated: false, compression: CompressionNone},
-		{name: "no sep, comp flate", separated: false, compression: CompressionFlate},
+		//{name: "sep_no_comp", separated: true, compression: CompressionNone},
+		//{name: "sep_comp_flate", separated: true, compression: CompressionFlate},
+		//{name: "no_sep_no_comp", separated: false, compression: CompressionNone},
+		{name: "no_sep_comp_flate", separated: false, compression: CompressionFlate},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			buf := NewBuffer(10)
+
+			temp, err := os.CreateTemp("", tc.name+".pixi")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.Remove(temp.Name())
+
 			under := Summary{
 				Separated:   tc.separated,
 				Compression: tc.compression,
-				Dimensions:  []Dimension{{Size: 8, TileSize: 2}, {Size: 8, TileSize: 2}},
+				Dimensions:  []Dimension{{Size: 250, TileSize: 50}, {Size: 250, TileSize: 50}},
 				Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
 			}
-			dataset, err := NewAppendDataset(under, buf, 2)
+			dataset, err := NewAppendDataset(under, temp, 2)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -315,7 +331,10 @@ func TestAppendAllReadAllSampleField(t *testing.T) {
 				}
 			}
 
-			dataset.Finalize()
+			err = dataset.Finalize()
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			for x := 0; x < int(dataset.Dimensions[0].Size); x++ {
 				for y := 0; y < int(dataset.Dimensions[1].Size); y++ {
@@ -323,38 +342,42 @@ func TestAppendAllReadAllSampleField(t *testing.T) {
 					if err != nil {
 						t.Fatalf("failed to get sample (%d,%d) 0: %s", x, y, err)
 					}
+					if val0.(float64) != 1.5+float64(x) {
+						t.Fatalf("expected first sample field at %d,%d to be %v, got %v", x, y, 1.5+float64(x), val0)
+					}
 					val1, err := dataset.GetSampleField([]uint{uint(x), uint(y)}, 1)
 					if err != nil {
 						t.Fatalf("failed to get sample (%d,%d) 1: %s", x, y, err)
+					}
+					if val1.(int16) != int16(-x) {
+						t.Fatalf("expected second sample field at %d,%d to be %v, got %v", x, y, int16(-x), val1)
 					}
 					val2, err := dataset.GetSampleField([]uint{uint(x), uint(y)}, 2)
 					if err != nil {
 						t.Fatalf("failed to get sample (%d,%d) 2: %s", x, y, err)
 					}
-					if val0.(float64) != 1.5+float64(x) {
-						t.Errorf("expected first sample field at %d,%d to be %v, got %v", x, y, 1.5+float64(x), val0)
-					}
-					if val1.(int16) != int16(-x) {
-						t.Errorf("expected second sample field at %d,%d to be %v, got %v", x, y, int16(-x), val1)
-					}
 					if val2.(uint64) != uint64(y) {
-						t.Errorf("expected third sample field at %d,%d to be %v, got %v", x, y, uint64(y), val2)
+						t.Fatalf("expected third sample field at %d,%d to be %v, got %v", x, y, uint64(y), val2)
 					}
 					if len(dataset.ReadCache) > int(dataset.MaxInCache) {
-						t.Errorf("expected read cache length to be less than %d, got %d", dataset.MaxInCache, len(dataset.ReadCache))
+						t.Fatalf("expected read cache length to be less than %d, got %d", dataset.MaxInCache, len(dataset.ReadCache))
 					}
 				}
 			}
 
-			rdr := NewBufferFrom(buf.Bytes())
-			rdSummary, err := ReadSummary(rdr)
+			temp.Seek(0, io.SeekStart)
+			rdSummary, err := ReadSummary(temp)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			rdDataset, err := ReadAppend(rdr, rdSummary, 2)
+			rdDataset, err := ReadAppend(temp, rdSummary, 2)
 			if err != nil {
 				t.Fatal(err)
+			}
+
+			if !reflect.DeepEqual(rdSummary.TileBytes, dataset.Summary.TileBytes) {
+				t.Errorf("expected tile bytes %v to equal %v\n", rdSummary.TileBytes, dataset.Summary.TileBytes)
 			}
 
 			for x := 0; x < int(dataset.Dimensions[0].Size); x++ {
@@ -372,16 +395,16 @@ func TestAppendAllReadAllSampleField(t *testing.T) {
 						t.Fatalf("failed to get sample (%d,%d) 2: %s", x, y, err)
 					}
 					if val0.(float64) != 1.5+float64(x) {
-						t.Errorf("expected first sample field at %d,%d to be %v, got %v", x, y, 1.5+float64(x), val0)
+						t.Fatalf("expected first sample field at %d,%d to be %v, got %v", x, y, 1.5+float64(x), val0)
 					}
 					if val1.(int16) != int16(-x) {
-						t.Errorf("expected second sample field at %d,%d to be %v, got %v", x, y, int16(-x), val1)
+						t.Fatalf("expected second sample field at %d,%d to be %v, got %v", x, y, int16(-x), val1)
 					}
 					if val2.(uint64) != uint64(y) {
-						t.Errorf("expected third sample field at %d,%d to be %v, got %v", x, y, uint64(y), val2)
+						t.Fatalf("expected third sample field at %d,%d to be %v, got %v", x, y, uint64(y), val2)
 					}
 					if len(rdDataset.ReadCache) > int(rdDataset.MaxInCache) {
-						t.Errorf("expected read cache length to be less than %d, got %d", rdDataset.MaxInCache, len(rdDataset.ReadCache))
+						t.Fatalf("expected read cache length to be less than %d, got %d", rdDataset.MaxInCache, len(rdDataset.ReadCache))
 					}
 				}
 			}

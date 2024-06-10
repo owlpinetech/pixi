@@ -120,6 +120,57 @@ func TestPixiSamples(t *testing.T) {
 	}
 }
 
+func TestPixiTileSamples(t *testing.T) {
+	tests := []struct {
+		name     string
+		dataset  Summary
+		wantSize int64
+	}{
+		{
+			name: "Empty dataset",
+			dataset: Summary{
+				Separated:   false,
+				Compression: CompressionNone,
+				Dimensions:  []Dimension{},
+				Fields:      []Field{},
+				TileBytes:   []int64{},
+			},
+			wantSize: 1,
+		},
+		{
+			name: "One dimension with size 10",
+			dataset: Summary{
+				Separated:   false,
+				Compression: CompressionNone,
+				Dimensions:  []Dimension{{Size: 10, TileSize: 5}},
+				Fields:      []Field{},
+				TileBytes:   []int64{},
+			},
+			wantSize: 5,
+		},
+		{
+			name: "Multiple dimensions",
+			dataset: Summary{
+				Separated:   false,
+				Compression: CompressionNone,
+				Dimensions:  []Dimension{{Size: 2, TileSize: 2}, {Size: 3, TileSize: 3}},
+				Fields:      []Field{},
+				TileBytes:   []int64{},
+			},
+			wantSize: 6,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			gotSize := test.dataset.TileSamples()
+			if gotSize != test.wantSize {
+				t.Errorf("Samples() = %d, want %d", gotSize, test.wantSize)
+			}
+		})
+	}
+}
+
 func TestPixiTileSize(t *testing.T) {
 	tests := []struct {
 		name     string

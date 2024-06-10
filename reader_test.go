@@ -45,6 +45,18 @@ func TestWriteReadDataSet(t *testing.T) {
 			err: nil,
 		},
 		{
+			name: "with metadata",
+			data: Summary{
+				Metadata:    map[string]string{"one": "two", "three": "four"},
+				Separated:   false,
+				Compression: CompressionNone,
+				Dimensions:  []Dimension{{Size: 4, TileSize: 4}, {Size: 4, TileSize: 2}, {Size: 3, TileSize: 3}},
+				Fields:      []Field{{Name: "a", Type: FieldInt32}, {Name: "b", Type: FieldInt64}, {Name: "hello", Type: FieldInt16}},
+				TileBytes:   []int64{100, 200},
+			},
+			err: nil,
+		},
+		{
 			name: "no names",
 			data: Summary{
 				Metadata:    map[string]string{},
@@ -94,6 +106,11 @@ func TestWriteReadDataSet(t *testing.T) {
 			}
 			if err != nil {
 				t.Fatal(err)
+			}
+
+			amtWritten := len(buf.Bytes())
+			if amtWritten != int(tc.data.DiskDataStart()) {
+				t.Errorf("expected data start to be %d, got %d", amtWritten, tc.data.DiskDataStart())
 			}
 
 			readBuf := NewBufferFrom(buf.Bytes())

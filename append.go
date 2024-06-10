@@ -3,6 +3,7 @@ package pixi
 import (
 	"bytes"
 	"compress/flate"
+	"fmt"
 	"io"
 )
 
@@ -66,7 +67,7 @@ func (d *AppendDataset) GetSample(dimIndices []uint) ([]any, error) {
 			if tile, ok := d.ReadCache[fieldTile]; ok {
 				cached = tile
 			} else {
-				loaded, err := d.loadTile(tileIndex)
+				loaded, err := d.loadTile(fieldTile)
 				if err != nil {
 					return nil, err
 				} else {
@@ -119,6 +120,10 @@ func (d *AppendDataset) GetSampleField(dimIndices []uint, fieldId uint) (any, er
 		for _, field := range d.Fields[:fieldId] {
 			fieldOffset += uint(field.Size())
 		}
+	}
+
+	if dimIndices[0] == 0 && dimIndices[1] == 37 {
+		fmt.Println("getting at 0,37", tileIndex, inTileIndex, fieldId, fieldOffset, d.WritingTileIndex)
 	}
 
 	// TODO: locking for safe concurrent access
@@ -188,6 +193,10 @@ func (d *AppendDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal
 		for _, field := range d.Fields[:fieldId] {
 			fieldOffset += uint(field.Size())
 		}
+	}
+
+	if dimIndices[0] == 0 && dimIndices[1] == 37 {
+		fmt.Println("setting at 0,37", tileIndex, inTileIndex, fieldId, fieldOffset, d.WritingTileIndex)
 	}
 
 	// check if we need to move to the next tile or if we're out of range
@@ -281,35 +290,38 @@ func (d *AppendDataset) evict() error {
 // This function reads a tile from the underlying storage and returns its data as a byte slice.
 // The offset of the tile in the storage is determined by the `tileIndex`.
 func (d *AppendDataset) readTile(tileIndex uint) ([]byte, error) {
-	d.Backing.Seek(d.TileOffset(int(tileIndex)), io.SeekStart)
+	d.Backing.Seek(d.DiskTileOffset(int(tileIndex)), io.SeekStart)
 
 	uncompressedLen := d.TileSize(int(tileIndex))
-	buf := make([]byte, uncompressedLen)
 
 	switch d.Compression {
 	case CompressionNone:
+		buf := make([]byte, uncompressedLen)
 		_, err := d.Backing.Read(buf)
 		if err != nil {
 			return nil, err
 		}
 		return buf, nil
 	case CompressionFlate:
+		buf := make([]byte, 0, uncompressedLen)
+		bufRd := bytes.NewBuffer(buf)
 		gzRdr := flate.NewReader(d.Backing)
 		defer gzRdr.Close()
-		_, err := gzRdr.Read(buf)
-		if err != nil && err != io.EOF {
+		_, err := io.Copy(bufRd, gzRdr)
+		if err != nil {
 			return nil, err
 		}
+		return bufRd.Bytes(), nil
 	}
 
-	return buf, nil
+	return nil, UnsupportedError("unknown compression type")
 }
 
 // This function takes in a byte slice and a tile index as input, and writes the contents of the slice to the backing storage at the specified tile offset.
 // The function is responsible for handling both uncompressed and compressed data.
 // If there was an issue with writing the tile, this function will return an error. Otherwise, it returns nil.
 func (d *AppendDataset) writeTile(data []byte, tileIndex uint) error {
-	offset := d.TileOffset(int(tileIndex))
+	offset := d.DiskTileOffset(int(tileIndex))
 	d.Backing.Seek(offset, io.SeekStart)
 
 	tileSize := 0
@@ -332,11 +344,11 @@ func (d *AppendDataset) writeTile(data []byte, tileIndex uint) error {
 			return err
 		}
 		gzWtr.Close()
-		_, err = d.Backing.Write(buf.Bytes())
+		tileSize = buf.Len()
+		_, err = io.Copy(d.Backing, buf)
 		if err != nil {
 			return err
 		}
-		tileSize = len(buf.Bytes())
 	}
 
 	// make sure to update the byte counts for this tile

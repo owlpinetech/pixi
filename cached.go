@@ -85,7 +85,7 @@ func (d *CacheDataset) GetSample(dimIndices []uint) ([]any, error) {
 			if tile, ok := d.TileCache[fieldTile]; ok {
 				cached = tile
 			} else {
-				loaded, err := d.loadTile(tileIndex)
+				loaded, err := d.loadTile(fieldTile)
 				if err != nil {
 					return nil, err
 				} else {
@@ -172,7 +172,7 @@ func (d *CacheDataset) SetSample(dimIndices []uint, sample []any) error {
 			if tile, ok := d.TileCache[fieldTile]; ok {
 				cached = tile
 			} else {
-				loaded, err := d.loadTile(tileIndex)
+				loaded, err := d.loadTile(fieldTile)
 				if err != nil {
 					return err
 				} else {
@@ -312,34 +312,37 @@ func (d *CacheDataset) evict() error {
 // This function reads a tile from the underlying storage and returns its data as a byte slice.
 // The offset of the tile in the storage is determined by the `tileIndex`.
 func (d *CacheDataset) readTile(tileIndex uint) ([]byte, error) {
-	d.Backing.Seek(d.TileOffset(int(tileIndex)), io.SeekStart)
+	d.Backing.Seek(d.DiskTileOffset(int(tileIndex)), io.SeekStart)
 
 	uncompressedLen := d.TileSize(int(tileIndex))
-	buf := make([]byte, uncompressedLen)
 
 	switch d.Compression {
 	case CompressionNone:
+		buf := make([]byte, uncompressedLen)
 		_, err := d.Backing.Read(buf)
 		if err != nil {
 			return nil, err
 		}
 		return buf, nil
 	case CompressionFlate:
+		buf := make([]byte, 0, uncompressedLen)
+		bufRd := bytes.NewBuffer(buf)
 		gzRdr := flate.NewReader(d.Backing)
 		defer gzRdr.Close()
-		_, err := gzRdr.Read(buf)
-		if err != nil && err != io.EOF {
+		_, err := io.Copy(bufRd, gzRdr)
+		if err != nil {
 			return nil, err
 		}
+		return bufRd.Bytes(), nil
 	}
 
-	return buf, nil
+	return nil, UnsupportedError("unknown compression type")
 }
 
 // This function writes a tile from memory back to the underlying storage.
 // The offset of the tile in the storage is determined by the `tileIndex`.
 func (d *CacheDataset) writeTile(data []byte, tileIndex uint) error {
-	offset := d.TileOffset(int(tileIndex))
+	offset := d.DiskTileOffset(int(tileIndex))
 	d.Backing.Seek(offset, io.SeekStart)
 
 	tileSize := 0
@@ -362,11 +365,11 @@ func (d *CacheDataset) writeTile(data []byte, tileIndex uint) error {
 			return err
 		}
 		gzWtr.Close()
-		_, err = d.Backing.Write(buf.Bytes())
+		tileSize = buf.Len()
+		_, err = io.Copy(d.Backing, buf)
 		if err != nil {
 			return err
 		}
-		tileSize = len(buf.Bytes())
 	}
 
 	// make sure to update the byte counts for this tile

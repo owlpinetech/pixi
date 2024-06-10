@@ -43,7 +43,7 @@ func (d *Summary) DiskHeaderSize() int64 {
 	headerSize += int64(len(d.Dimensions)) * 8 // 8 bytes for each dimension size
 	headerSize += int64(len(d.Dimensions)) * 4 // 4 bytes for each dimension tile size
 	headerSize += int64(len(d.Fields)) * 4     // 4 bytes for each field type
-	headerSize += int64(len(d.Fields)) * 4     // 2 bytes for each field name length
+	headerSize += int64(len(d.Fields)) * 2     // 2 bytes for each field name length
 	for _, f := range d.Fields {
 		headerSize += int64(len([]byte(f.Name))) // each field name length in bytes
 	}
@@ -122,7 +122,7 @@ func (d *Summary) TileSize(tileIndex int) int64 {
 
 // The offset from the start of the on-disk (potentially compressed) file in which the tile
 // is stored. Relative to the start of the file, not the data set Offset.
-func (d *Summary) TileOffset(tileIndex int) int64 {
+func (d *Summary) DiskTileOffset(tileIndex int) int64 {
 	dataStart := d.DiskDataStart()
 	for i := 0; i < tileIndex; i++ {
 		dataStart += d.TileBytes[i]

@@ -3,7 +3,6 @@ package pixi
 import (
 	"bytes"
 	"compress/flate"
-	"fmt"
 	"io"
 )
 
@@ -122,10 +121,6 @@ func (d *AppendDataset) GetSampleField(dimIndices []uint, fieldId uint) (any, er
 		}
 	}
 
-	if dimIndices[0] == 0 && dimIndices[1] == 37 {
-		fmt.Println("getting at 0,37", tileIndex, inTileIndex, fieldId, fieldOffset, d.WritingTileIndex)
-	}
-
 	// TODO: locking for safe concurrent access
 	var cached *AppendTile
 	if tile, ok := d.ReadCache[tileIndex]; ok {
@@ -193,10 +188,6 @@ func (d *AppendDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal
 		for _, field := range d.Fields[:fieldId] {
 			fieldOffset += uint(field.Size())
 		}
-	}
-
-	if dimIndices[0] == 0 && dimIndices[1] == 37 {
-		fmt.Println("setting at 0,37", tileIndex, inTileIndex, fieldId, fieldOffset, d.WritingTileIndex)
 	}
 
 	// check if we need to move to the next tile or if we're out of range

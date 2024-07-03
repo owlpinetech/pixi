@@ -235,9 +235,9 @@ func TestAppendAllReadAllSampleField(t *testing.T) {
 		separated   bool
 		compression Compression
 	}{
-		//{name: "sep_no_comp", separated: true, compression: CompressionNone},
-		//{name: "sep_comp_flate", separated: true, compression: CompressionFlate},
-		//{name: "no_sep_no_comp", separated: false, compression: CompressionNone},
+		{name: "sep_no_comp", separated: true, compression: CompressionNone},
+		{name: "sep_comp_flate", separated: true, compression: CompressionFlate},
+		{name: "no_sep_no_comp", separated: false, compression: CompressionNone},
 		{name: "no_sep_comp_flate", separated: false, compression: CompressionFlate},
 	}
 

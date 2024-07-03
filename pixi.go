@@ -41,7 +41,7 @@ func (d *Summary) DiskHeaderSize() int64 {
 	headerSize := int64(4)                     // config (separated only currently) is 4 bytes
 	headerSize += 4 * 3                        // 4 bytes for compression, dim count, field count
 	headerSize += int64(len(d.Dimensions)) * 8 // 8 bytes for each dimension size
-	headerSize += int64(len(d.Dimensions)) * 4 // 4 bytes for each dimension tile size
+	headerSize += int64(len(d.Dimensions)) * 8 // 8 bytes for each dimension tile size
 	headerSize += int64(len(d.Fields)) * 4     // 4 bytes for each field type
 	headerSize += int64(len(d.Fields)) * 2     // 2 bytes for each field name length
 	for _, f := range d.Fields {
@@ -99,7 +99,7 @@ func (d *Summary) TileSamples() int64 {
 func (d *Summary) Samples() int64 {
 	samples := int64(1)
 	for _, dim := range d.Dimensions {
-		samples *= dim.Size
+		samples *= int64(dim.Size)
 	}
 	return samples
 }
@@ -131,8 +131,8 @@ func (d *Summary) DiskTileOffset(tileIndex int) int64 {
 }
 
 type Dimension struct {
-	Size     int64
-	TileSize int32
+	Size     int
+	TileSize int
 }
 
 // Returns the number of tiles in this dimension.
@@ -145,8 +145,8 @@ func (d Dimension) Tiles() int {
 	if d.TileSize <= 0 {
 		panic("pixi: Size of dimension > 0 but TileSize set to 0, invalid")
 	}
-	tiles := int(d.Size / int64(d.TileSize))
-	if d.Size%int64(d.TileSize) != 0 {
+	tiles := d.Size / d.TileSize
+	if d.Size%d.TileSize != 0 {
 		tiles += 1
 	}
 	return tiles

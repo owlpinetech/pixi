@@ -402,8 +402,8 @@ func TestFieldType_Write(t *testing.T) {
 func TestDimensionTiles(t *testing.T) {
 	tests := []struct {
 		name     string
-		size     int64
-		tileSize int32
+		size     int
+		tileSize int
 		want     int
 	}{
 		{"size same as tile size", 10, 10, 1},

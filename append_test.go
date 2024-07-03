@@ -34,7 +34,7 @@ func TestWriteCompressTile(t *testing.T) {
 			under := Summary{
 				Separated:   false,
 				Compression: tc.compression,
-				Dimensions:  []Dimension{{Size: int64(len(tc.data)), TileSize: int32(len(tc.data))}},
+				Dimensions:  []Dimension{{Size: len(tc.data), TileSize: len(tc.data)}},
 				Fields:      []Field{{Name: "byte", Type: FieldUint8}},
 			}
 			dataset, err := NewAppendDataset(under, buf, 10)

@@ -64,8 +64,8 @@ func TestMemoryAllReadAllSample(t *testing.T) {
 		name        string
 		separated   bool
 		compression Compression
-		size        int64
-		tileSize    int32
+		size        int
+		tileSize    int
 		expected    []any
 	}{
 		{name: "contig, small, no comp", separated: false, compression: CompressionNone, size: 4, tileSize: 2, expected: []any{1.2, int16(-13), uint64(54321)}},

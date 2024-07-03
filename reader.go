@@ -125,7 +125,7 @@ func ReadFixedSummary(r io.Reader) (Summary, error) {
 	}
 
 	// read dimension tile sizes
-	tileSizes := make([]int32, dimCount)
+	tileSizes := make([]int64, dimCount)
 	err = binary.Read(r, binary.BigEndian, tileSizes)
 	if err != nil {
 		return summary, err
@@ -133,7 +133,7 @@ func ReadFixedSummary(r io.Reader) (Summary, error) {
 
 	dims := make([]Dimension, dimCount)
 	for i := 0; i < int(dimCount); i++ {
-		dims[i] = Dimension{Size: dimSizes[i], TileSize: tileSizes[i]}
+		dims[i] = Dimension{Size: int(dimSizes[i]), TileSize: int(tileSizes[i])}
 	}
 	summary.Dimensions = dims
 

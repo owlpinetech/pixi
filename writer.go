@@ -106,13 +106,13 @@ func WriteFixedSummary(w io.Writer, d Summary) error {
 
 	// write dimension sizes and tile sizes
 	for _, dim := range d.Dimensions {
-		err = binary.Write(w, binary.BigEndian, dim.Size)
+		err = binary.Write(w, binary.BigEndian, int64(dim.Size))
 		if err != nil {
 			return err
 		}
 	}
 	for _, dim := range d.Dimensions {
-		err = binary.Write(w, binary.BigEndian, dim.TileSize)
+		err = binary.Write(w, binary.BigEndian, int64(dim.TileSize))
 		if err != nil {
 			return err
 		}

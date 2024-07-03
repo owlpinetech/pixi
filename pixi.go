@@ -58,8 +58,8 @@ func (d *Summary) DiskDataStart() int64 {
 
 // The size in bytes of each sample in the data set. Each field has a fixed size, and a sample
 // is made up of one element of each field, so the sample size is the sum of all field sizes.
-func (d *Summary) SampleSize() int64 {
-	sampleSize := int64(0)
+func (d *Summary) SampleSize() int {
+	sampleSize := 0
 	for _, f := range d.Fields {
 		sampleSize += f.Size()
 	}
@@ -114,9 +114,9 @@ func (d *Summary) TileSize(tileIndex int) int64 {
 	}
 	if d.Separated {
 		field := tileIndex / d.Tiles()
-		return d.TileSamples() * d.Fields[field].Size()
+		return d.TileSamples() * int64(d.Fields[field].Size())
 	} else {
-		return d.TileSamples() * d.SampleSize()
+		return d.TileSamples() * int64(d.SampleSize())
 	}
 }
 
@@ -157,7 +157,7 @@ type Field struct {
 	Type FieldType
 }
 
-func (f Field) Size() int64 {
+func (f Field) Size() int {
 	return f.Type.Size()
 }
 
@@ -186,7 +186,7 @@ const (
 )
 
 // This function returns the size of a field in bytes.
-func (f FieldType) Size() int64 {
+func (f FieldType) Size() int {
 	switch f {
 	case FieldUnknown:
 		return 0

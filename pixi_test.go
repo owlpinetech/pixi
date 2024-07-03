@@ -11,7 +11,7 @@ func TestPixiSampleSize(t *testing.T) {
 	tests := []struct {
 		name     string
 		dataset  Summary
-		wantSize int64
+		wantSize int
 	}{
 		{
 			name: "Empty dataset",

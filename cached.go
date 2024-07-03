@@ -34,6 +34,13 @@ func NewCacheDataset(d Summary, backing io.ReadWriteSeeker, maxInCache uint) (*C
 		cacheSet.TileBytes[i] = cacheSet.TileSize(i)
 	}
 
+	offset := d.DiskDataStart()
+	cacheSet.TileOffsets = make([]int64, tileCount)
+	for i := range cacheSet.TileBytes {
+		cacheSet.TileOffsets[i] = offset
+		offset += cacheSet.TileSize(i)
+	}
+
 	if err := WriteSummary(backing, cacheSet.Summary); err != nil {
 		return nil, err
 	}
@@ -312,7 +319,7 @@ func (d *CacheDataset) evict() error {
 // This function reads a tile from the underlying storage and returns its data as a byte slice.
 // The offset of the tile in the storage is determined by the `tileIndex`.
 func (d *CacheDataset) readTile(tileIndex uint) ([]byte, error) {
-	d.Backing.Seek(d.DiskTileOffset(int(tileIndex)), io.SeekStart)
+	d.Backing.Seek(d.TileOffsets[int(tileIndex)], io.SeekStart)
 
 	uncompressedLen := d.TileSize(int(tileIndex))
 
@@ -342,7 +349,7 @@ func (d *CacheDataset) readTile(tileIndex uint) ([]byte, error) {
 // This function writes a tile from memory back to the underlying storage.
 // The offset of the tile in the storage is determined by the `tileIndex`.
 func (d *CacheDataset) writeTile(data []byte, tileIndex uint) error {
-	offset := d.DiskTileOffset(int(tileIndex))
+	offset := d.TileOffsets[int(tileIndex)]
 	d.Backing.Seek(offset, io.SeekStart)
 
 	tileSize := 0

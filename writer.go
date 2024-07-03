@@ -73,12 +73,12 @@ func WriteMetadata(w io.Writer, key string, val string) error {
 }
 
 func WriteFixedSummary(w io.Writer, d Summary) error {
-	tiles := d.Tiles()
-	if d.Separated {
-		tiles *= len(d.Fields)
-	}
+	tiles := d.DiskTiles()
 	if tiles != len(d.TileBytes) {
 		return FormatError("invalid TileBytes: must have same number of elements as tiles in data set for valid pixi files")
+	}
+	if tiles != len(d.TileOffsets) {
+		return FormatError("invalid TileOffsets: must have same number of elements as tiles in data set for valid pixi files")
 	}
 
 	err := binary.Write(w, binary.BigEndian, uint32(len(d.Dimensions)))
@@ -138,6 +138,10 @@ func WriteFixedSummary(w io.Writer, d Summary) error {
 
 	// write tile bytes
 	err = binary.Write(w, binary.BigEndian, d.TileBytes)
+	if err != nil {
+		return err
+	}
+	err = binary.Write(w, binary.BigEndian, d.TileOffsets)
 	if err != nil {
 		return err
 	}

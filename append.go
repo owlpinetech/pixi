@@ -35,6 +35,8 @@ func NewAppendDataset(d Summary, backing io.ReadWriteSeeker, maxInCache uint) (*
 		diskTileCount *= len(appendSet.Fields)
 	}
 	appendSet.TileBytes = make([]int64, diskTileCount)
+	appendSet.TileOffsets = make([]int64, diskTileCount)
+	appendSet.TileOffsets[0] = appendSet.DiskDataStart()
 
 	if err := WriteSummary(backing, appendSet.Summary); err != nil {
 		return nil, err
@@ -284,7 +286,7 @@ func (d *AppendDataset) evict() error {
 // This function reads a tile from the underlying storage and returns its data as a byte slice.
 // The offset of the tile in the storage is determined by the `tileIndex`.
 func (d *AppendDataset) readTile(tileIndex uint) ([]byte, error) {
-	d.Backing.Seek(d.DiskTileOffset(int(tileIndex)), io.SeekStart)
+	d.Backing.Seek(d.TileOffsets[tileIndex], io.SeekStart)
 
 	uncompressedLen := d.TileSize(int(tileIndex))
 
@@ -315,7 +317,7 @@ func (d *AppendDataset) readTile(tileIndex uint) ([]byte, error) {
 // The function is responsible for handling both uncompressed and compressed data.
 // If there was an issue with writing the tile, this function will return an error. Otherwise, it returns nil.
 func (d *AppendDataset) writeTile(data []byte, tileIndex uint) error {
-	offset := d.DiskTileOffset(int(tileIndex))
+	offset := d.TileOffsets[tileIndex]
 	d.Backing.Seek(offset, io.SeekStart)
 
 	tileSize := 0
@@ -347,6 +349,9 @@ func (d *AppendDataset) writeTile(data []byte, tileIndex uint) error {
 
 	// make sure to update the byte counts for this tile
 	d.TileBytes[tileIndex] = int64(tileSize)
+	if tileIndex < uint(d.DiskTiles())-1 {
+		d.TileOffsets[tileIndex+1] = offset + int64(tileSize)
+	}
 	return nil
 }
 

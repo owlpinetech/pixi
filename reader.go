@@ -167,16 +167,19 @@ func ReadFixedSummary(r io.Reader) (Summary, error) {
 	summary.Fields = fields
 
 	// read tile bytes
-	tiles := summary.Tiles()
-	if summary.Separated {
-		tiles *= int(fieldCount)
-	}
+	tiles := summary.DiskTiles()
 	tileBytes := make([]int64, tiles)
 	err = binary.Read(r, binary.BigEndian, tileBytes)
 	if err != nil {
 		return summary, err
 	}
+	tileOffsets := make([]int64, tiles)
+	err = binary.Read(r, binary.BigEndian, tileOffsets)
+	if err != nil {
+		return summary, err
+	}
 	summary.TileBytes = tileBytes
+	summary.TileOffsets = tileOffsets
 
 	return summary, nil
 }

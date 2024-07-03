@@ -73,7 +73,7 @@ func TestPixiSamples(t *testing.T) {
 	tests := []struct {
 		name     string
 		dataset  Summary
-		wantSize int64
+		wantSize int
 	}{
 		{
 			name: "Empty dataset",
@@ -84,7 +84,7 @@ func TestPixiSamples(t *testing.T) {
 				Fields:      []Field{},
 				TileBytes:   []int64{},
 			},
-			wantSize: 1,
+			wantSize: 0,
 		},
 		{
 			name: "One dimension with size 10",
@@ -124,7 +124,7 @@ func TestPixiTileSamples(t *testing.T) {
 	tests := []struct {
 		name     string
 		dataset  Summary
-		wantSize int64
+		wantSize int
 	}{
 		{
 			name: "Empty dataset",
@@ -135,7 +135,7 @@ func TestPixiTileSamples(t *testing.T) {
 				Fields:      []Field{},
 				TileBytes:   []int64{},
 			},
-			wantSize: 1,
+			wantSize: 0,
 		},
 		{
 			name: "One dimension with size 10",
@@ -231,17 +231,6 @@ func TestPixiTileSize(t *testing.T) {
 				TileBytes:   []int64{},
 			},
 			wantSize: 4 * 5 * 5,
-		},
-		{
-			name: "One field with size 10",
-			dataset: Summary{
-				Separated:   false,
-				Compression: CompressionNone,
-				Dimensions:  []Dimension{},
-				Fields:      []Field{{Type: FieldFloat32}},
-				TileBytes:   []int64{},
-			},
-			wantSize: 4,
 		},
 		{
 			name: "One dimension with tile size 5 and one field with size 2",

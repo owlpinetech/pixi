@@ -22,9 +22,10 @@ type Summary struct {
 	Compression Compression // The type of compression used on this dataset (e.g., Flate, lz4).
 	// An array of Dimension structs representing the dimensions and tiling of this dataset.
 	// No dimensions equals an empty dataset.
-	Dimensions []Dimension
-	Fields     []Field // An array of Field structs representing the fields in this dataset.
-	TileBytes  []int64 // An array of int64 values representing (compressed) size of each tile in bytes for this dataset.
+	Dimensions  []Dimension
+	Fields      []Field // An array of Field structs representing the fields in this dataset.
+	TileBytes   []int64 // An array of byte counts representing (compressed) size of each tile in bytes for this dataset.
+	TileOffsets []int64 // An array of byte offsets representing the position in the file of each tile in the dataset.
 }
 
 func (d *Summary) DiskMetadataSize() int64 {
@@ -47,13 +48,22 @@ func (d *Summary) DiskHeaderSize() int64 {
 	for _, f := range d.Fields {
 		headerSize += int64(len([]byte(f.Name))) // each field name length in bytes
 	}
-	headerSize += int64(len(d.TileBytes)) * 8 // 8 bytes for each real disk tile size in bytes
+	headerSize += int64(d.DiskTiles()) * 8 // 8 bytes for each real disk tile size in bytes
+	headerSize += int64(d.DiskTiles()) * 8 // 8 bytes for each tile offset
 	return headerSize
 }
 
 func (d *Summary) DiskDataStart() int64 {
-	// plus eight for version, file type sequences, and header size in bytes
+	// plus twelve for version, file type sequences, and header size in bytes
 	return 12 + d.DiskMetadataSize() + d.DiskHeaderSize()
+}
+
+func (d *Summary) DiskTiles() int {
+	tiles := d.Tiles()
+	if d.Separated {
+		tiles *= len(d.Fields)
+	}
+	return tiles
 }
 
 // The size in bytes of each sample in the data set. Each field has a fixed size, and a sample
@@ -86,20 +96,26 @@ func (d *Summary) Tiles() int {
 
 // The number of samples per tile in the data set. Each tile has the same number of samples,
 // regardless of if the data is stored separated or continguous.
-func (d *Summary) TileSamples() int64 {
-	samples := int64(1)
+func (d *Summary) TileSamples() int {
+	if len(d.Dimensions) <= 0 {
+		return 0
+	}
+	samples := 1
 	for _, d := range d.Dimensions {
-		samples *= int64(d.TileSize)
+		samples *= d.TileSize
 	}
 	return samples
 }
 
 // The total number of samples in the data set. If the tile size of any dimension is not
 // a multiple of the dimension size, the 'padding' samples are not included in the count.
-func (d *Summary) Samples() int64 {
-	samples := int64(1)
+func (d *Summary) Samples() int {
+	if len(d.Dimensions) <= 0 {
+		return 0
+	}
+	samples := 1
 	for _, dim := range d.Dimensions {
-		samples *= int64(dim.Size)
+		samples *= dim.Size
 	}
 	return samples
 }
@@ -114,20 +130,10 @@ func (d *Summary) TileSize(tileIndex int) int64 {
 	}
 	if d.Separated {
 		field := tileIndex / d.Tiles()
-		return d.TileSamples() * int64(d.Fields[field].Size())
+		return int64(d.TileSamples()) * int64(d.Fields[field].Size())
 	} else {
-		return d.TileSamples() * int64(d.SampleSize())
+		return int64(d.TileSamples()) * int64(d.SampleSize())
 	}
-}
-
-// The offset from the start of the on-disk (potentially compressed) file in which the tile
-// is stored. Relative to the start of the file, not the data set Offset.
-func (d *Summary) DiskTileOffset(tileIndex int) int64 {
-	dataStart := d.DiskDataStart()
-	for i := 0; i < tileIndex; i++ {
-		dataStart += d.TileBytes[i]
-	}
-	return dataStart
 }
 
 type Dimension struct {

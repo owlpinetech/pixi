@@ -12,64 +12,17 @@ type CacheTile struct {
 }
 
 type CacheDataset struct {
-	Summary
+	*DiskLayer
 	TileCache  map[uint]*CacheTile
 	MaxInCache uint
 	Backing    io.ReadWriteSeeker
 }
 
-func NewCacheDataset(d Summary, backing io.ReadWriteSeeker, maxInCache uint) (*CacheDataset, error) {
-	cacheSet := &CacheDataset{Summary: d}
-	cacheSet.Backing = backing
-	cacheSet.MaxInCache = maxInCache
-	cacheSet.TileCache = make(map[uint]*CacheTile, maxInCache)
-
-	// populate backing data store with empty data
-	tileCount := cacheSet.Tiles()
-	if cacheSet.Separated {
-		tileCount *= len(cacheSet.Fields)
-	}
-	cacheSet.TileBytes = make([]int64, tileCount)
-	for i := range cacheSet.TileBytes {
-		cacheSet.TileBytes[i] = cacheSet.TileSize(i)
-	}
-
-	offset := d.DiskDataStart()
-	cacheSet.TileOffsets = make([]int64, tileCount)
-	for i := range cacheSet.TileBytes {
-		cacheSet.TileOffsets[i] = offset
-		offset += cacheSet.TileSize(i)
-	}
-
-	if err := WriteSummary(backing, cacheSet.Summary); err != nil {
-		return nil, err
-	}
-
-	_, err := backing.Seek(d.DiskDataStart(), io.SeekStart)
-	if err != nil {
-		return nil, err
-	}
-
-	buf := make([]byte, 0)
-	for i := 0; i < tileCount; i++ {
-		tileSize := cacheSet.TileSize(i)
-		if tileSize != int64(len(buf)) {
-			buf = make([]byte, tileSize)
-		}
-		_, err := backing.Write(buf)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return cacheSet, nil
-}
-
-func ReadCached(r io.ReadWriteSeeker, ds Summary, maxInCache uint) (*CacheDataset, error) {
-	if ds.Compression != CompressionNone {
+func ReadCached(r io.ReadWriteSeeker, dl *DiskLayer, maxInCache uint) (*CacheDataset, error) {
+	if dl.Compression != CompressionNone {
 		return nil, UnsupportedError("CacheDataset type currently does not supported compressed data sets")
 	}
-	cached := &CacheDataset{Summary: ds, TileCache: make(map[uint]*CacheTile), Backing: r, MaxInCache: maxInCache}
+	cached := &CacheDataset{DiskLayer: dl, TileCache: make(map[uint]*CacheTile), Backing: r, MaxInCache: maxInCache}
 	return cached, nil
 }
 
@@ -250,7 +203,7 @@ func (d *CacheDataset) SetSampleField(dimIndices []uint, fieldId uint, fieldVal 
 	return nil
 }
 
-func (d *CacheDataset) Finalize() error {
+func (d *CacheDataset) Finalize(pix *Pixi) error {
 	for tileInd, tile := range d.TileCache {
 		if tile.Dirty {
 			err := d.writeTile(tile.Data, tileInd)
@@ -260,11 +213,11 @@ func (d *CacheDataset) Finalize() error {
 		}
 	}
 
-	_, err := d.Backing.Seek(0, io.SeekStart)
+	_, err := d.Backing.Seek(pix.LayerOffset(d.DiskLayer), io.SeekStart)
 	if err != nil {
 		return err
 	}
-	err = WriteSummary(d.Backing, d.Summary)
+	err = WriteLayer(d.Backing, *d.DiskLayer)
 	if err != nil {
 		return err
 	}

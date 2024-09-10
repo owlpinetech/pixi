@@ -1,59 +1,55 @@
 package pixi
 
 import (
-	"bytes"
-	"encoding/binary"
 	"reflect"
 	"testing"
+
+	"github.com/owlpinetech/pixi/internal/buffer"
 )
 
 func TestPixiSampleSize(t *testing.T) {
 	tests := []struct {
 		name     string
-		dataset  Summary
+		dataset  Layer
 		wantSize int
 	}{
 		{
 			name: "Empty dataset",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{},
 				Fields:      []Field{},
-				TileBytes:   []int64{},
 			},
 			wantSize: 0,
 		},
 		{
 			name: "One field with size 1",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{},
 				Fields:      []Field{{Name: "", Type: FieldInt8}},
-				TileBytes:   []int64{},
 			},
 			wantSize: 1,
 		},
 		{
 			name: "One field with size 2",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{},
 				Fields:      []Field{{Name: "", Type: FieldInt16}},
-				TileBytes:   []int64{},
 			},
 			wantSize: 2,
 		},
 		{
 			name: "Multiple fields",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{},
 				Fields:      []Field{{Name: "", Type: FieldInt8}, {Name: "", Type: FieldFloat32}},
-				TileBytes:   []int64{},
 			},
 			wantSize: 5, // size of int8 + size of float32
 		},
@@ -72,39 +68,36 @@ func TestPixiSampleSize(t *testing.T) {
 func TestPixiSamples(t *testing.T) {
 	tests := []struct {
 		name     string
-		dataset  Summary
+		dataset  Layer
 		wantSize int
 	}{
 		{
 			name: "Empty dataset",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{},
 				Fields:      []Field{},
-				TileBytes:   []int64{},
 			},
 			wantSize: 0,
 		},
 		{
 			name: "One dimension with size 10",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 10}},
 				Fields:      []Field{},
-				TileBytes:   []int64{},
 			},
 			wantSize: 10,
 		},
 		{
 			name: "Multiple dimensions",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 2}, {Size: 3}},
 				Fields:      []Field{},
-				TileBytes:   []int64{},
 			},
 			wantSize: 6, // 2 x 3 = 6
 		},
@@ -123,39 +116,36 @@ func TestPixiSamples(t *testing.T) {
 func TestPixiTileSamples(t *testing.T) {
 	tests := []struct {
 		name     string
-		dataset  Summary
+		dataset  Layer
 		wantSize int
 	}{
 		{
 			name: "Empty dataset",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{},
 				Fields:      []Field{},
-				TileBytes:   []int64{},
 			},
 			wantSize: 0,
 		},
 		{
 			name: "One dimension with size 10",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 10, TileSize: 5}},
 				Fields:      []Field{},
-				TileBytes:   []int64{},
 			},
 			wantSize: 5,
 		},
 		{
 			name: "Multiple dimensions",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 2, TileSize: 2}, {Size: 3, TileSize: 3}},
 				Fields:      []Field{},
-				TileBytes:   []int64{},
 			},
 			wantSize: 6,
 		},
@@ -174,72 +164,66 @@ func TestPixiTileSamples(t *testing.T) {
 func TestPixiTileSize(t *testing.T) {
 	tests := []struct {
 		name     string
-		dataset  Summary
-		wantSize int64
+		dataset  Layer
+		wantSize int
 	}{
 		{
 			name: "Empty dataset",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{},
 				Fields:      []Field{},
-				TileBytes:   []int64{},
 			},
 			wantSize: 0,
 		},
 		{
 			name: "One dimension with size 10",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 10, TileSize: 10}},
 				Fields:      []Field{{Type: FieldInt8}},
-				TileBytes:   []int64{},
 			},
 			wantSize: 10,
 		},
 		{
 			name: "Two dimensions with sizes 10 and 8",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 10, TileSize: 5}, {Size: 8, TileSize: 4}},
 				Fields:      []Field{{Type: FieldInt8}},
-				TileBytes:   []int64{},
 			},
 			wantSize: 4 * 5,
 		},
 		{
 			name: "Three dimensions with sizes 4, 2, and 1",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 4, TileSize: 4}, {Size: 2, TileSize: 2}, {Size: 1, TileSize: 1}},
 				Fields:      []Field{{Type: FieldInt8}},
-				TileBytes:   []int64{},
 			},
 			wantSize: 8, // 4 * 2 * 1 = 8
 		},
 		{
 			name: "Separate fields with always has first field size * tile size",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   true,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 20, TileSize: 5}, {Size: 10, TileSize: 5}},
 				Fields:      []Field{{Type: FieldFloat32}, {Type: FieldFloat64}},
-				TileBytes:   []int64{},
 			},
 			wantSize: 4 * 5 * 5,
 		},
 		{
 			name: "One dimension with tile size 5 and one field with size 2",
-			dataset: Summary{
+			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
 				Dimensions:  []Dimension{{Size: 10, TileSize: 5}},
 				Fields:      []Field{{Type: FieldInt16}},
-				TileBytes:   []int64{},
 			},
 			wantSize: 10,
 		},
@@ -272,119 +256,17 @@ func TestPixiTiles(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			dataSet := Summary{
+			dataSet := Layer{
 				Separated:   tc.separated,
 				Compression: CompressionNone,
 				Dimensions:  tc.dims,
 				Fields:      []Field{},
-				TileBytes:   []int64{},
 			}
 
 			if dataSet.Tiles() != tc.want {
 				t.Errorf("PixiTiles() = %d, want %d", dataSet.Tiles(), tc.want)
 			}
 		})
-	}
-}
-
-func TestFieldType_Read(t *testing.T) {
-	tests := []struct {
-		name      string
-		fieldType FieldType
-		value     any
-	}{
-		{"Int8", FieldInt8, int8(-10)},
-		{"Uint8", FieldUint8, uint8(5)},
-		{"Int16", FieldInt16, int16(-1000)},
-		{"Uint16", FieldUint16, uint16(5000)},
-		{"Int32", FieldInt32, int32(-1234567)},
-		{"Uint32", FieldUint32, uint32(9876543)},
-		{"Int64", FieldInt64, int64(-2147483648)},
-		{"Uint64", FieldUint64, uint64(18446744073709551615)},
-		{"Float32", FieldFloat32, float32(1.2345)},
-		{"Float64", FieldFloat64, float64(3.14159)},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var raw []byte
-			switch tt.fieldType {
-			case FieldInt8:
-				buf := bytes.NewBuffer(nil)
-				binary.Write(buf, binary.BigEndian, tt.value.(int8))
-				raw = buf.Bytes()
-			case FieldUint8:
-				buf := bytes.NewBuffer(nil)
-				binary.Write(buf, binary.BigEndian, tt.value.(uint8))
-				raw = buf.Bytes()
-			case FieldInt16:
-				buf := bytes.NewBuffer(nil)
-				binary.Write(buf, binary.BigEndian, tt.value.(int16))
-				raw = buf.Bytes()
-			case FieldUint16:
-				buf := bytes.NewBuffer(nil)
-				binary.Write(buf, binary.BigEndian, tt.value.(uint16))
-				raw = buf.Bytes()
-			case FieldInt32:
-				buf := bytes.NewBuffer(nil)
-				binary.Write(buf, binary.BigEndian, tt.value.(int32))
-				raw = buf.Bytes()
-			case FieldUint32:
-				buf := bytes.NewBuffer(nil)
-				binary.Write(buf, binary.BigEndian, tt.value.(uint32))
-				raw = buf.Bytes()
-			case FieldInt64:
-				buf := bytes.NewBuffer(nil)
-				binary.Write(buf, binary.BigEndian, tt.value.(int64))
-				raw = buf.Bytes()
-			case FieldUint64:
-				buf := bytes.NewBuffer(nil)
-				binary.Write(buf, binary.BigEndian, tt.value.(uint64))
-				raw = buf.Bytes()
-			case FieldFloat32:
-				buf := bytes.NewBuffer(nil)
-				binary.Write(buf, binary.BigEndian, tt.value.(float32))
-				raw = buf.Bytes()
-			case FieldFloat64:
-				buf := bytes.NewBuffer(nil)
-				binary.Write(buf, binary.BigEndian, tt.value.(float64))
-				raw = buf.Bytes()
-			}
-			val := tt.fieldType.Read(raw)
-			if !reflect.DeepEqual(val, tt.value) {
-				t.Errorf("Read() = %+v, want %+v", val, tt.value)
-			}
-		})
-	}
-}
-
-func TestFieldType_Write(t *testing.T) {
-	tests := []struct {
-		fieldType    FieldType
-		writeData    []byte
-		readExpected any
-	}{
-		{FieldInt8, []byte{0x80}, int8(-128)},
-		{FieldUint8, []byte{0xff}, uint8(255)},
-		{FieldInt16, []byte{0xff, 0x80}, int16(-128)},
-		{FieldUint16, []byte{0xff, 0xff}, uint16(65535)},
-		{FieldInt32, []byte{0x80, 0x00, 0x00, 0x00}, int32(-2147483648)},
-		{FieldUint32, []byte{0xff, 0xff, 0xff, 0xff}, uint32(4294967295)},
-		{FieldInt64, []byte{0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, int64(-9223372036854775808)},
-		{FieldUint64, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, uint64(18446744073709551615)},
-		{FieldFloat32, []byte{0xbf, 0x80, 0x00, 0x00}, float32(-1.0)},
-		{FieldFloat64, []byte{0xbf, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, float64(-1.0)},
-	}
-
-	for i, test := range tests {
-		buf := make([]byte, test.fieldType.Size())
-		test.fieldType.Write(buf, test.readExpected)
-
-		written := buf
-		for b := 0; b < len(test.writeData); b++ {
-			if test.writeData[b] != written[b] {
-				t.Errorf("Test %d: unexpected write byte %d, expected %v, got %v", i+1, b, test.writeData[b], written[b])
-			}
-		}
 	}
 }
 
@@ -415,6 +297,126 @@ func TestDimensionTiles(t *testing.T) {
 			got := dimension.Tiles()
 			if got != test.want {
 				t.Errorf("got %d, want %d", got, test.want)
+			}
+		})
+	}
+}
+
+func TestAddBlankLayers(t *testing.T) {
+	tests := []struct {
+		name         string
+		layers       []Layer
+		expectLayers []DiskLayer
+	}{
+		{
+			"no layers", []Layer{}, []DiskLayer{},
+		},
+		{
+			"one layer, override compression",
+			[]Layer{
+				{
+					Name:        "layer",
+					Separated:   false,
+					Compression: CompressionFlate,
+					Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+					Fields:      []Field{{Name: "a", Type: FieldFloat32}, {Name: "b", Type: FieldInt16}},
+				},
+			},
+			[]DiskLayer{
+				{
+					Layer: Layer{
+						Name:        "layer",
+						Separated:   false,
+						Compression: CompressionNone,
+						Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+						Fields:      []Field{{Name: "a", Type: FieldFloat32}, {Name: "b", Type: FieldInt16}},
+					},
+					TileOffsets:    []int64{151, 175, 199, 223},
+					TileBytes:      []int64{24, 24, 24, 24},
+					NextLayerStart: 0,
+				},
+			},
+		},
+		{
+			"two same size layers",
+			[]Layer{
+				{
+					Name:        "one",
+					Separated:   false,
+					Compression: CompressionFlate,
+					Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+					Fields:      []Field{{Name: "a", Type: FieldFloat32}, {Name: "b", Type: FieldInt16}},
+				},
+				{
+					Name:        "two",
+					Separated:   false,
+					Compression: CompressionFlate,
+					Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+					Fields:      []Field{{Name: "c", Type: FieldFloat32}, {Name: "d", Type: FieldInt16}},
+				},
+			},
+			[]DiskLayer{
+				{
+					Layer: Layer{
+						Name:        "one",
+						Separated:   false,
+						Compression: CompressionNone,
+						Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+						Fields:      []Field{{Name: "a", Type: FieldFloat32}, {Name: "b", Type: FieldInt16}},
+					},
+					TileOffsets:    []int64{149, 173, 197, 221},
+					TileBytes:      []int64{24, 24, 24, 24},
+					NextLayerStart: 221 + 24,
+				},
+				{
+					Layer: Layer{
+						Name:        "two",
+						Separated:   false,
+						Compression: CompressionNone,
+						Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+						Fields:      []Field{{Name: "c", Type: FieldFloat32}, {Name: "d", Type: FieldInt16}},
+					},
+					TileOffsets:    []int64{386, 410, 434, 458},
+					TileBytes:      []int64{24, 24, 24, 24},
+					NextLayerStart: 0,
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			buf := buffer.NewBuffer(10)
+			pix, err := StartPixi(buf)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			diskLayers := make([]*DiskLayer, 0)
+			offset := pix.FirstLayerOffset()
+			for _, layer := range tc.layers {
+				dl, err := pix.AddBlankUncompressedLayer(buf, offset, layer)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if dl == nil {
+					t.Fatal("disk layer nil")
+				}
+				diskLayers = append(diskLayers, dl)
+
+				if pix.LayerOffset(dl) != offset {
+					t.Errorf("expected offset %d, got %v", offset, pix.LayerOffset(dl))
+				}
+
+				offset += dl.DiskHeaderSize() + dl.DataSize()
+			}
+
+			for lind := range tc.expectLayers {
+				expect := tc.expectLayers[lind]
+				got := *diskLayers[lind]
+				if !reflect.DeepEqual(expect, got) {
+					t.Errorf("got %v, want %v", got, expect)
+				}
 			}
 		})
 	}

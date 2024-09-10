@@ -6,73 +6,23 @@ import (
 	"io"
 )
 
-func WriteSummary(w io.Writer, s Summary) error {
+func StartPixi(w io.Writer) (*Pixi, error) {
 	// write file type
 	_, err := w.Write([]byte(PixiFileType))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// write file version
 	_, err = w.Write([]byte(fmt.Sprintf("%04d", PixiVersion)))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// write header size in bytes
-	err = binary.Write(w, binary.BigEndian, uint32(s.DiskMetadataSize()+s.DiskHeaderSize()))
-	if err != nil {
-		return err
-	}
-
-	// write all metadata strings
-	err = binary.Write(w, binary.BigEndian, uint32(len(s.Metadata)))
-	if err != nil {
-		return err
-	}
-	for k, v := range s.Metadata {
-		err = WriteMetadata(w, k, v)
-		if err != nil {
-			return err
-		}
-	}
-
-	// write all dataset headers
-	err = WriteFixedSummary(w, s)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return &Pixi{}, nil
 }
 
-func WriteMetadata(w io.Writer, key string, val string) error {
-	// write key string
-	err := binary.Write(w, binary.BigEndian, uint32(len([]byte(key))))
-	if err != nil {
-		return err
-	}
-
-	err = binary.Write(w, binary.BigEndian, []byte(key))
-	if err != nil {
-		return err
-	}
-
-	// write value string
-	err = binary.Write(w, binary.BigEndian, uint32(len([]byte(val))))
-	if err != nil {
-		return err
-	}
-
-	err = binary.Write(w, binary.BigEndian, []byte(val))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func WriteFixedSummary(w io.Writer, d Summary) error {
+func WriteLayer(w io.Writer, d DiskLayer) error {
 	tiles := d.DiskTiles()
 	if tiles != len(d.TileBytes) {
 		return FormatError("invalid TileBytes: must have same number of elements as tiles in data set for valid pixi files")
@@ -81,6 +31,7 @@ func WriteFixedSummary(w io.Writer, d Summary) error {
 		return FormatError("invalid TileOffsets: must have same number of elements as tiles in data set for valid pixi files")
 	}
 
+	// first four: dimension count, field count, configuration, compression
 	err := binary.Write(w, binary.BigEndian, uint32(len(d.Dimensions)))
 	if err != nil {
 		return err
@@ -100,6 +51,16 @@ func WriteFixedSummary(w io.Writer, d Summary) error {
 	}
 
 	err = binary.Write(w, binary.BigEndian, d.Compression)
+	if err != nil {
+		return err
+	}
+
+	// write layer name
+	err = binary.Write(w, binary.BigEndian, uint32(len([]byte(d.Name))))
+	if err != nil {
+		return err
+	}
+	err = binary.Write(w, binary.BigEndian, []byte(d.Name))
 	if err != nil {
 		return err
 	}
@@ -136,12 +97,16 @@ func WriteFixedSummary(w io.Writer, d Summary) error {
 		}
 	}
 
-	// write tile bytes
+	// write tile bytes, offsets, and start of next layer
 	err = binary.Write(w, binary.BigEndian, d.TileBytes)
 	if err != nil {
 		return err
 	}
 	err = binary.Write(w, binary.BigEndian, d.TileOffsets)
+	if err != nil {
+		return err
+	}
+	err = binary.Write(w, binary.BigEndian, d.NextLayerStart)
 	if err != nil {
 		return err
 	}

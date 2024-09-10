@@ -5,6 +5,8 @@ import (
 	"os"
 	"reflect"
 	"testing"
+
+	"github.com/owlpinetech/pixi/internal/buffer"
 )
 
 func TestCachedDimIndicesToTileIndices(t *testing.T) {
@@ -61,7 +63,7 @@ func TestCachedDimIndicesToTileIndices(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			memSet := &CacheDataset{}
+			memSet := &CacheDataset{DiskLayer: &DiskLayer{}}
 			memSet.Dimensions = tt.dimensions
 			tileIndex, inTileIndex := memSet.dimIndicesToTileIndices(tt.dimIndices)
 			if tileIndex != tt.expectedTileIndex || inTileIndex != tt.expectedInTileIndex {
@@ -97,14 +99,20 @@ func TestCacheDatasetEvict(t *testing.T) {
 }
 
 func TestCacheAllReadAllSample(t *testing.T) {
-	buf := NewBuffer(10)
-	under := Summary{
+	buf := buffer.NewBuffer(10)
+	layer := Layer{
+		Name:        "layer",
 		Separated:   false,
 		Compression: CompressionNone,
 		Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
 		Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
 	}
-	dataset, err := NewCacheDataset(under, buf, 2)
+	pix := &Pixi{}
+	diskLayer, err := pix.AddBlankUncompressedLayer(buf, pix.FirstLayerOffset(), layer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dataset, err := ReadCached(buf, diskLayer, 8)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +130,7 @@ func TestCacheAllReadAllSample(t *testing.T) {
 		}
 	}
 
-	dataset.Finalize()
+	dataset.Finalize(pix)
 
 	for x := 0; x < 4; x++ {
 		for y := 0; y < 4; y++ {
@@ -167,13 +175,22 @@ func TestCacheAllReadAllSampleField(t *testing.T) {
 			}
 			defer os.Remove(temp.Name())
 
-			under := Summary{
+			layer := Layer{
+				Name:        "layer",
 				Separated:   tc.separated,
 				Compression: tc.compression,
 				Dimensions:  []Dimension{{Size: 250, TileSize: 50}, {Size: 250, TileSize: 50}},
 				Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
 			}
-			dataset, err := NewCacheDataset(under, temp, 2)
+			pix, err := StartPixi(temp)
+			if err != nil {
+				t.Fatal(err)
+			}
+			diskLayer, err := pix.AddBlankUncompressedLayer(temp, pix.FirstLayerOffset(), layer)
+			if err != nil {
+				t.Fatal(err)
+			}
+			dataset, err := ReadCached(temp, diskLayer, 2)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -248,7 +265,7 @@ func TestCacheAllReadAllSampleField(t *testing.T) {
 				}
 			}
 
-			err = dataset.Finalize()
+			err = dataset.Finalize(pix)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -283,18 +300,18 @@ func TestCacheAllReadAllSampleField(t *testing.T) {
 			}
 
 			temp.Seek(0, io.SeekStart)
-			rdSummary, err := ReadSummary(temp)
+			rdPix, err := ReadPixi(temp)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			rdDataset, err := ReadCached(temp, rdSummary, 2)
+			rdDataset, err := ReadCached(temp, rdPix.Layers[0], 2)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			if !reflect.DeepEqual(rdSummary.TileBytes, dataset.Summary.TileBytes) {
-				t.Errorf("expected tile bytes %v to equal %v\n", rdSummary.TileBytes, dataset.Summary.TileBytes)
+			if !reflect.DeepEqual(rdPix.Layers[0].TileBytes, dataset.TileBytes) {
+				t.Errorf("expected tile bytes %v to equal %v\n", rdPix.Layers[0].TileBytes, dataset.TileBytes)
 			}
 
 			for x := 0; x < int(dataset.Dimensions[0].Size); x++ {

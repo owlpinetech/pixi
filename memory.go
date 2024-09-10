@@ -6,14 +6,14 @@ import (
 )
 
 type InMemoryDataset struct {
-	Summary
+	DiskLayer
 	TileSet [][]byte
 }
 
-func NewInMemoryDataset(d Summary) (*InMemoryDataset, error) {
-	memSet := &InMemoryDataset{Summary: d}
-	if d.Separated {
-		memSet.TileSet = make([][]byte, memSet.Tiles()*len(d.Fields))
+func NewInMemoryDataset(l DiskLayer) (*InMemoryDataset, error) {
+	memSet := &InMemoryDataset{DiskLayer: l}
+	if l.Separated {
+		memSet.TileSet = make([][]byte, memSet.Tiles()*len(l.Fields))
 	} else {
 		memSet.TileSet = make([][]byte, memSet.Tiles())
 	}
@@ -23,14 +23,17 @@ func NewInMemoryDataset(d Summary) (*InMemoryDataset, error) {
 	return memSet, nil
 }
 
-func ReadInMemory(r io.ReadSeeker, ds Summary) (InMemoryDataset, error) {
-	inMem := InMemoryDataset{Summary: ds}
+func ReadInMemory(r io.ReadSeeker, ds DiskLayer) (InMemoryDataset, error) {
+	inMem := InMemoryDataset{DiskLayer: ds}
 
 	tiles := make([][]byte, len(ds.TileBytes))
-	r.Seek(ds.DiskDataStart(), io.SeekStart)
 	for tileInd := range ds.TileBytes {
 		uncompressedLen := ds.TileSize(tileInd)
 		buf := make([]byte, uncompressedLen)
+		_, err := r.Seek(ds.TileOffsets[tileInd], io.SeekStart)
+		if err != nil {
+			return inMem, err
+		}
 
 		switch ds.Compression {
 		case CompressionNone:

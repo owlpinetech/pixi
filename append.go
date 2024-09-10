@@ -1,5 +1,6 @@
 package pixi
 
+/*
 import (
 	"bytes"
 	"compress/flate"
@@ -12,7 +13,7 @@ type AppendTile struct {
 }
 
 type AppendDataset struct {
-	Summary
+	Pixi
 	WritingTileIndex uint
 	WritingTile      AppendTile
 	ReadCache        map[uint]*AppendTile
@@ -21,8 +22,8 @@ type AppendDataset struct {
 }
 
 // Creates a new append dataset. It initializes the internal data structures and sets up the backing store.
-func NewAppendDataset(d Summary, backing io.ReadWriteSeeker, maxInCache uint) (*AppendDataset, error) {
-	appendSet := &AppendDataset{Summary: d}
+func NewAppendDataset(d Pixi, backing io.ReadWriteSeeker, maxInCache uint) (*AppendDataset, error) {
+	appendSet := &AppendDataset{Pixi: d}
 	appendSet.Backing = backing
 	appendSet.ReadCache = make(map[uint]*AppendTile)
 	appendSet.MaxInCache = maxInCache
@@ -38,14 +39,14 @@ func NewAppendDataset(d Summary, backing io.ReadWriteSeeker, maxInCache uint) (*
 	appendSet.TileOffsets = make([]int64, diskTileCount)
 	appendSet.TileOffsets[0] = appendSet.DiskDataStart()
 
-	if err := WriteSummary(backing, appendSet.Summary); err != nil {
+	if err := WriteSummary(backing, appendSet.Pixi); err != nil {
 		return nil, err
 	}
 	return appendSet, nil
 }
 
-func ReadAppend(r io.ReadWriteSeeker, ds Summary, maxInCache uint) (AppendDataset, error) {
-	appended := AppendDataset{Summary: ds, ReadCache: make(map[uint]*AppendTile), Backing: r, MaxInCache: maxInCache}
+func ReadAppend(r io.ReadWriteSeeker, ds Pixi, maxInCache uint) (AppendDataset, error) {
+	appended := AppendDataset{Pixi: ds, ReadCache: make(map[uint]*AppendTile), Backing: r, MaxInCache: maxInCache}
 	return appended, nil
 }
 
@@ -214,7 +215,7 @@ func (d *AppendDataset) Finalize() error {
 	if err != nil {
 		return err
 	}
-	err = WriteSummary(d.Backing, d.Summary)
+	err = WriteSummary(d.Backing, d.Pixi)
 	if err != nil {
 		return err
 	}
@@ -369,3 +370,4 @@ func (d *AppendDataset) dimIndicesToTileIndices(dimIndices []uint) (tileIndex ui
 	}
 	return
 }
+*/

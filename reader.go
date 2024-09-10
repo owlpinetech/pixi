@@ -6,99 +6,58 @@ import (
 	"strconv"
 )
 
-func ReadSummary(r io.ReadSeeker) (Summary, error) {
+func ReadPixi(r io.ReadSeeker) (Pixi, error) {
 	buf := make([]byte, 4)
 
 	// check file type
 	_, err := r.Read(buf)
 	if err != nil {
-		return Summary{}, err
+		return Pixi{}, err
 	}
 	fileType := string(buf)
 	if fileType != PixiFileType {
-		return Summary{}, FormatError("pixi file marker not found at start of file")
+		return Pixi{}, FormatError("pixi file marker not found at start of file")
 	}
 
 	// check file version
 	_, err = r.Read(buf)
 	if err != nil {
-		return Summary{}, err
+		return Pixi{}, err
 	}
 	version, err := strconv.ParseInt(string(buf), 10, 32)
 	if err != nil {
-		return Summary{}, err
+		return Pixi{}, err
 	}
 	if version > PixiVersion {
-		return Summary{}, FormatError("reader does not support this version of pixi file")
+		return Pixi{}, FormatError("reader does not support this version of pixi file")
 	}
 
-	// get header length
-	_, err = r.Read(buf)
-	if err != nil {
-		return Summary{}, err
-	}
-	headerLength := binary.BigEndian.Uint32(buf)
+	offset := (&Pixi{}).FirstLayerOffset()
 
-	// read all metadata strings
-	var metadataCount uint32
-	err = binary.Read(r, binary.BigEndian, &metadataCount)
-	if err != nil {
-		return Summary{}, err
-	}
-	metadata := make(map[string]string, metadataCount)
-	for i := 0; i < int(metadataCount); i++ {
-		key, val, err := ReadMetadata(r)
+	layers := []*DiskLayer{}
+	for offset != 0 {
+		layer, err := ReadLayer(r)
 		if err != nil {
-			return Summary{}, err
+			return Pixi{}, err
 		}
-		metadata[key] = val
+		layers = append(layers, &layer)
+		offset = layer.NextLayerStart
+		_, err = r.Seek(offset, io.SeekStart)
+		if err != nil {
+			return Pixi{}, err
+		}
 	}
 
-	// read the fixed portion of the dataset summary
-	summary, err := ReadFixedSummary(r)
-	if err != nil {
-		return Summary{}, err
-	}
-	summary.Metadata = metadata
-
-	if summary.DiskHeaderSize()+summary.DiskMetadataSize() != int64(headerLength) {
-		return Summary{}, FormatError("header length does not match specified header size in file")
+	summary := Pixi{
+		Layers: layers,
 	}
 
 	return summary, nil
 }
 
-func ReadMetadata(r io.Reader) (string, string, error) {
-	// read string key
-	var keyCount uint32
-	err := binary.Read(r, binary.BigEndian, &keyCount)
-	if err != nil {
-		return "", "", err
-	}
-	key := make([]byte, keyCount)
-	err = binary.Read(r, binary.BigEndian, key)
-	if err != nil {
-		return "", "", err
-	}
-
-	// read string value
-	var valCount uint32
-	err = binary.Read(r, binary.BigEndian, &valCount)
-	if err != nil {
-		return string(key), "", err
-	}
-	val := make([]byte, valCount)
-	err = binary.Read(r, binary.BigEndian, val)
-	if err != nil {
-		return string(key), "", err
-	}
-
-	return string(key), string(val), nil
-}
-
-func ReadFixedSummary(r io.Reader) (Summary, error) {
-	summary := Summary{}
-	var dimCount, fieldCount, configuration uint32
+func ReadLayer(r io.Reader) (DiskLayer, error) {
+	summary := DiskLayer{}
+	var dimCount, fieldCount, configuration, nameLen uint32
 	err := binary.Read(r, binary.BigEndian, &dimCount)
 	if err != nil {
 		return summary, err
@@ -116,6 +75,18 @@ func ReadFixedSummary(r io.Reader) (Summary, error) {
 	if err != nil {
 		return summary, err
 	}
+
+	// read layer name
+	err = binary.Read(r, binary.BigEndian, &nameLen)
+	if err != nil {
+		return summary, err
+	}
+	name := make([]byte, nameLen)
+	_, err = r.Read(name)
+	if err != nil {
+		return summary, err
+	}
+	summary.Name = string(name)
 
 	// read dimension sizes
 	dimSizes := make([]int64, dimCount)
@@ -166,7 +137,7 @@ func ReadFixedSummary(r io.Reader) (Summary, error) {
 	}
 	summary.Fields = fields
 
-	// read tile bytes
+	// read tile bytes, offsets, and next layer start
 	tiles := summary.DiskTiles()
 	tileBytes := make([]int64, tiles)
 	err = binary.Read(r, binary.BigEndian, tileBytes)
@@ -178,8 +149,15 @@ func ReadFixedSummary(r io.Reader) (Summary, error) {
 	if err != nil {
 		return summary, err
 	}
+	var nextLayerStart int64
+	err = binary.Read(r, binary.BigEndian, &nextLayerStart)
+	if err != nil {
+		return summary, err
+	}
+
 	summary.TileBytes = tileBytes
 	summary.TileOffsets = tileOffsets
+	summary.NextLayerStart = nextLayerStart
 
 	return summary, nil
 }

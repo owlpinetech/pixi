@@ -74,11 +74,13 @@ func TestMemoryAllReadAllSample(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			under := Summary{
-				Separated:   tc.separated,
-				Compression: tc.compression,
-				Dimensions:  []Dimension{{Size: tc.size, TileSize: tc.tileSize}, {Size: tc.size, TileSize: tc.tileSize}},
-				Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
+			under := DiskLayer{
+				Layer: Layer{
+					Separated:   tc.separated,
+					Compression: tc.compression,
+					Dimensions:  []Dimension{{Size: tc.size, TileSize: tc.tileSize}, {Size: tc.size, TileSize: tc.tileSize}},
+					Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
+				},
 			}
 			dataset, err := NewInMemoryDataset(under)
 			if err != nil {
@@ -120,11 +122,13 @@ func TestMemoryAllReadAllSample(t *testing.T) {
 }
 
 func TestMemoryAllReadAllSampleField(t *testing.T) {
-	under := Summary{
-		Separated:   false,
-		Compression: CompressionNone,
-		Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
-		Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
+	under := DiskLayer{
+		Layer: Layer{
+			Separated:   false,
+			Compression: CompressionNone,
+			Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+			Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
+		},
 	}
 	dataset, err := NewInMemoryDataset(under)
 	if err != nil {

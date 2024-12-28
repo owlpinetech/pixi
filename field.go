@@ -8,16 +8,16 @@ import (
 // Describes a set of values in a data set with a common shape. Similar to a field of a record
 // in a database, but with a more restricted set of available types per field.
 type Field struct {
-	Name string
-	Type FieldType
+	Name string    // A friendly name for this field, to help guide interpretation of the data.
+	Type FieldType // The type of data stored in each element of this field.
 }
 
-// This function returns the size of a field in bytes.
+// Returns the size of a field in bytes.
 func (f Field) Size() int {
 	return f.Type.Size()
 }
 
-// This function reads the value of a given FieldType from the provided raw byte slice.
+// Reads the value of a given FieldType from the provided raw byte slice.
 // The read operation is type-dependent, with each field type having its own specific method
 // for reading values. This ensures that the correct data is read and converted into the
 // expected format.
@@ -36,11 +36,11 @@ func (f Field) Write(raw []byte, val any) {
 type FieldType uint32
 
 const (
-	FieldUnknown FieldType = 0
-	FieldInt8    FieldType = 1
-	FieldUint8   FieldType = 2
-	FieldInt16   FieldType = 3
-	FieldUint16  FieldType = 4
+	FieldUnknown FieldType = 0 // Generally indicates an error.
+	FieldInt8    FieldType = 1 // An 8-bit signed integer.
+	FieldUint8   FieldType = 2 // An 8-bit unsigned integer.
+	FieldInt16   FieldType = 3 // A 16-bit signed integer.
+	FieldUint16  FieldType = 4 // A 16-bit unsigned integer.
 	FieldInt32   FieldType = 5
 	FieldUint32  FieldType = 6
 	FieldInt64   FieldType = 7
@@ -49,7 +49,7 @@ const (
 	FieldFloat64 FieldType = 10
 )
 
-// This function returns the size of a field in bytes.
+// This function returns the size of each element in a field in bytes.
 func (f FieldType) Size() int {
 	switch f {
 	case FieldUnknown:

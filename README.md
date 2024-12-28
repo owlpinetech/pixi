@@ -24,17 +24,37 @@ This repository contains the specification of a the Pixi file format. To start, 
 
 ## Concepts
 
+### Layers
+
 ### Fields
 
 ### Separation
 
 ### Dimensions and Tiling
 
-### Layers
-
 ### Robustness and Errors
 
 ## Layout
+
+This section details the byte-level layout of a Pixi file.
+
+### Pixi Header
+
+Every Pixi file should start with seven bytes: "PIXI". This is followed by the version number, written as a number in UTF-8 string in two bytes. The version number should be prefixed with leading zeros if the printed number string is not long enough to fill two bytes.
+
+Following this magic sequence and version number is the offset size indicator. This is a single byte, indicating the number of bytes that will make up offset values later in this file, used to point to different byte indices within the file. Currently, the only supported values of the offset size indicator are 4 and 8 (for 32-bit and 64-bit requirements respectively).
+
+Then the endianness indicator follows, another single byte. This indicates the endianness of all multibyte values that follow in the data stream. The two supported options are little endian at 0x00 and big endian with 0xff.
+
+Following this is the first layer offset, which will be an integer composed of the number of bytes specified by the offset size indicator. This will be the byte offset in the file, with index 0 equal to the start of the file, at which the first layer's first byte can be found.
+
+Following this offset is the tagging offset. This will be the offset in the file at which the tagging section can start being read.
+
+### Layer Header
+
+### Tagging Section
+
+### Field Header
 
 ## Compression
 

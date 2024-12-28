@@ -104,7 +104,7 @@ type DiskLayer struct {
 func (d *DiskLayer) DiskHeaderSize() int64 {
 	headerSize := int64(4)                       // config (separated only currently) is 4 bytes
 	headerSize += 4 * 3                          // 4 bytes for compression, dim count, field count
-	headerSize += 4 + int64(len([]byte(d.Name))) // 4 bytes for name length, then name length
+	headerSize += 4 + int64(len([]byte(d.Name))) // 4 bytes for name length, then name
 	headerSize += int64(len(d.Dimensions)) * 8   // 8 bytes for each dimension size
 	headerSize += int64(len(d.Dimensions)) * 8   // 8 bytes for each dimension tile size
 	headerSize += int64(len(d.Fields)) * 4       // 4 bytes for each field type

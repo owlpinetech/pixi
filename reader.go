@@ -15,7 +15,7 @@ func ReadPixi(r io.ReadSeeker) (Pixi, error) {
 		return Pixi{}, err
 	}
 	fileType := string(buf)
-	if fileType != PixiFileType {
+	if fileType != FileType {
 		return Pixi{}, FormatError("pixi file marker not found at start of file")
 	}
 
@@ -28,11 +28,11 @@ func ReadPixi(r io.ReadSeeker) (Pixi, error) {
 	if err != nil {
 		return Pixi{}, err
 	}
-	if version > PixiVersion {
+	if version > Version {
 		return Pixi{}, FormatError("reader does not support this version of pixi file")
 	}
 
-	offset := (&Pixi{}).FirstLayerOffset()
+	offset := FirstLayerOffset
 
 	layers := []*DiskLayer{}
 	for offset != 0 {

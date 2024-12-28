@@ -8,13 +8,13 @@ import (
 
 func StartPixi(w io.Writer) (*Pixi, error) {
 	// write file type
-	_, err := w.Write([]byte(PixiFileType))
+	_, err := w.Write([]byte(FileType))
 	if err != nil {
 		return nil, err
 	}
 
 	// write file version
-	_, err = w.Write([]byte(fmt.Sprintf("%04d", PixiVersion)))
+	_, err = w.Write([]byte(fmt.Sprintf("%04d", Version)))
 	if err != nil {
 		return nil, err
 	}
@@ -22,7 +22,7 @@ func StartPixi(w io.Writer) (*Pixi, error) {
 	return &Pixi{}, nil
 }
 
-func WriteLayer(w io.Writer, d DiskLayer) error {
+func WriteLayerHeader(w io.Writer, d DiskLayer) error {
 	tiles := d.DiskTiles()
 	if tiles != len(d.TileBytes) {
 		return FormatError("invalid TileBytes: must have same number of elements as tiles in data set for valid pixi files")

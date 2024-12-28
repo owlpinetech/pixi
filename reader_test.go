@@ -113,7 +113,7 @@ func TestWriteReadDataSet(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = WriteLayer(buf, *tc.data.Layers[0])
+			err = WriteLayerHeader(buf, *tc.data.Layers[0])
 			if tc.err != nil {
 				if err == nil {
 					t.Fatalf("expected error %v but got none", tc.err)

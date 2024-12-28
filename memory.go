@@ -18,7 +18,7 @@ func NewInMemoryDataset(l DiskLayer) (*InMemoryDataset, error) {
 		memSet.TileSet = make([][]byte, memSet.Tiles())
 	}
 	for tileInd := 0; tileInd < len(memSet.TileSet); tileInd++ {
-		memSet.TileSet[tileInd] = make([]byte, memSet.TileSize(tileInd))
+		memSet.TileSet[tileInd] = make([]byte, memSet.DiskTileSize(tileInd))
 	}
 	return memSet, nil
 }
@@ -28,7 +28,7 @@ func ReadInMemory(r io.ReadSeeker, ds DiskLayer) (InMemoryDataset, error) {
 
 	tiles := make([][]byte, len(ds.TileBytes))
 	for tileInd := range ds.TileBytes {
-		uncompressedLen := ds.TileSize(tileInd)
+		uncompressedLen := ds.DiskTileSize(tileInd)
 		buf := make([]byte, uncompressedLen)
 		_, err := r.Seek(ds.TileOffsets[tileInd], io.SeekStart)
 		if err != nil {

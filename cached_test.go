@@ -108,7 +108,7 @@ func TestCacheAllReadAllSample(t *testing.T) {
 		Fields:      []Field{{Type: FieldFloat64}, {Type: FieldInt16}, {Type: FieldUint64}},
 	}
 	pix := &Pixi{}
-	diskLayer, err := pix.AddBlankUncompressedLayer(buf, pix.FirstLayerOffset(), layer)
+	diskLayer, err := pix.AddBlankUncompressedLayer(buf, FirstLayerOffset, layer)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,7 +186,7 @@ func TestCacheAllReadAllSampleField(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			diskLayer, err := pix.AddBlankUncompressedLayer(temp, pix.FirstLayerOffset(), layer)
+			diskLayer, err := pix.AddBlankUncompressedLayer(temp, FirstLayerOffset, layer)
 			if err != nil {
 				t.Fatal(err)
 			}

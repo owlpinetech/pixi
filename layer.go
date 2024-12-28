@@ -1,5 +1,7 @@
 package pixi
 
+import "io"
+
 type Layer struct {
 	Name string // Friendly name of the layer
 	// Indicates whether the fields of the dataset are stored separated or contiguously. If true,
@@ -14,6 +16,9 @@ type Layer struct {
 	Fields     []Field // An array of Field structs representing the fields in this dataset.
 }
 
+// Computes the number of non-separated tiles in the data set. This number is the same regardless
+// of how the tiles are laid out on disk; use the DiskTiles() method to determine the number of
+// tiles actually stored on disk. Note that DiskTiles() >= Tiles() by definition.
 func (d *Layer) Tiles() int {
 	tiles := 1
 	for _, t := range d.Dimensions {
@@ -48,11 +53,11 @@ func (d *Layer) Samples() int {
 	return samples
 }
 
-// The size of a single tile in bytes. For contiguous files, the size of each tile is always
+// The size of the requested disk tile in bytes. For contiguous files, the size of each tile is always
 // the same. However, for separated data sets, each field is tiled (so the number of on-disk
 // tiles is actually fieldCount * Tiles()). Hence, the tile size changes depending on which
 // field is being accessed.
-func (d *Layer) TileSize(tileIndex int) int {
+func (d *Layer) DiskTileSize(tileIndex int) int {
 	if d.Tiles() == 0 {
 		return 0
 	}
@@ -64,6 +69,9 @@ func (d *Layer) TileSize(tileIndex int) int {
 	}
 }
 
+// The number of discrete data tiles actually stored in the backing file. This number differs based
+// on whether fields are stored 'contiguous' or 'separated'; in the former case, DiskTiles() == Tiles(),
+// in the latter case, DiskTiles() == Tiles() * number of fields.
 func (d *Layer) DiskTiles() int {
 	tiles := d.Tiles()
 	if d.Separated {
@@ -118,4 +126,20 @@ func (d *DiskLayer) DataSize() int64 {
 		size += b
 	}
 	return size
+}
+
+// Compacts the tiles in the layer so that as few bytes on disk as possible are wasted, and moves
+// the whole layer to the specified offset in the file. If there is a write or read error during
+// compaction, the process stops immediately and returns the error. Otherwise, the new end offset
+// of the layer is returned as the result of compaction and moving.
+func (d *DiskLayer) MoveAndCompact(backing io.ReadWriteSeeker, newOffset int64) (int64, error) {
+
+}
+
+func (l *DiskLayer) FillBlank(backing io.ReadWriteSeeker) error {
+
+}
+
+func (l *DiskLayer) WriteInOrder(backing io.ReadWriteSeeker, iter func(index []uint) []any) error {
+
 }

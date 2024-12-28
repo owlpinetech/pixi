@@ -217,7 +217,7 @@ func (d *CacheDataset) Finalize(pix *Pixi) error {
 	if err != nil {
 		return err
 	}
-	err = WriteLayer(d.Backing, *d.DiskLayer)
+	err = WriteLayerHeader(d.Backing, *d.DiskLayer)
 	if err != nil {
 		return err
 	}
@@ -274,7 +274,7 @@ func (d *CacheDataset) evict() error {
 func (d *CacheDataset) readTile(tileIndex uint) ([]byte, error) {
 	d.Backing.Seek(d.TileOffsets[int(tileIndex)], io.SeekStart)
 
-	uncompressedLen := d.TileSize(int(tileIndex))
+	uncompressedLen := d.DiskTileSize(int(tileIndex))
 
 	switch d.Compression {
 	case CompressionNone:

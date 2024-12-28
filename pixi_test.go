@@ -231,7 +231,7 @@ func TestPixiTileSize(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			gotSize := test.dataset.TileSize(0)
+			gotSize := test.dataset.DiskTileSize(0)
 			if gotSize != test.wantSize {
 				t.Errorf("TileSize() = %d, want %d", gotSize, test.wantSize)
 			}
@@ -393,7 +393,7 @@ func TestAddBlankLayers(t *testing.T) {
 			}
 
 			diskLayers := make([]*DiskLayer, 0)
-			offset := pix.FirstLayerOffset()
+			offset := FirstLayerOffset
 			for _, layer := range tc.layers {
 				dl, err := pix.AddBlankUncompressedLayer(buf, offset, layer)
 				if err != nil {

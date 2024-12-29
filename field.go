@@ -2,6 +2,7 @@ package pixi
 
 import (
 	"encoding/binary"
+	"io"
 	"math"
 )
 
@@ -21,15 +22,38 @@ func (f Field) Size() int {
 // The read operation is type-dependent, with each field type having its own specific method
 // for reading values. This ensures that the correct data is read and converted into the
 // expected format.
-func (f Field) Read(raw []byte) any {
-	return f.Type.Read(raw)
+func (f Field) ReadValue(raw []byte) any {
+	return f.Type.ReadValue(raw)
 }
 
 // This function writes a value of any type into bytes according to the specified FieldType.
 // The written bytes are stored in the provided byte array. This function will panic if
 // the FieldType is unknown or if an unsupported field type is encountered.
-func (f Field) Write(raw []byte, val any) {
-	f.Type.Write(raw, val)
+func (f Field) WriteValue(raw []byte, val any) {
+	f.Type.WriteValue(raw, val)
+}
+
+// Get the size in bytes of this dimension description as it is laid out and written to disk.
+func (d Field) HeaderSize(h PixiHeader) int {
+	return 2 + len([]byte(d.Name)) + 4
+}
+
+func (d *Field) Write(w io.Writer, h PixiHeader) error {
+	// write the name, then size and tile size
+	err := h.WriteFriendly(w, d.Name)
+	if err != nil {
+		return err
+	}
+	return h.Write(w, d.Type)
+}
+
+func (d *Field) Read(r io.Reader, h PixiHeader) error {
+	name, err := h.ReadFriendly(r)
+	if err != nil {
+		return err
+	}
+	d.Name = name
+	return h.Read(r, &d.Type)
 }
 
 // Describes the size and interpretation of a field.
@@ -83,7 +107,7 @@ func (f FieldType) Size() int {
 // The read operation is type-dependent, with each field type having its own specific method
 // for reading values. This ensures that the correct data is read and converted into the
 // expected format.
-func (f FieldType) Read(raw []byte) any {
+func (f FieldType) ReadValue(raw []byte) any {
 	switch f {
 	case FieldUnknown:
 		panic("pixi: tried to read field with unknown size")
@@ -115,7 +139,7 @@ func (f FieldType) Read(raw []byte) any {
 // This function writes a value of any type into bytes according to the specified FieldType.
 // The written bytes are stored in the provided byte array. This function will panic if
 // the FieldType is unknown or if an unsupported field type is encountered.
-func (f FieldType) Write(raw []byte, val any) {
+func (f FieldType) WriteValue(raw []byte, val any) {
 	switch f {
 	case FieldUnknown:
 		panic("pixi: tried to write field with unknown size")

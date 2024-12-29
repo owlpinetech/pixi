@@ -1,5 +1,9 @@
 package pixi
 
+import (
+	"io"
+)
+
 // Pixi files are composed of one or more layers. Generally, layers are used to represent the same data set
 // at different 'zoom levels'. For example, a large digital elevation model data set might have a layer
 // that shows a zoomed-out view of the terrain at a much smaller footprint, useful for thumbnails and previews.
@@ -95,20 +99,22 @@ func (d *Layer) SampleSize() int {
 	return sampleSize
 }
 
-func (d *Layer) HeaderSize() int64 {
-	headerSize := int64(4)                       // config (separated only currently) is 4 bytes
-	headerSize += 4 * 3                          // 4 bytes for compression, dim count, field count
-	headerSize += 4 + int64(len([]byte(d.Name))) // 4 bytes for name length, then name
-	headerSize += int64(len(d.Dimensions)) * 8   // 8 bytes for each dimension size
-	headerSize += int64(len(d.Dimensions)) * 8   // 8 bytes for each dimension tile size
-	headerSize += int64(len(d.Fields)) * 4       // 4 bytes for each field type
-	headerSize += int64(len(d.Fields)) * 2       // 2 bytes for each field name length
-	for _, f := range d.Fields {
-		headerSize += int64(len([]byte(f.Name))) // each field name length in bytes
+func (d *Layer) HeaderSize(h PixiHeader) int {
+	headerSize := 4                       // config (separated only currently) is 4 bytes
+	headerSize += 3 * 3                   // 4 bytes for compression, field count
+	headerSize += 2 + len([]byte(d.Name)) // 2 bytes for name length, then name
+	headerSize += 4                       // four bytes for dimension count
+	for _, d := range d.Dimensions {
+		headerSize += d.HeaderSize(h)
 	}
-	headerSize += int64(d.DiskTiles()) * 8 // 8 bytes for each real disk tile size in bytes
-	headerSize += int64(d.DiskTiles()) * 8 // 8 bytes for each tile offset
-	headerSize += 8                        // 8 bytes for the next layer start offset
+	headerSize += len(d.Fields) * 4 // 4 bytes for each field type
+	headerSize += len(d.Fields) * 2 // 2 bytes for each field name length
+	for _, f := range d.Fields {
+		headerSize += len([]byte(f.Name)) // each field name length in bytes
+	}
+	headerSize += d.DiskTiles() * h.OffsetSize // 8 bytes for each real disk tile size in bytes
+	headerSize += d.DiskTiles() * h.OffsetSize // 8 bytes for each tile offset
+	headerSize += h.OffsetSize                 // 8 bytes for the next layer start offset
 	return headerSize
 }
 
@@ -120,4 +126,152 @@ func (d *Layer) DataSize() int64 {
 		size += b
 	}
 	return size
+}
+
+func (d *Layer) WriteHeader(w io.Writer, h PixiHeader) error {
+	tiles := d.DiskTiles()
+	if tiles != len(d.TileBytes) {
+		return FormatError("invalid TileBytes: must have same number of elements as tiles in data set for valid pixi files")
+	}
+	if tiles != len(d.TileOffsets) {
+		return FormatError("invalid TileOffsets: must have same number of elements as tiles in data set for valid pixi files")
+	}
+
+	// write configuration and compression
+	configuration := uint32(0)
+	if d.Separated {
+		configuration = 1
+	}
+	err := h.Write(w, configuration)
+	if err != nil {
+		return err
+	}
+
+	err = h.Write(w, d.Compression)
+	if err != nil {
+		return err
+	}
+
+	// write layer name
+	err = h.WriteFriendly(w, d.Name)
+	if err != nil {
+		return err
+	}
+
+	// write dimensions
+	err = h.Write(w, uint32(len(d.Dimensions)))
+	if err != nil {
+		return err
+	}
+	for _, dim := range d.Dimensions {
+		err = dim.Write(w, h)
+		if err != nil {
+			return err
+		}
+	}
+
+	// write fields
+	err = h.Write(w, uint32(len(d.Fields)))
+	if err != nil {
+		return err
+	}
+	for _, field := range d.Fields {
+		err = field.Write(w, h)
+		if err != nil {
+			return err
+		}
+	}
+
+	// write tile bytes, offsets, and start of next layer
+	err = h.WriteOffsets(w, d.TileBytes)
+	if err != nil {
+		return err
+	}
+	err = h.WriteOffsets(w, d.TileOffsets)
+	if err != nil {
+		return err
+	}
+	err = h.WriteOffset(w, d.NextLayerStart)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (d *Layer) ReadLayer(r io.Reader, h PixiHeader) error {
+	// read configuration and compression
+	var configuration uint32
+	err := h.Read(r, &configuration)
+	if err != nil {
+		return err
+	}
+	d.Separated = configuration != 0
+	err = h.Read(r, &d.Compression)
+	if err != nil {
+		return err
+	}
+
+	// read layer name
+	d.Name, err = h.ReadFriendly(r)
+	if err != nil {
+		return err
+	}
+
+	// read dimensions
+	var dimCount uint32
+	err = h.Read(r, &dimCount)
+	if err != nil {
+		return err
+	}
+	if dimCount < 1 {
+		return FormatError("must have at least one dimension for a valid pixi file")
+	}
+	d.Dimensions = make([]Dimension, dimCount)
+	for dInd := range d.Dimensions {
+		dim := Dimension{}
+		err = (&dim).Read(r, h)
+		if err != nil {
+			return err
+		}
+		d.Dimensions[dInd] = dim
+	}
+
+	// read field types
+	var fieldCount uint32
+	err = h.Read(r, &fieldCount)
+	if err != nil {
+		return err
+	}
+	if fieldCount < 1 {
+		return FormatError("must have at least one field for a valid pixi file")
+	}
+	d.Fields = make([]Field, dimCount)
+	for fInd := range d.Fields {
+		field := Field{}
+		err = (&field).Read(r, h)
+		if err != nil {
+			return err
+		}
+		d.Fields[fInd] = field
+	}
+
+	// read tile bytes, offsets, and next layer start
+	tiles := d.DiskTiles()
+	d.TileBytes = make([]int64, tiles)
+	err = h.ReadOffsets(r, d.TileBytes)
+	if err != nil {
+		return err
+	}
+	d.TileOffsets = make([]int64, tiles)
+	err = h.ReadOffsets(r, d.TileOffsets)
+	if err != nil {
+		return err
+	}
+	d.NextLayerStart, err = h.ReadOffset(r)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

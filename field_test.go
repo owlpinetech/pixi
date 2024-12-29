@@ -69,7 +69,7 @@ func TestFieldType_Read(t *testing.T) {
 				binary.Write(buf, binary.BigEndian, tt.value.(float64))
 				raw = buf.Bytes()
 			}
-			val := tt.fieldType.Read(raw)
+			val := tt.fieldType.ReadValue(raw)
 			if !reflect.DeepEqual(val, tt.value) {
 				t.Errorf("Read() = %+v, want %+v", val, tt.value)
 			}
@@ -97,7 +97,7 @@ func TestFieldType_Write(t *testing.T) {
 
 	for i, test := range tests {
 		buf := make([]byte, test.fieldType.Size())
-		test.fieldType.Write(buf, test.readExpected)
+		test.fieldType.WriteValue(buf, test.readExpected)
 
 		written := buf
 		for b := 0; b < len(test.writeData); b++ {

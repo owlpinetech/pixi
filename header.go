@@ -7,7 +7,8 @@ import (
 	"strconv"
 )
 
-// Contains information used to read or write the rest of a Pixi data file.
+// Contains information used to read or write the rest of a Pixi data file. This information
+// is always found at the start of a stream of Pixi data.
 type PixiHeader struct {
 	Version          int
 	OffsetSize       int
@@ -16,14 +17,19 @@ type PixiHeader struct {
 	FirstTagsOffset  int64
 }
 
+// Writes a fixed size value, or a slice of such values, using the byte order given in the header.
 func (s *PixiHeader) Write(w io.Writer, val any) error {
 	return binary.Write(w, s.ByteOrder, val)
 }
 
+// Reads a fixed-size value, or a slice of such values, using the byte order given in the header.
 func (s *PixiHeader) Read(r io.Reader, val any) error {
 	return binary.Read(r, s.ByteOrder, val)
 }
 
+// Writes a file offset to the current position in the writer stream, based on the offset size
+// specified in the header. Panics if the file offset size has not yet been set, and returns
+// an error if writing fails.
 func (s *PixiHeader) WriteOffset(w io.Writer, offset int64) error {
 	switch s.OffsetSize {
 	case 4:
@@ -34,6 +40,9 @@ func (s *PixiHeader) WriteOffset(w io.Writer, offset int64) error {
 	panic("pixi: unsupported offset size")
 }
 
+// Reads a file offset from the current position in the reader, based on the offset size
+// read earlier in the file. Panics if the file offset size has not yet been set, and returns
+// an error if reading fails.
 func (s *PixiHeader) ReadOffset(r io.Reader) (int64, error) {
 	switch s.OffsetSize {
 	case 4:
@@ -43,11 +52,70 @@ func (s *PixiHeader) ReadOffset(r io.Reader) (int64, error) {
 	case 8:
 		var offset int64
 		err := binary.Read(r, s.ByteOrder, &offset)
-		return int64(offset), err
+		return offset, err
 	}
 	panic("pixi: unsupported offset size")
 }
 
+// Writes a slice of offsets to the current position in the writer stream, based on the offset size
+// specified in the header. Panics if the file offset size has not yet been set, and returns
+// an error if writing fails.
+func (s *PixiHeader) WriteOffsets(w io.Writer, offsets []int64) error {
+	switch s.OffsetSize {
+	case 4:
+		smallOffs := make([]int32, len(offsets))
+		for i := range offsets {
+			smallOffs[i] = int32(offsets[i])
+		}
+		return binary.Write(w, s.ByteOrder, smallOffs)
+	case 8:
+		return binary.Write(w, s.ByteOrder, offsets)
+	}
+	panic("pixi: unsupported offset size")
+}
+
+// Reads a slice of offsets from the current position in the reader, based on the offset size
+// read earlier in the file. Panics if the file offset size has not yet been set, and returns
+// an error if reading fails.
+func (s *PixiHeader) ReadOffsets(r io.Reader, offsets []int64) error {
+	switch s.OffsetSize {
+	case 4:
+		smallOffs := make([]int64, len(offsets))
+		err := binary.Read(r, s.ByteOrder, smallOffs)
+		if err != nil {
+			return err
+		}
+		for i := range offsets {
+			offsets[i] = smallOffs[i]
+		}
+		return nil
+	case 8:
+		return binary.Read(r, s.ByteOrder, offsets)
+	}
+	panic("pixi: unsupported offset size")
+}
+
+func (s *PixiHeader) WriteFriendly(w io.Writer, friendly string) error {
+	strBytes := []byte(friendly)
+	err := s.Write(w, uint16(len(strBytes)))
+	if err != nil {
+		return nil
+	}
+	return s.Write(w, strBytes)
+}
+
+func (s *PixiHeader) ReadFriendly(r io.Reader) (string, error) {
+	var strLen uint16
+	err := s.Read(r, &strLen)
+	if err != nil {
+		return "", err
+	}
+	strBytes := make([]byte, int(strLen))
+	err = s.Read(r, strBytes)
+	return string(strBytes), err
+}
+
+// Write the information in this header to the current position in the writer stream.
 func (h *PixiHeader) WriteHeader(w io.Writer) error {
 	// write file type
 	_, err := w.Write([]byte(FileType))
@@ -87,6 +155,8 @@ func (h *PixiHeader) WriteHeader(w io.Writer) error {
 	return h.WriteOffset(w, h.FirstTagsOffset)
 }
 
+// Read Pixi header information into this struct from the current position in the reader stream.
+// Will return an error if the reading fails, or if there are format errors in the Pixi header.
 func (h *PixiHeader) ReadHeader(r io.Reader) error {
 	buf := make([]byte, 4)
 

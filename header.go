@@ -7,6 +7,7 @@ import (
 	"strconv"
 )
 
+// Contains information used to read or write the rest of a Pixi data file.
 type PixiHeader struct {
 	Version          int
 	OffsetSize       int
@@ -120,7 +121,7 @@ func (h *PixiHeader) ReadHeader(r io.Reader) error {
 		return err
 	}
 
-	if buf[0] != 4 || buf[0] != 8 {
+	if buf[0] != 4 && buf[0] != 8 {
 		return FormatError("reader only supports offset sizes of 4 or 8 bytes")
 	}
 	h.OffsetSize = int(buf[0])

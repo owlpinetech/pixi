@@ -16,13 +16,11 @@ func TestWriteReadDataSet(t *testing.T) {
 		{
 			name: "contig",
 			data: Pixi{
-				Layers: []*DiskLayer{{
-					Layer: Layer{
-						Separated:   false,
-						Compression: CompressionNone,
-						Dimensions:  []Dimension{{Size: 4, TileSize: 4}, {Size: 4, TileSize: 2}, {Size: 3, TileSize: 3}},
-						Fields:      []Field{{Name: "a", Type: FieldInt32}, {Name: "b", Type: FieldInt64}, {Name: "hello", Type: FieldInt16}},
-					},
+				Layers: []*Layer{{
+					Separated:   false,
+					Compression: CompressionNone,
+					Dimensions:  []Dimension{{Size: 4, TileSize: 4}, {Size: 4, TileSize: 2}, {Size: 3, TileSize: 3}},
+					Fields:      []Field{{Name: "a", Type: FieldInt32}, {Name: "b", Type: FieldInt64}, {Name: "hello", Type: FieldInt16}},
 					TileBytes:   []int64{100, 200},
 					TileOffsets: []int64{80, 160},
 				}}},
@@ -31,14 +29,12 @@ func TestWriteReadDataSet(t *testing.T) {
 		{
 			name: "layer name",
 			data: Pixi{
-				Layers: []*DiskLayer{{
-					Layer: Layer{
-						Name:        "hello",
-						Separated:   false,
-						Compression: CompressionNone,
-						Dimensions:  []Dimension{{Size: 4, TileSize: 4}, {Size: 4, TileSize: 2}, {Size: 3, TileSize: 3}},
-						Fields:      []Field{{Name: "a", Type: FieldInt32}, {Name: "b", Type: FieldInt64}, {Name: "hello", Type: FieldInt16}},
-					},
+				Layers: []*Layer{{
+					Name:        "hello",
+					Separated:   false,
+					Compression: CompressionNone,
+					Dimensions:  []Dimension{{Size: 4, TileSize: 4}, {Size: 4, TileSize: 2}, {Size: 3, TileSize: 3}},
+					Fields:      []Field{{Name: "a", Type: FieldInt32}, {Name: "b", Type: FieldInt64}, {Name: "hello", Type: FieldInt16}},
 					TileBytes:   []int64{100, 200},
 					TileOffsets: []int64{70, 30},
 				}}},
@@ -47,13 +43,11 @@ func TestWriteReadDataSet(t *testing.T) {
 		{
 			name: "no names",
 			data: Pixi{
-				Layers: []*DiskLayer{{
-					Layer: Layer{
-						Separated:   false,
-						Compression: CompressionNone,
-						Dimensions:  []Dimension{{Size: 4, TileSize: 4}, {Size: 4, TileSize: 2}, {Size: 3, TileSize: 3}},
-						Fields:      []Field{{Type: FieldInt32}, {Type: FieldInt64}, {Type: FieldInt16}},
-					},
+				Layers: []*Layer{{
+					Separated:   false,
+					Compression: CompressionNone,
+					Dimensions:  []Dimension{{Size: 4, TileSize: 4}, {Size: 4, TileSize: 2}, {Size: 3, TileSize: 3}},
+					Fields:      []Field{{Type: FieldInt32}, {Type: FieldInt64}, {Type: FieldInt16}},
 					TileBytes:   []int64{100, 200},
 					TileOffsets: []int64{100, 200},
 				}}},
@@ -62,13 +56,11 @@ func TestWriteReadDataSet(t *testing.T) {
 		{
 			name: "sep",
 			data: Pixi{
-				Layers: []*DiskLayer{{
-					Layer: Layer{
-						Separated:   true,
-						Compression: CompressionFlate,
-						Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
-						Fields:      []Field{{Name: "a", Type: FieldFloat64}, {Name: "hello", Type: FieldInt16}},
-					},
+				Layers: []*Layer{{
+					Separated:   true,
+					Compression: CompressionFlate,
+					Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+					Fields:      []Field{{Name: "a", Type: FieldFloat64}, {Name: "hello", Type: FieldInt16}},
 					TileBytes:   []int64{100, 200, 300, 400, 500, 600, 700, 800},
 					TileOffsets: []int64{100, 200, 300, 400, 500, 600, 700, 800},
 				}}},
@@ -77,13 +69,11 @@ func TestWriteReadDataSet(t *testing.T) {
 		{
 			name: "tile bytes err",
 			data: Pixi{
-				Layers: []*DiskLayer{{
-					Layer: Layer{
-						Separated:   true,
-						Compression: CompressionFlate,
-						Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
-						Fields:      []Field{{Name: "a", Type: FieldFloat64}, {Name: "hello", Type: FieldInt16}},
-					},
+				Layers: []*Layer{{
+					Separated:   true,
+					Compression: CompressionFlate,
+					Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+					Fields:      []Field{{Name: "a", Type: FieldFloat64}, {Name: "hello", Type: FieldInt16}},
 					TileBytes:   []int64{100, 200, 300, 400, 500, 600, 700},
 					TileOffsets: []int64{100, 200, 300, 400, 500, 600, 700, 800},
 				}}},
@@ -92,13 +82,11 @@ func TestWriteReadDataSet(t *testing.T) {
 		{
 			name: "tile offsets err",
 			data: Pixi{
-				Layers: []*DiskLayer{{
-					Layer: Layer{
-						Separated:   true,
-						Compression: CompressionFlate,
-						Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
-						Fields:      []Field{{Name: "a", Type: FieldFloat64}, {Name: "hello", Type: FieldInt16}},
-					},
+				Layers: []*Layer{{
+					Separated:   true,
+					Compression: CompressionFlate,
+					Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+					Fields:      []Field{{Name: "a", Type: FieldFloat64}, {Name: "hello", Type: FieldInt16}},
 					TileBytes:   []int64{100, 200, 300, 400, 500, 600, 700, 800},
 					TileOffsets: []int64{100, 200, 300, 400, 500, 600, 700},
 				}}},

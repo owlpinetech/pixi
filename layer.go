@@ -1,7 +1,9 @@
 package pixi
 
-import "io"
-
+// Pixi files are composed of one or more layers. Generally, layers are used to represent the same data set
+// at different 'zoom levels'. For example, a large digital elevation model data set might have a layer
+// that shows a zoomed-out view of the terrain at a much smaller footprint, useful for thumbnails and previews.
+// Layers are also useful if data sets of different resolutions should be stored together in the same file.
 type Layer struct {
 	Name string // Friendly name of the layer
 	// Indicates whether the fields of the dataset are stored separated or contiguously. If true,
@@ -12,8 +14,11 @@ type Layer struct {
 	Compression Compression // The type of compression used on this dataset (e.g., Flate, lz4).
 	// An array of Dimension structs representing the dimensions and tiling of this dataset.
 	// No dimensions equals an empty dataset.
-	Dimensions []Dimension
-	Fields     []Field // An array of Field structs representing the fields in this dataset.
+	Dimensions     []Dimension
+	Fields         []Field // An array of Field structs representing the fields in this dataset.
+	TileBytes      []int64 // An array of byte counts representing (compressed) size of each tile in bytes for this dataset.
+	TileOffsets    []int64 // An array of byte offsets representing the position in the file of each tile in the dataset.
+	NextLayerStart int64   // The start of the next layer in the file, in units of bytes. 0 if this is the last layer in the file.
 }
 
 // Computes the number of non-separated tiles in the data set. This number is the same regardless
@@ -90,18 +95,7 @@ func (d *Layer) SampleSize() int {
 	return sampleSize
 }
 
-// Pixi files are composed of one or more layers. Generally, layers are used to represent the same data set
-// at different 'zoom levels'. For example, a large digital elevation model data set might have a layer
-// that shows a zoomed-out view of the terrain at a much smaller footprint, useful for thumbnails and previews.
-// Layers are also useful if data sets of different resolutions should be stored together in the same file.
-type DiskLayer struct {
-	Layer
-	TileBytes      []int64 // An array of byte counts representing (compressed) size of each tile in bytes for this dataset.
-	TileOffsets    []int64 // An array of byte offsets representing the position in the file of each tile in the dataset.
-	NextLayerStart int64   // The start of the next layer in the file, in units of bytes. 0 if this is the last layer in the file.
-}
-
-func (d *DiskLayer) DiskHeaderSize() int64 {
+func (d *Layer) HeaderSize() int64 {
 	headerSize := int64(4)                       // config (separated only currently) is 4 bytes
 	headerSize += 4 * 3                          // 4 bytes for compression, dim count, field count
 	headerSize += 4 + int64(len([]byte(d.Name))) // 4 bytes for name length, then name
@@ -120,26 +114,10 @@ func (d *DiskLayer) DiskHeaderSize() int64 {
 
 // The on-disk size in bytes of the (potentially compressed) data set. Does not include the dataset
 // header size.
-func (d *DiskLayer) DataSize() int64 {
+func (d *Layer) DataSize() int64 {
 	size := int64(0)
 	for _, b := range d.TileBytes {
 		size += b
 	}
 	return size
-}
-
-// Compacts the tiles in the layer so that as few bytes on disk as possible are wasted, and moves
-// the whole layer to the specified offset in the file. If there is a write or read error during
-// compaction, the process stops immediately and returns the error. Otherwise, the new end offset
-// of the layer is returned as the result of compaction and moving.
-func (d *DiskLayer) MoveAndCompact(backing io.ReadWriteSeeker, newOffset int64) (int64, error) {
-
-}
-
-func (l *DiskLayer) FillBlank(backing io.ReadWriteSeeker) error {
-
-}
-
-func (l *DiskLayer) WriteInOrder(backing io.ReadWriteSeeker, iter func(index []uint) []any) error {
-
 }

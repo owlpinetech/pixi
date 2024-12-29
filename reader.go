@@ -34,7 +34,7 @@ func ReadPixi(r io.ReadSeeker) (Pixi, error) {
 
 	offset := FirstLayerOffset
 
-	layers := []*DiskLayer{}
+	layers := []*Layer{}
 	for offset != 0 {
 		layer, err := ReadLayer(r)
 		if err != nil {
@@ -55,8 +55,8 @@ func ReadPixi(r io.ReadSeeker) (Pixi, error) {
 	return summary, nil
 }
 
-func ReadLayer(r io.Reader) (DiskLayer, error) {
-	summary := DiskLayer{}
+func ReadLayer(r io.Reader) (Layer, error) {
+	summary := Layer{}
 	var dimCount, fieldCount, configuration, nameLen uint32
 	err := binary.Read(r, binary.BigEndian, &dimCount)
 	if err != nil {

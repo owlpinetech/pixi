@@ -22,7 +22,7 @@ func StartPixi(w io.Writer) (*Pixi, error) {
 	return &Pixi{}, nil
 }
 
-func WriteLayerHeader(w io.Writer, d DiskLayer) error {
+func WriteLayerHeader(w io.Writer, d Layer) error {
 	tiles := d.DiskTiles()
 	if tiles != len(d.TileBytes) {
 		return FormatError("invalid TileBytes: must have same number of elements as tiles in data set for valid pixi files")

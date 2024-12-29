@@ -306,10 +306,10 @@ func TestAddBlankLayers(t *testing.T) {
 	tests := []struct {
 		name         string
 		layers       []Layer
-		expectLayers []DiskLayer
+		expectLayers []Layer
 	}{
 		{
-			"no layers", []Layer{}, []DiskLayer{},
+			"no layers", []Layer{}, []Layer{},
 		},
 		{
 			"one layer, override compression",
@@ -322,15 +322,13 @@ func TestAddBlankLayers(t *testing.T) {
 					Fields:      []Field{{Name: "a", Type: FieldFloat32}, {Name: "b", Type: FieldInt16}},
 				},
 			},
-			[]DiskLayer{
+			[]Layer{
 				{
-					Layer: Layer{
-						Name:        "layer",
-						Separated:   false,
-						Compression: CompressionNone,
-						Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
-						Fields:      []Field{{Name: "a", Type: FieldFloat32}, {Name: "b", Type: FieldInt16}},
-					},
+					Name:           "layer",
+					Separated:      false,
+					Compression:    CompressionNone,
+					Dimensions:     []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+					Fields:         []Field{{Name: "a", Type: FieldFloat32}, {Name: "b", Type: FieldInt16}},
 					TileOffsets:    []int64{151, 175, 199, 223},
 					TileBytes:      []int64{24, 24, 24, 24},
 					NextLayerStart: 0,
@@ -355,27 +353,23 @@ func TestAddBlankLayers(t *testing.T) {
 					Fields:      []Field{{Name: "c", Type: FieldFloat32}, {Name: "d", Type: FieldInt16}},
 				},
 			},
-			[]DiskLayer{
+			[]Layer{
 				{
-					Layer: Layer{
-						Name:        "one",
-						Separated:   false,
-						Compression: CompressionNone,
-						Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
-						Fields:      []Field{{Name: "a", Type: FieldFloat32}, {Name: "b", Type: FieldInt16}},
-					},
+					Name:           "one",
+					Separated:      false,
+					Compression:    CompressionNone,
+					Dimensions:     []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+					Fields:         []Field{{Name: "a", Type: FieldFloat32}, {Name: "b", Type: FieldInt16}},
 					TileOffsets:    []int64{149, 173, 197, 221},
 					TileBytes:      []int64{24, 24, 24, 24},
 					NextLayerStart: 221 + 24,
 				},
 				{
-					Layer: Layer{
-						Name:        "two",
-						Separated:   false,
-						Compression: CompressionNone,
-						Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
-						Fields:      []Field{{Name: "c", Type: FieldFloat32}, {Name: "d", Type: FieldInt16}},
-					},
+					Name:           "two",
+					Separated:      false,
+					Compression:    CompressionNone,
+					Dimensions:     []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+					Fields:         []Field{{Name: "c", Type: FieldFloat32}, {Name: "d", Type: FieldInt16}},
 					TileOffsets:    []int64{386, 410, 434, 458},
 					TileBytes:      []int64{24, 24, 24, 24},
 					NextLayerStart: 0,
@@ -392,7 +386,7 @@ func TestAddBlankLayers(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			diskLayers := make([]*DiskLayer, 0)
+			diskLayers := make([]*Layer, 0)
 			offset := FirstLayerOffset
 			for _, layer := range tc.layers {
 				dl, err := pix.AddBlankUncompressedLayer(buf, offset, layer)
@@ -408,7 +402,7 @@ func TestAddBlankLayers(t *testing.T) {
 					t.Errorf("expected offset %d, got %v", offset, pix.LayerOffset(dl))
 				}
 
-				offset += dl.DiskHeaderSize() + dl.DataSize()
+				offset += dl.HeaderSize() + dl.DataSize()
 			}
 
 			for lind := range tc.expectLayers {

@@ -15,10 +15,10 @@ const (
 // Represents a single pixi file composed of one or more layers. Functions as a handle
 // to access the description of the each layer as well as the data stored in each layer.
 type Pixi struct {
-	Layers []*DiskLayer // The metadata information about each layer in the file.
+	Layers []*Layer // The metadata information about each layer in the file.
 }
 
-func (d *Pixi) LayerOffset(l *DiskLayer) int64 {
+func (d *Pixi) LayerOffset(l *Layer) int64 {
 	offset := FirstLayerOffset
 	for _, item := range d.Layers {
 		if item == l {
@@ -46,7 +46,7 @@ func (d *Pixi) Compact(backing io.ReadWriteSeeker) error {
 	return fmt.Errorf("unimplemented")
 }
 
-func (d *Pixi) AddLayer(backing io.ReadWriteSeeker, offset int64, layer Layer) (*DiskLayer, error) {
+func (d *Pixi) AddLayer(backing io.ReadWriteSeeker, offset int64, layer Layer) (*Layer, error) {
 	// seek to layer start
 	_, err := backing.Seek(offset, io.SeekStart)
 	if err != nil {
@@ -54,7 +54,7 @@ func (d *Pixi) AddLayer(backing io.ReadWriteSeeker, offset int64, layer Layer) (
 	}
 
 	// set tile sizes and offsets to special 'unset' value
-	diskLayer := &DiskLayer{Layer: layer}
+	diskLayer := &layer
 	diskLayer.TileBytes = make([]int64, layer.DiskTiles())
 	diskLayer.TileOffsets = make([]int64, layer.DiskTiles())
 	for i := range diskLayer.TileBytes {
@@ -77,7 +77,7 @@ func (d *Pixi) AddLayer(backing io.ReadWriteSeeker, offset int64, layer Layer) (
 	return d.Layers[len(d.Layers)-1], nil
 }
 
-func (d *Pixi) AddBlankUncompressedLayer(backing io.ReadWriteSeeker, offset int64, layer Layer) (*DiskLayer, error) {
+func (d *Pixi) AddBlankUncompressedLayer(backing io.ReadWriteSeeker, offset int64, layer Layer) (*Layer, error) {
 	// seek to layer start
 	_, err := backing.Seek(offset, io.SeekStart)
 	if err != nil {
@@ -85,12 +85,12 @@ func (d *Pixi) AddBlankUncompressedLayer(backing io.ReadWriteSeeker, offset int6
 	}
 
 	// compute tile sizes and offsets (easy since uncompressed)
-	diskLayer := &DiskLayer{Layer: layer}
+	diskLayer := &layer
 	diskLayer.Compression = CompressionNone
 	diskLayer.TileBytes = make([]int64, layer.DiskTiles())
 	diskLayer.TileOffsets = make([]int64, layer.DiskTiles())
 
-	tileOffset := offset + diskLayer.DiskHeaderSize()
+	tileOffset := offset + diskLayer.HeaderSize()
 	for i := range diskLayer.TileBytes {
 		tileSize := int64(diskLayer.DiskTileSize(i))
 		diskLayer.TileBytes[i] = tileSize

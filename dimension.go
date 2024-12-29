@@ -46,12 +46,11 @@ func (d *Dimension) Read(r io.Reader, h PixiHeader) error {
 		return err
 	}
 	d.Name = name
-	var size, tileSize int64
-	err = h.Read(r, &size)
+	size, err := h.ReadOffset(r)
 	if err != nil {
 		return err
 	}
-	err = h.Read(r, &tileSize)
+	tileSize, err := h.ReadOffset(r)
 	if err != nil {
 		return err
 	}

@@ -80,13 +80,13 @@ func (s *PixiHeader) WriteOffsets(w io.Writer, offsets []int64) error {
 func (s *PixiHeader) ReadOffsets(r io.Reader, offsets []int64) error {
 	switch s.OffsetSize {
 	case 4:
-		smallOffs := make([]int64, len(offsets))
+		smallOffs := make([]int32, len(offsets))
 		err := binary.Read(r, s.ByteOrder, smallOffs)
 		if err != nil {
 			return err
 		}
 		for i := range offsets {
-			offsets[i] = smallOffs[i]
+			offsets[i] = int64(smallOffs[i])
 		}
 		return nil
 	case 8:

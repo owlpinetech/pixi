@@ -5,9 +5,11 @@ import (
 	"encoding/binary"
 	"reflect"
 	"testing"
+
+	"github.com/owlpinetech/pixi/internal/buffer"
 )
 
-func TestFieldType_Read(t *testing.T) {
+func TestFieldType_ReadValue(t *testing.T) {
 	tests := []struct {
 		name      string
 		fieldType FieldType
@@ -77,7 +79,7 @@ func TestFieldType_Read(t *testing.T) {
 	}
 }
 
-func TestFieldType_Write(t *testing.T) {
+func TestFieldType_WriteValue(t *testing.T) {
 	tests := []struct {
 		fieldType    FieldType
 		writeData    []byte
@@ -103,6 +105,42 @@ func TestFieldType_Write(t *testing.T) {
 		for b := 0; b < len(test.writeData); b++ {
 			if test.writeData[b] != written[b] {
 				t.Errorf("Test %d: unexpected write byte %d, expected %v, got %v", i+1, b, test.writeData[b], written[b])
+			}
+		}
+	}
+}
+
+func TestFieldWriteRead(t *testing.T) {
+	headers := []PixiHeader{
+		{Version: 1, ByteOrder: binary.BigEndian, OffsetSize: 4},
+		{Version: 1, ByteOrder: binary.BigEndian, OffsetSize: 8},
+		{Version: 1, ByteOrder: binary.LittleEndian, OffsetSize: 4},
+		{Version: 1, ByteOrder: binary.LittleEndian, OffsetSize: 8},
+	}
+
+	cases := []Field{
+		{Name: "nameone", Type: FieldInt8},
+		{Name: "", Type: FieldFloat64},
+		{Name: "amuchlongernamethanusualwithlotsofcharacters", Type: FieldInt16},
+	}
+
+	for _, c := range cases {
+		for _, h := range headers {
+			buf := buffer.NewBuffer(10)
+			err := c.Write(buf, h)
+			if err != nil {
+				t.Fatal("write field", err)
+			}
+
+			readBuf := buffer.NewBufferFrom(buf.Bytes())
+			readField := Field{}
+			err = (&readField).Read(readBuf, h)
+			if err != nil {
+				t.Fatal("read field", err)
+			}
+
+			if !reflect.DeepEqual(c, readField) {
+				t.Errorf("expected read field to be %v, got %v for header %v", c, readField, h)
 			}
 		}
 	}

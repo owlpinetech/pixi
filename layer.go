@@ -1,6 +1,7 @@
 package pixi
 
 import (
+	"hash/crc32"
 	"io"
 )
 
@@ -276,5 +277,58 @@ func (d *Layer) ReadLayer(r io.Reader, h PixiHeader) error {
 		return err
 	}
 
+	return nil
+}
+
+func (l *Layer) WriteTile(w io.WriteSeeker, h PixiHeader, tileIndex int, data []byte) error {
+	streamOffset, err := w.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return err
+	}
+	l.TileOffsets[tileIndex] = streamOffset
+
+	writeAmt, err := l.Compression.WriteChunk(w, data)
+	if err != nil {
+		return err
+	}
+	l.TileBytes[tileIndex] = int64(writeAmt)
+
+	checksum := crc32.ChecksumIEEE(data)
+	return h.Write(w, checksum)
+}
+
+func (l *Layer) OverwriteTile(w io.WriteSeeker, h PixiHeader, tileIndex int, data []byte) error {
+	if l.TileOffsets[tileIndex] == 0 {
+		panic("cannot overwrite a tile that has not already been written")
+	}
+
+	_, err := w.Seek(l.TileOffsets[tileIndex], io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	return l.WriteTile(w, h, tileIndex, data)
+}
+
+func (l *Layer) ReadTile(w io.ReadSeeker, h PixiHeader, tileIndex int, data []byte) error {
+	_, err := w.Seek(l.TileOffsets[tileIndex], io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	_, err = l.Compression.ReadChunk(w, data)
+	if err != nil {
+		return err
+	}
+
+	var savedChecksum uint32
+	err = h.Read(w, &savedChecksum)
+	if err != nil {
+		return err
+	}
+
+	if savedChecksum != crc32.ChecksumIEEE(data) {
+		return IntegrityError{TileIndex: tileIndex, LayerName: l.Name}
+	}
 	return nil
 }

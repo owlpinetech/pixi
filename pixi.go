@@ -1,20 +1,69 @@
 package pixi
 
+import "io"
+
 const (
-	FileType         string = "pixi" // Every file starts with these four bytes.
-	Version          int64  = 1      // Every file has a version number as the second set of four bytes.
-	FirstLayerOffset int64  = 8      // The byte offset in every Pixi file at which starts the description of the first accessible layer
-	OffsetUnset      int64  = -1
+	FileType string = "pixi" // Every file starts with these four bytes.
+	Version  int64  = 1      // Every file has a version number as the second set of four bytes.
 )
 
 // Represents a single pixi file composed of one or more layers. Functions as a handle
 // to access the description of the each layer as well as the data stored in each layer.
 type Pixi struct {
-	Layers []*Layer // The metadata information about each layer in the file.
+	Header PixiHeader    // The metadata about the file version and how to read information from the file.
+	Layers []*Layer      // The metadata information about each layer in the file.
+	Tags   []*TagSection // The string tags of the file, broken up into sections for easy appending.
 }
 
+// Convenience function to read all the metadata information from a Pixi file into a single
+// containing struct.
+func ReadPixi(r io.ReadSeeker) (Pixi, error) {
+	pixi := Pixi{
+		Header: PixiHeader{},
+		Layers: make([]*Layer, 0),
+		Tags:   make([]*TagSection, 0),
+	}
+
+	// read the header first, then the layers and tags.
+	err := (&pixi.Header).ReadHeader(r)
+	if err != nil {
+		return pixi, err
+	}
+
+	layerOffset := pixi.Header.FirstLayerOffset
+	for layerOffset != 0 {
+		_, err = r.Seek(layerOffset, io.SeekStart)
+		if err != nil {
+			return pixi, err
+		}
+		rdLayer := &Layer{}
+		err = rdLayer.ReadLayer(r, pixi.Header)
+		if err != nil {
+			return pixi, err
+		}
+		pixi.Layers = append(pixi.Layers, rdLayer)
+	}
+
+	tagOffset := pixi.Header.FirstTagsOffset
+	for tagOffset != 0 {
+		_, err := r.Seek(tagOffset, io.SeekStart)
+		if err != nil {
+			return pixi, err
+		}
+		rdTags := &TagSection{}
+		err = rdTags.Read(r, pixi.Header)
+		if err != nil {
+			return pixi, err
+		}
+		pixi.Tags = append(pixi.Tags, rdTags)
+	}
+
+	return pixi, nil
+}
+
+// Gets the byte-index offset from the start of the file at which the layer header begins.
 func (d *Pixi) LayerOffset(l *Layer) int64 {
-	offset := FirstLayerOffset
+	offset := d.Header.FirstLayerOffset
 	for _, item := range d.Layers {
 		if item == l {
 			break

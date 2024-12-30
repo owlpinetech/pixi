@@ -27,6 +27,8 @@ func (d Dimension) Tiles() int {
 	return tiles
 }
 
+// Writes the binary description of the dimenson to the given stream, according to the specification
+// in the Pixi header h.
 func (d *Dimension) Write(w io.Writer, h PixiHeader) error {
 	// write the name, then size and tile size
 	err := h.WriteFriendly(w, d.Name)
@@ -40,6 +42,8 @@ func (d *Dimension) Write(w io.Writer, h PixiHeader) error {
 	return h.WriteOffset(w, int64(d.TileSize))
 }
 
+// Reads a description of the dimension from the given binary stream, according to the specification
+// in the Pixi header h.
 func (d *Dimension) Read(r io.Reader, h PixiHeader) error {
 	name, err := h.ReadFriendly(r)
 	if err != nil {

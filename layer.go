@@ -22,7 +22,7 @@ type Layer struct {
 	Fields         []Field // An array of Field structs representing the fields in this dataset.
 	TileBytes      []int64 // An array of byte counts representing (compressed) size of each tile in bytes for this dataset.
 	TileOffsets    []int64 // An array of byte offsets representing the position in the file of each tile in the dataset.
-	NextLayerStart int64   // The start of the next layer in the file, in units of bytes. 0 if this is the last layer in the file.
+	NextLayerStart int64   // The byte-index offset of the next layer in the file, from the start of the file. 0 if this is the last layer in the file.
 }
 
 // Computes the number of non-separated tiles in the data set. This number is the same regardless
@@ -99,22 +99,21 @@ func (d *Layer) SampleSize() int {
 	return sampleSize
 }
 
+// Get the total number of bytes that will be occupied in the file by this layer's header.
 func (d *Layer) HeaderSize(h PixiHeader) int {
-	headerSize := 4                       // config (separated only currently) is 4 bytes
-	headerSize += 3 * 3                   // 4 bytes for compression, field count
+	headerSize := 4 + 4                   // 4 bytes each for configuration and compression
 	headerSize += 2 + len([]byte(d.Name)) // 2 bytes for name length, then name
 	headerSize += 4                       // four bytes for dimension count
 	for _, d := range d.Dimensions {
-		headerSize += d.HeaderSize(h)
+		headerSize += d.HeaderSize(h) // add each dimension header size
 	}
-	headerSize += len(d.Fields) * 4 // 4 bytes for each field type
-	headerSize += len(d.Fields) * 2 // 2 bytes for each field name length
+	headerSize += 4 // four bytes for field count
 	for _, f := range d.Fields {
-		headerSize += len([]byte(f.Name)) // each field name length in bytes
+		headerSize += f.HeaderSize(h) // add each field header size
 	}
-	headerSize += d.DiskTiles() * h.OffsetSize // 8 bytes for each real disk tile size in bytes
-	headerSize += d.DiskTiles() * h.OffsetSize // 8 bytes for each tile offset
-	headerSize += h.OffsetSize                 // 8 bytes for the next layer start offset
+	headerSize += d.DiskTiles() * h.OffsetSize // offset size bytes for each real disk tile size in bytes
+	headerSize += d.DiskTiles() * h.OffsetSize // offset size bytes for each tile offset
+	headerSize += h.OffsetSize                 // offset size bytes for the next layer start offset
 	return headerSize
 }
 
@@ -128,6 +127,8 @@ func (d *Layer) DataSize() int64 {
 	return size
 }
 
+// Writes the binary description of the layer to the given stream, according to the specification
+// in the Pixi header h.
 func (d *Layer) WriteHeader(w io.Writer, h PixiHeader) error {
 	tiles := d.DiskTiles()
 	if tiles != len(d.TileBytes) {
@@ -199,6 +200,8 @@ func (d *Layer) WriteHeader(w io.Writer, h PixiHeader) error {
 	return nil
 }
 
+// Reads a description of the layer from the given binary stream, according to the specification
+// in the Pixi header h.
 func (d *Layer) ReadLayer(r io.Reader, h PixiHeader) error {
 	// read configuration and compression
 	var configuration uint32

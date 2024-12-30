@@ -38,6 +38,8 @@ func (d Field) HeaderSize(h PixiHeader) int {
 	return 2 + len([]byte(d.Name)) + 4
 }
 
+// Writes the binary description of the field to the given stream, according to the specification
+// in the Pixi header h.
 func (d *Field) Write(w io.Writer, h PixiHeader) error {
 	// write the name, then size and tile size
 	err := h.WriteFriendly(w, d.Name)
@@ -47,6 +49,8 @@ func (d *Field) Write(w io.Writer, h PixiHeader) error {
 	return h.Write(w, d.Type)
 }
 
+// Reads a description of the field from the given binary stream, according to the specification
+// in the Pixi header h.
 func (d *Field) Read(r io.Reader, h PixiHeader) error {
 	name, err := h.ReadFriendly(r)
 	if err != nil {
@@ -60,17 +64,17 @@ func (d *Field) Read(r io.Reader, h PixiHeader) error {
 type FieldType uint32
 
 const (
-	FieldUnknown FieldType = 0 // Generally indicates an error.
-	FieldInt8    FieldType = 1 // An 8-bit signed integer.
-	FieldUint8   FieldType = 2 // An 8-bit unsigned integer.
-	FieldInt16   FieldType = 3 // A 16-bit signed integer.
-	FieldUint16  FieldType = 4 // A 16-bit unsigned integer.
-	FieldInt32   FieldType = 5
-	FieldUint32  FieldType = 6
-	FieldInt64   FieldType = 7
-	FieldUint64  FieldType = 8
-	FieldFloat32 FieldType = 9
-	FieldFloat64 FieldType = 10
+	FieldUnknown FieldType = 0  // Generally indicates an error.
+	FieldInt8    FieldType = 1  // An 8-bit signed integer.
+	FieldUint8   FieldType = 2  // An 8-bit unsigned integer.
+	FieldInt16   FieldType = 3  // A 16-bit signed integer.
+	FieldUint16  FieldType = 4  // A 16-bit unsigned integer.
+	FieldInt32   FieldType = 5  // A 32-bit signed integer.
+	FieldUint32  FieldType = 6  // A 32-bit unsigned integer.
+	FieldInt64   FieldType = 7  // A 64-bit signed integer.
+	FieldUint64  FieldType = 8  // A 64-bit unsigned integer.
+	FieldFloat32 FieldType = 9  // A 32-bit floating point number.
+	FieldFloat64 FieldType = 10 // A 64-bit floating point number.
 )
 
 // This function returns the size of each element in a field in bytes.

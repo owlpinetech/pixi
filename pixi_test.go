@@ -102,7 +102,7 @@ func TestPixiSamples(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			gotSize := test.dataset.Samples()
+			gotSize := test.dataset.Dimensions.Samples()
 			if gotSize != test.wantSize {
 				t.Errorf("Samples() = %d, want %d", gotSize, test.wantSize)
 			}
@@ -150,7 +150,7 @@ func TestPixiTileSamples(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			gotSize := test.dataset.TileSamples()
+			gotSize := test.dataset.Dimensions.TileSamples()
 			if gotSize != test.wantSize {
 				t.Errorf("Samples() = %d, want %d", gotSize, test.wantSize)
 			}
@@ -254,14 +254,11 @@ func TestPixiTiles(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			dataSet := Layer{
-				Separated:   tc.separated,
-				Compression: CompressionNone,
-				Dimensions:  tc.dims,
-				Fields:      []Field{},
+				Dimensions: tc.dims,
 			}
 
-			if dataSet.Tiles() != tc.want {
-				t.Errorf("PixiTiles() = %d, want %d", dataSet.Tiles(), tc.want)
+			if dataSet.Dimensions.Tiles() != tc.want {
+				t.Errorf("PixiTiles() = %d, want %d", dataSet.Dimensions.Tiles(), tc.want)
 			}
 		})
 	}

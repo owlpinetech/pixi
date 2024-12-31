@@ -17,50 +17,29 @@ type Layer struct {
 	// other at the same index.
 	Separated   bool
 	Compression Compression // The type of compression used on this dataset (e.g., Flate, lz4).
-	// An array of Dimension structs representing the dimensions and tiling of this dataset.
-	// No dimensions equals an empty dataset.
-	Dimensions     []Dimension
+	// A slice of Dimension structs representing the dimensions and tiling of this dataset.
+	// No dimensions equals an empty dataset. Dimensions are stored and iterated such that the
+	// samples for the first dimension are the closest together in memory, with progressively
+	// higher dimensions samples becoming further apart.
+	Dimensions     DimensionSet
 	Fields         []Field // An array of Field structs representing the fields in this dataset.
 	TileBytes      []int64 // An array of byte counts representing (compressed) size of each tile in bytes for this dataset.
 	TileOffsets    []int64 // An array of byte offsets representing the position in the file of each tile in the dataset.
 	NextLayerStart int64   // The byte-index offset of the next layer in the file, from the start of the file. 0 if this is the last layer in the file.
 }
 
-// Computes the number of non-separated tiles in the data set. This number is the same regardless
-// of how the tiles are laid out on disk; use the DiskTiles() method to determine the number of
-// tiles actually stored on disk. Note that DiskTiles() >= Tiles() by definition.
-func (d *Layer) Tiles() int {
-	tiles := 1
-	for _, t := range d.Dimensions {
-		tiles *= t.Tiles()
+func NewLayer(name string, separated bool, compression Compression, dimensions []Dimension, fields []Field) *Layer {
+	l := &Layer{
+		Name:        name,
+		Separated:   separated,
+		Compression: compression,
+		Dimensions:  dimensions,
+		Fields:      fields,
 	}
-	return tiles
-}
 
-// The number of samples per tile in the data set. Each tile has the same number of samples,
-// regardless of if the data is stored separated or continguous.
-func (d *Layer) TileSamples() int {
-	if len(d.Dimensions) <= 0 {
-		return 0
-	}
-	samples := 1
-	for _, d := range d.Dimensions {
-		samples *= d.TileSize
-	}
-	return samples
-}
-
-// The total number of samples in the data set. If the tile size of any dimension is not
-// a multiple of the dimension size, the 'padding' samples are not included in the count.
-func (d *Layer) Samples() int {
-	if len(d.Dimensions) <= 0 {
-		return 0
-	}
-	samples := 1
-	for _, dim := range d.Dimensions {
-		samples *= dim.Size
-	}
-	return samples
+	l.TileBytes = make([]int64, l.DiskTiles())
+	l.TileOffsets = make([]int64, l.DiskTiles())
+	return l
 }
 
 // The size of the requested disk tile in bytes. For contiguous files, the size of each tile is always
@@ -68,14 +47,14 @@ func (d *Layer) Samples() int {
 // tiles is actually fieldCount * Tiles()). Hence, the tile size changes depending on which
 // field is being accessed.
 func (d *Layer) DiskTileSize(tileIndex int) int {
-	if d.Tiles() == 0 {
+	if d.Dimensions.Tiles() == 0 {
 		return 0
 	}
 	if d.Separated {
-		field := tileIndex / d.Tiles()
-		return d.TileSamples() * d.Fields[field].Size()
+		field := tileIndex / d.Dimensions.Tiles()
+		return d.Dimensions.TileSamples() * d.Fields[field].Size()
 	} else {
-		return d.TileSamples() * d.SampleSize()
+		return d.Dimensions.TileSamples() * d.SampleSize()
 	}
 }
 
@@ -83,7 +62,7 @@ func (d *Layer) DiskTileSize(tileIndex int) int {
 // on whether fields are stored 'contiguous' or 'separated'; in the former case, DiskTiles() == Tiles(),
 // in the latter case, DiskTiles() == Tiles() * number of fields.
 func (d *Layer) DiskTiles() int {
-	tiles := d.Tiles()
+	tiles := d.Dimensions.Tiles()
 	if d.Separated {
 		tiles *= len(d.Fields)
 	}

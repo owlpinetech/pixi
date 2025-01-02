@@ -1,10 +1,13 @@
 package pixi
 
-import "io"
+import (
+	"io"
+	"slices"
+)
 
 const (
 	FileType string = "pixi" // Every file starts with these four bytes.
-	Version  int64  = 1      // Every file has a version number as the second set of four bytes.
+	Version  int    = 1      // Every file has a version number as the second set of four bytes.
 )
 
 // Represents a single pixi file composed of one or more layers. Functions as a handle
@@ -24,6 +27,8 @@ func ReadPixi(r io.ReadSeeker) (Pixi, error) {
 		Tags:   make([]*TagSection, 0),
 	}
 
+	seenOffsets := []int64{}
+
 	// read the header first, then the layers and tags.
 	err := (&pixi.Header).ReadHeader(r)
 	if err != nil {
@@ -32,6 +37,10 @@ func ReadPixi(r io.ReadSeeker) (Pixi, error) {
 
 	layerOffset := pixi.Header.FirstLayerOffset
 	for layerOffset != 0 {
+		if slices.Contains(seenOffsets, layerOffset) {
+			return pixi, FormatError("loop detected in layer offsets")
+		}
+		seenOffsets = append(seenOffsets, layerOffset)
 		_, err = r.Seek(layerOffset, io.SeekStart)
 		if err != nil {
 			return pixi, err
@@ -42,10 +51,15 @@ func ReadPixi(r io.ReadSeeker) (Pixi, error) {
 			return pixi, err
 		}
 		pixi.Layers = append(pixi.Layers, rdLayer)
+		layerOffset = rdLayer.NextLayerStart
 	}
 
 	tagOffset := pixi.Header.FirstTagsOffset
 	for tagOffset != 0 {
+		if slices.Contains(seenOffsets, tagOffset) {
+			return pixi, FormatError("loop detected in tag offsets")
+		}
+		seenOffsets = append(seenOffsets, layerOffset)
 		_, err := r.Seek(tagOffset, io.SeekStart)
 		if err != nil {
 			return pixi, err
@@ -56,6 +70,7 @@ func ReadPixi(r io.ReadSeeker) (Pixi, error) {
 			return pixi, err
 		}
 		pixi.Tags = append(pixi.Tags, rdTags)
+		tagOffset = rdTags.NextTagsStart
 	}
 
 	return pixi, nil

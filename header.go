@@ -7,6 +7,10 @@ import (
 	"strconv"
 )
 
+const (
+	offsetsOffset int64 = 8
+)
+
 // Contains information used to read or write the rest of a Pixi data file. This information
 // is always found at the start of a stream of Pixi data.
 type PixiHeader struct {
@@ -117,25 +121,25 @@ func (s *PixiHeader) ReadFriendly(r io.Reader) (string, error) {
 
 // Write the information in this header to the current position in the writer stream.
 func (h *PixiHeader) WriteHeader(w io.Writer) error {
-	// write file type
+	// write file type (4 bytes)
 	_, err := w.Write([]byte(FileType))
 	if err != nil {
 		return err
 	}
 
-	// write file version
+	// write file version (2 bytes)
 	_, err = w.Write([]byte(fmt.Sprintf("%02d", h.Version)))
 	if err != nil {
 		return err
 	}
 
-	// write offset size indicator
+	// write offset size indicator (1 byte)
 	_, err = w.Write([]byte{byte(h.OffsetSize)})
 	if err != nil {
 		return err
 	}
 
-	// write byte order indicator
+	// write byte order indicator (1 byte)
 	byteOrderEnc := byte(0x00)
 	if h.ByteOrder == binary.BigEndian {
 		byteOrderEnc = byte(0xff)
@@ -179,7 +183,7 @@ func (h *PixiHeader) ReadHeader(r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	if version > Version {
+	if int(version) > Version {
 		return FormatError("reader does not support this version of pixi file")
 	}
 
@@ -219,4 +223,30 @@ func (h *PixiHeader) ReadHeader(r io.Reader) error {
 	h.FirstTagsOffset = firstTagsOffset
 
 	return nil
+}
+
+func (h *PixiHeader) OverwriteOffsets(w io.WriteSeeker, firstLayer int64, firstTags int64) error {
+	oldPos, err := w.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return err
+	}
+	_, err = w.Seek(offsetsOffset, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	err = h.WriteOffset(w, firstLayer)
+	if err != nil {
+		return err
+	}
+	h.FirstLayerOffset = firstLayer
+
+	err = h.WriteOffset(w, firstTags)
+	if err != nil {
+		return err
+	}
+	h.FirstTagsOffset = firstTags
+
+	_, err = w.Seek(oldPos, io.SeekStart)
+	return err
 }

@@ -259,6 +259,25 @@ func (d *Layer) ReadLayer(r io.Reader, h PixiHeader) error {
 	return nil
 }
 
+func (l *Layer) OverwriteHeader(w io.WriteSeeker, h PixiHeader, headerStartOffset int64) error {
+	oldPos, err := w.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return err
+	}
+	_, err = w.Seek(headerStartOffset, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	err = l.WriteHeader(w, h)
+	if err != nil {
+		return err
+	}
+
+	_, err = w.Seek(oldPos, io.SeekStart)
+	return err
+}
+
 func (l *Layer) WriteTile(w io.WriteSeeker, h PixiHeader, tileIndex int, data []byte) error {
 	streamOffset, err := w.Seek(0, io.SeekCurrent)
 	if err != nil {

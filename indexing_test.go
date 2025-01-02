@@ -85,6 +85,24 @@ func TestSampleCoordinateToTileCoordinateAndBack(t *testing.T) {
 	}
 }
 
+func TestTileCoordinateToTileSelectorAndBack(t *testing.T) {
+	dims := newRandomValidDimensionSet(5, 99, 5)
+
+	for range 50 {
+		tileCoord := TileCoordinate{make([]int, len(dims)), make([]int, len(dims))}
+		for i := range tileCoord.Tile {
+			tileCoord.Tile[i] = rand.Intn(dims[i].Tiles())
+			tileCoord.InTile[i] = rand.Intn(dims[i].TileSize)
+		}
+
+		tileSelect := tileCoord.ToTileSelector(dims)
+		resCoord := tileSelect.ToTileCoordinate(dims)
+		if !slices.Equal(tileCoord.Tile, resCoord.Tile) || !slices.Equal(tileCoord.InTile, resCoord.InTile) {
+			t.Fatalf("expected same coord %v, but got %v for dims %v", tileSelect, resCoord, dims)
+		}
+	}
+}
+
 func TestSampleCoordinateToTileSelectorDirectAndIndirectSame(t *testing.T) {
 	dims := newRandomValidDimensionSet(5, 99, 5)
 

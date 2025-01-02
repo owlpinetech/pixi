@@ -61,6 +61,25 @@ func (s TileSelector) ToTileIndex(set DimensionSet) TileIndex {
 	return TileIndex(set.TileSamples()*s.Tile + s.InTile)
 }
 
+func (s TileSelector) ToTileCoordinate(set DimensionSet) TileCoordinate {
+	coord := TileCoordinate{make([]int, len(set)), make([]int, len(set))}
+	tileIndex := s.Tile
+	inTileIndex := s.InTile
+	totalTiles := set.Tiles()
+	totalSamples := set.TileSamples()
+	for i := len(set) - 1; i >= 0; i-- {
+		totalTiles /= set[i].Tiles()
+		totalSamples /= set[i].TileSize
+		tileCoord := tileIndex / totalTiles
+		inTileCoord := inTileIndex / totalSamples
+		tileIndex %= totalTiles
+		inTileIndex %= totalSamples
+		coord.Tile[i] = tileCoord
+		coord.InTile[i] = inTileCoord
+	}
+	return coord
+}
+
 type TileCoordinate struct {
 	Tile   []int
 	InTile []int

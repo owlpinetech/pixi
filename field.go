@@ -107,6 +107,35 @@ func (f FieldType) Size() int {
 	}
 }
 
+func (f FieldType) String() string {
+	switch f {
+	case FieldUnknown:
+		return "unknown"
+	case FieldInt8:
+		return "int8"
+	case FieldInt16:
+		return "int16"
+	case FieldInt32:
+		return "int32"
+	case FieldInt64:
+		return "int64"
+	case FieldUint8:
+		return "uint8"
+	case FieldUint16:
+		return "uint16"
+	case FieldUint32:
+		return "uint32"
+	case FieldUint64:
+		return "uint64"
+	case FieldFloat32:
+		return "float32"
+	case FieldFloat64:
+		return "float64"
+	default:
+		panic("pixi: unsupported field type")
+	}
+}
+
 func (f FieldType) ReadValue(r io.Reader, o binary.ByteOrder) (any, error) {
 	switch f {
 	case FieldUnknown:

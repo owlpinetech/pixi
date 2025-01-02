@@ -99,6 +99,16 @@ func TestWriteContiguousTileOrder(t *testing.T) {
 		t.Errorf("did not get expected layer names: %v, %v", layerOne.Name, layerTwo.Name)
 	}
 
+	// dimensions good
+	if len(layerOne.Dimensions) != 2 || len(layerTwo.Dimensions) != 3 {
+		t.Errorf("expected different dimensions for layers: %v, %v", len(layerOne.Dimensions), len(layerTwo.Dimensions))
+	}
+
+	// fields good
+	if len(layerOne.Fields) != 2 || len(layerTwo.Fields) != 3 {
+		t.Errorf("expected different fields for layers: %v, %v", len(layerOne.Fields), len(layerTwo.Fields))
+	}
+
 	// tiles written properly
 	for i := range layerOne.TileBytes {
 		if layerOne.TileBytes[i] == 0 || layerOne.TileOffsets[i] == 0 {

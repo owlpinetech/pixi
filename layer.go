@@ -229,7 +229,7 @@ func (d *Layer) ReadLayer(r io.Reader, h PixiHeader) error {
 	if fieldCount < 1 {
 		return FormatError("must have at least one field for a valid pixi file")
 	}
-	d.Fields = make([]Field, dimCount)
+	d.Fields = make([]Field, fieldCount)
 	for fInd := range d.Fields {
 		field := Field{}
 		err = (&field).Read(r, h)

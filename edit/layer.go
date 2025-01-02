@@ -120,6 +120,8 @@ func WriteContiguousTileOrderPixi(w io.WriteSeeker, header pixi.PixiHeader, tags
 		// set the next layer start, but only if we're not the last layer
 		if layerInd < len(layerWriters)-1 {
 			layer.NextLayerStart = nextLayerOffset
+		} else {
+			layer.NextLayerStart = 0
 		}
 		err = layer.OverwriteHeader(w, header, layerOffset)
 		if err != nil {

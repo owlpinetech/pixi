@@ -22,8 +22,8 @@ func (f Field) Size() int {
 // The read operation is type-dependent, with each field type having its own specific method
 // for reading values. This ensures that the correct data is read and converted into the
 // expected format.
-func (f Field) ReadValue(raw []byte) any {
-	return f.Type.ReadValue(raw)
+func (f Field) BytesToValue(raw []byte, order binary.ByteOrder) any {
+	return f.Type.BytesToValue(raw, order)
 }
 
 // This function writes a value of any type into bytes according to the specified FieldType.
@@ -107,11 +107,60 @@ func (f FieldType) Size() int {
 	}
 }
 
+func (f FieldType) ReadValue(r io.Reader, o binary.ByteOrder) (any, error) {
+	switch f {
+	case FieldUnknown:
+		panic("pixi: tried to read field with unknown size")
+	case FieldInt8:
+		var val int8
+		err := binary.Read(r, o, &val)
+		return val, err
+	case FieldUint8:
+		var val uint8
+		err := binary.Read(r, o, &val)
+		return val, err
+	case FieldInt16:
+		var val int16
+		err := binary.Read(r, o, &val)
+		return val, err
+	case FieldUint16:
+		var val uint16
+		err := binary.Read(r, o, &val)
+		return val, err
+	case FieldInt32:
+		var val int32
+		err := binary.Read(r, o, &val)
+		return val, err
+	case FieldUint32:
+		var val uint32
+		err := binary.Read(r, o, &val)
+		return val, err
+	case FieldInt64:
+		var val int64
+		err := binary.Read(r, o, &val)
+		return val, err
+	case FieldUint64:
+		var val uint64
+		err := binary.Read(r, o, &val)
+		return val, err
+	case FieldFloat32:
+		var val float32
+		err := binary.Read(r, o, &val)
+		return val, err
+	case FieldFloat64:
+		var val float64
+		err := binary.Read(r, o, &val)
+		return val, err
+	default:
+		panic("pixi: tried to read unsupported field type")
+	}
+}
+
 // This function reads the value of a given FieldType from the provided raw byte slice.
 // The read operation is type-dependent, with each field type having its own specific method
 // for reading values. This ensures that the correct data is read and converted into the
 // expected format.
-func (f FieldType) ReadValue(raw []byte) any {
+func (f FieldType) BytesToValue(raw []byte, o binary.ByteOrder) any {
 	switch f {
 	case FieldUnknown:
 		panic("pixi: tried to read field with unknown size")
@@ -120,21 +169,21 @@ func (f FieldType) ReadValue(raw []byte) any {
 	case FieldUint8:
 		return raw[0]
 	case FieldInt16:
-		return int16(binary.BigEndian.Uint16(raw))
+		return int16(o.Uint16(raw))
 	case FieldUint16:
-		return binary.BigEndian.Uint16(raw)
+		return o.Uint16(raw)
 	case FieldInt32:
-		return int32(binary.BigEndian.Uint32(raw))
+		return int32(o.Uint32(raw))
 	case FieldUint32:
-		return binary.BigEndian.Uint32(raw)
+		return o.Uint32(raw)
 	case FieldInt64:
-		return int64(binary.BigEndian.Uint64(raw))
+		return int64(o.Uint64(raw))
 	case FieldUint64:
-		return binary.BigEndian.Uint64(raw)
+		return o.Uint64(raw)
 	case FieldFloat32:
-		return math.Float32frombits(binary.BigEndian.Uint32(raw))
+		return math.Float32frombits(o.Uint32(raw))
 	case FieldFloat64:
-		return math.Float64frombits(binary.BigEndian.Uint64(raw))
+		return math.Float64frombits(o.Uint64(raw))
 	default:
 		panic("pixi: tried to read unsupported field type")
 	}

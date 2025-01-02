@@ -73,7 +73,8 @@ func TestWriteContiguousTileOrder(t *testing.T) {
 				ind := coord.ToSampleIndex(layer.Dimensions)
 				return []any{layerTwoR[ind], layerTwoG[ind], layerTwoB[ind]}, nil
 			},
-		})
+		},
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,14 +86,28 @@ func TestWriteContiguousTileOrder(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// tags good
 	tags := readPixi.Tags[0].Tags
 	if tags["keyOne"] != "valOne" || tags["keyTwo"] != "valTwoExtra" {
 		t.Errorf("did not get expected tags: %v", tags)
 	}
 
+	// layer names good
 	layerOne := readPixi.Layers[0]
 	layerTwo := readPixi.Layers[1]
 	if layerOne.Name != "layerOne" || layerTwo.Name != "layerTwo" {
 		t.Errorf("did not get expected layer names: %v, %v", layerOne.Name, layerTwo.Name)
+	}
+
+	// tiles written properly
+	for i := range layerOne.TileBytes {
+		if layerOne.TileBytes[i] == 0 || layerOne.TileOffsets[i] == 0 {
+			t.Errorf("expected non-zero tile bytes and offsets for layer 1 tile %d: %v, %v", i, layerOne.TileBytes[i], layerOne.TileOffsets[i])
+		}
+	}
+	for i := range layerTwo.TileBytes {
+		if layerTwo.TileBytes[i] == 0 || layerTwo.TileOffsets[i] == 0 {
+			t.Errorf("expected non-zero tile bytes and offsets for layer 2 tile %d: %v, %v", i, layerTwo.TileBytes[i], layerTwo.TileOffsets[i])
+		}
 	}
 }

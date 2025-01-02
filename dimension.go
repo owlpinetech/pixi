@@ -33,6 +33,12 @@ func (d Dimension) Tiles() int {
 // Writes the binary description of the dimenson to the given stream, according to the specification
 // in the Pixi header h.
 func (d *Dimension) Write(w io.Writer, h PixiHeader) error {
+	if d.Size <= 0 || d.TileSize <= 0 {
+		return FormatError("dimension size and tile size must be greater than 0")
+	}
+	if d.Size < d.TileSize {
+		return FormatError("dimension tile size cannot be larger than dimension total size")
+	}
 	// write the name, then size and tile size
 	err := h.WriteFriendly(w, d.Name)
 	if err != nil {

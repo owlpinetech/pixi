@@ -9,7 +9,7 @@ import (
 	"github.com/owlpinetech/pixi/internal/buffer"
 )
 
-func TestFieldType_ReadValue(t *testing.T) {
+func TestFieldType_ValueFromBytes(t *testing.T) {
 	tests := []struct {
 		name      string
 		fieldType FieldType
@@ -71,7 +71,7 @@ func TestFieldType_ReadValue(t *testing.T) {
 				binary.Write(buf, binary.BigEndian, tt.value.(float64))
 				raw = buf.Bytes()
 			}
-			val := tt.fieldType.ReadValue(raw)
+			val := tt.fieldType.BytesToValue(raw, binary.BigEndian)
 			if !reflect.DeepEqual(val, tt.value) {
 				t.Errorf("Read() = %+v, want %+v", val, tt.value)
 			}

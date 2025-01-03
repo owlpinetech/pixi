@@ -3,6 +3,7 @@ package pixi
 import (
 	"bytes"
 	"compress/flate"
+	"compress/lzw"
 	"io"
 )
 
@@ -10,16 +11,24 @@ import (
 type Compression uint32
 
 const (
-	CompressionNone  Compression = 0 // No compression
-	CompressionFlate Compression = 1 // Standard FLATE compression
+	CompressionNone   Compression = 0 // No compression
+	CompressionFlate  Compression = 1 // Standard FLATE compression
+	CompressionLzwLsb Compression = 2 // Least-significant-bit Lempel-Ziv-Welch compression from Go standard lib
+	CompressionLzwMsb Compression = 3 // Most-significant-bit Lempel-Ziv-Welch compression from Go standard lib
 )
 
 func (c Compression) String() string {
 	switch c {
 	case CompressionNone:
 		return "none"
-	default:
+	case CompressionFlate:
 		return "flate"
+	case CompressionLzwLsb:
+		return "lzw_lsb"
+	case CompressionLzwMsb:
+		return "lzw_msb"
+	default:
+		return "unknown"
 	}
 }
 
@@ -46,6 +55,34 @@ func (c Compression) WriteChunk(w io.Writer, chunk []byte) (int, error) {
 		flateWriter.Close()
 		writeAmt, err := io.Copy(w, buf)
 		return int(writeAmt), err
+	case CompressionLzwLsb:
+		// we have to write to a buffer so we can get the actual amount the compression writes
+		buf := new(bytes.Buffer)
+		lzwWriter := lzw.NewWriter(buf, lzw.LSB, 8)
+
+		// skip this amount; it just returns len(chunk)!
+		_, err := lzwWriter.Write(chunk)
+		if err != nil {
+			lzwWriter.Close()
+			return 0, err
+		}
+		lzwWriter.Close()
+		writeAmt, err := io.Copy(w, buf)
+		return int(writeAmt), err
+	case CompressionLzwMsb:
+		// we have to write to a buffer so we can get the actual amount the compression writes
+		buf := new(bytes.Buffer)
+		lzwWriter := lzw.NewWriter(buf, lzw.MSB, 8)
+
+		// skip this amount; it just returns len(chunk)!
+		_, err := lzwWriter.Write(chunk)
+		if err != nil {
+			lzwWriter.Close()
+			return 0, err
+		}
+		lzwWriter.Close()
+		writeAmt, err := io.Copy(w, buf)
+		return int(writeAmt), err
 	default:
 		return 0, UnsupportedError("unknown compression")
 	}
@@ -59,9 +96,23 @@ func (c Compression) ReadChunk(r io.Reader, chunk []byte) (int, error) {
 		return r.Read(chunk)
 	case CompressionFlate:
 		bufRd := bytes.NewBuffer(chunk[:0])
-		gzRdr := flate.NewReader(r)
-		defer gzRdr.Close()
-		amtRd, err := io.Copy(bufRd, gzRdr)
+		flateRdr := flate.NewReader(r)
+		defer flateRdr.Close()
+		amtRd, err := io.Copy(bufRd, flateRdr)
+		copy(chunk, bufRd.Bytes())
+		return int(amtRd), err
+	case CompressionLzwLsb:
+		bufRd := bytes.NewBuffer(chunk[:0])
+		lzwRdr := lzw.NewReader(r, lzw.LSB, 8)
+		defer lzwRdr.Close()
+		amtRd, err := io.Copy(bufRd, lzwRdr)
+		copy(chunk, bufRd.Bytes())
+		return int(amtRd), err
+	case CompressionLzwMsb:
+		bufRd := bytes.NewBuffer(chunk[:0])
+		lzwRdr := lzw.NewReader(r, lzw.MSB, 8)
+		defer lzwRdr.Close()
+		amtRd, err := io.Copy(bufRd, lzwRdr)
 		copy(chunk, bufRd.Bytes())
 		return int(amtRd), err
 	default:

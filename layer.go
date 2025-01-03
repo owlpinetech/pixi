@@ -28,6 +28,7 @@ type Layer struct {
 	NextLayerStart int64   // The byte-index offset of the next layer in the file, from the start of the file. 0 if this is the last layer in the file.
 }
 
+// Helper constructor to ensure that certain invariants in a layer are maintained when it is created.
 func NewLayer(name string, separated bool, compression Compression, dimensions []Dimension, fields []Field) *Layer {
 	l := &Layer{
 		Name:        name,
@@ -259,6 +260,9 @@ func (d *Layer) ReadLayer(r io.Reader, h PixiHeader) error {
 	return nil
 }
 
+// For a layer header which has already been written to the given position, writes the layer header again
+// to the same location before returning the stream cursor to the position it was at previously. Generally
+// this is used to update tile byte counts and tile offsets after they've been written to a stream.
 func (l *Layer) OverwriteHeader(w io.WriteSeeker, h PixiHeader, headerStartOffset int64) error {
 	oldPos, err := w.Seek(0, io.SeekCurrent)
 	if err != nil {
@@ -278,6 +282,10 @@ func (l *Layer) OverwriteHeader(w io.WriteSeeker, h PixiHeader, headerStartOffse
 	return err
 }
 
+// Write the encoded tile data to the current stream position, updating the offset and byte count
+// for this tile in the layer header (but not writing those offsets to the stream just yet). The
+// data is written with a 4-byte checksum directly after it, which is used to verify data integrity
+// when reading the tile later.
 func (l *Layer) WriteTile(w io.WriteSeeker, h PixiHeader, tileIndex int, data []byte) error {
 	streamOffset, err := w.Seek(0, io.SeekCurrent)
 	if err != nil {
@@ -308,19 +316,35 @@ func (l *Layer) OverwriteTile(w io.WriteSeeker, h PixiHeader, tileIndex int, dat
 	return l.WriteTile(w, h, tileIndex, data)
 }
 
-func (l *Layer) ReadTile(w io.ReadSeeker, h PixiHeader, tileIndex int, data []byte) error {
-	_, err := w.Seek(l.TileOffsets[tileIndex], io.SeekStart)
+// Read a raw tile (not yet decoded into sample fields) at the given tile index. The tile must
+// have been previously written (either in this session or a previous one) for this operation to succeed.
+// The data is verified for integrity using a four-byte checksum placed directly after the saved
+// tile data, and an error is returned (along with the data read into the chunk) if the checksum
+// check fails.
+func (l *Layer) ReadTile(r io.ReadSeeker, h PixiHeader, tileIndex int, data []byte) error {
+	if l.TileBytes[tileIndex] == 0 {
+		panic("invalid tile byte count, likely tried to read a tile that hasn't been written yet")
+	}
+
+	_, err := r.Seek(l.TileOffsets[tileIndex], io.SeekStart)
 	if err != nil {
 		return err
 	}
 
-	_, err = l.Compression.ReadChunk(w, data)
+	_, err = l.Compression.ReadChunk(r, data)
+	if err != nil {
+		return err
+	}
+
+	// because compression can read more than necessary, we seek to tile start plus tile size
+	// to get to the correct position for checksum
+	_, err = r.Seek(l.TileOffsets[tileIndex]+l.TileBytes[tileIndex], io.SeekStart)
 	if err != nil {
 		return err
 	}
 
 	var savedChecksum uint32
-	err = h.Read(w, &savedChecksum)
+	err = h.Read(r, &savedChecksum)
 	if err != nil {
 		return err
 	}

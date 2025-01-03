@@ -2,13 +2,15 @@ package pixi
 
 import (
 	"encoding/binary"
+	"math/rand/v2"
 	"reflect"
+	"slices"
 	"testing"
 
 	"github.com/owlpinetech/pixi/internal/buffer"
 )
 
-func TestWriteReadDataSet(t *testing.T) {
+func TestLayerHeaderWriteRead(t *testing.T) {
 	testCases := []struct {
 		name   string
 		layers []*Layer
@@ -137,5 +139,94 @@ func TestWriteReadDataSet(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestLayerFlateCompressionTileWriteRead(t *testing.T) {
+	baseCases := []PixiHeader{
+		{Version: Version, OffsetSize: 8, ByteOrder: binary.LittleEndian},
+		{Version: Version, OffsetSize: 4, ByteOrder: binary.LittleEndian},
+		{Version: Version, OffsetSize: 8, ByteOrder: binary.BigEndian},
+		{Version: Version, OffsetSize: 4, ByteOrder: binary.BigEndian},
+	}
+	for _, pheader := range baseCases {
+		for range 25 {
+			// minimum layer needed to write a tile, must have compression and tile bytes/offsets slices created
+			layer := &Layer{
+				Compression: CompressionFlate,
+				TileBytes:   make([]int64, 5),
+				TileOffsets: make([]int64, 5),
+			}
+
+			chunk := make([]byte, rand.IntN(499)+1)
+			for i := range len(chunk) {
+				chunk[i] = byte(rand.IntN(256))
+			}
+
+			// write tile
+			buf := buffer.NewBuffer(10)
+			err := layer.WriteTile(buf, pheader, 0, chunk)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// read tile back
+			rdr := buffer.NewBufferFrom(buf.Bytes())
+			rdChunk := make([]byte, len(chunk))
+			err = layer.ReadTile(rdr, pheader, 0, rdChunk)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if !slices.Equal(chunk, rdChunk) {
+				t.Errorf("expected chunks to be equal, got %v and %v", chunk, rdChunk)
+			}
+		}
+	}
+}
+
+func TestLayerTileWriteReadCorrupted(t *testing.T) {
+	baseCases := []PixiHeader{
+		{Version: Version, OffsetSize: 8, ByteOrder: binary.LittleEndian},
+		{Version: Version, OffsetSize: 4, ByteOrder: binary.LittleEndian},
+		{Version: Version, OffsetSize: 8, ByteOrder: binary.BigEndian},
+		{Version: Version, OffsetSize: 4, ByteOrder: binary.BigEndian},
+	}
+	for _, pheader := range baseCases {
+		// minimum layer needed to write a tile, must have compression and tile bytes/offsets slices created
+		layer := &Layer{
+			Compression: CompressionFlate,
+			TileBytes:   make([]int64, 5),
+			TileOffsets: make([]int64, 5),
+		}
+
+		chunk := make([]byte, rand.IntN(499)+1)
+		for i := range len(chunk) {
+			chunk[i] = byte(rand.IntN(256))
+		}
+
+		// write tile
+		buf := buffer.NewBuffer(10)
+		err := layer.WriteTile(buf, pheader, 0, chunk)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// corrupt a byte in the data
+		corruptInd := rand.IntN(len(buf.Bytes()))
+		prevByte := buf.Bytes()[corruptInd]
+		corruptByte := byte(rand.IntN(256))
+		for corruptByte == prevByte {
+			corruptByte = byte(rand.IntN(256))
+		}
+		buf.Bytes()[corruptInd] = corruptByte
+
+		// read tile back
+		rdr := buffer.NewBufferFrom(buf.Bytes())
+		rdChunk := make([]byte, len(chunk))
+		err = layer.ReadTile(rdr, pheader, 0, rdChunk)
+		if err == nil {
+			t.Error("expected to have an error with a corrupted byte in the tile")
+		}
 	}
 }

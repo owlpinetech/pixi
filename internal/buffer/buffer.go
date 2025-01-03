@@ -7,6 +7,7 @@ import (
 type buffer struct {
 	buf []byte
 	pos int
+	end int
 }
 
 func NewBuffer(initialSize int) *buffer {
@@ -18,6 +19,7 @@ func NewBuffer(initialSize int) *buffer {
 func NewBufferFrom(underlying []byte) *buffer {
 	return &buffer{
 		buf: underlying,
+		end: len(underlying),
 	}
 }
 
@@ -41,6 +43,7 @@ func (b *buffer) Write(p []byte) (int, error) {
 	}
 	n := copy(b.buf[b.pos:], p)
 	b.pos += n
+	b.end = max(b.end, b.pos)
 	return n, nil
 }
 
@@ -50,7 +53,7 @@ func (b *buffer) Seek(offset int64, whence int) (int64, error) {
 	case io.SeekStart:
 		newOffset = int(offset)
 	case io.SeekCurrent:
-		if offset > 0 {
+		if offset >= 0 {
 			newOffset = b.pos + int(offset)
 		} else if offset < 0 {
 			newOffset = max(0, b.pos+int(offset))
@@ -65,15 +68,13 @@ func (b *buffer) Seek(offset int64, whence int) (int64, error) {
 		return -1, io.ErrUnexpectedEOF
 	}
 
-	if newOffset != b.pos {
-		b.pos = newOffset
-	}
+	b.pos = newOffset
 
 	return int64(b.pos), nil
 }
 
 func (b *buffer) Bytes() []byte {
-	return b.buf[:b.pos]
+	return b.buf[:b.end]
 }
 
 func (b *buffer) Size() int {
@@ -82,11 +83,4 @@ func (b *buffer) Size() int {
 
 func (b *buffer) Position() int {
 	return b.pos
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }

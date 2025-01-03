@@ -1,10 +1,7 @@
 package pixi
 
 import (
-	"reflect"
 	"testing"
-
-	"github.com/owlpinetech/pixi/internal/buffer"
 )
 
 func TestPixiSampleSize(t *testing.T) {
@@ -105,7 +102,7 @@ func TestPixiSamples(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			gotSize := test.dataset.Samples()
+			gotSize := test.dataset.Dimensions.Samples()
 			if gotSize != test.wantSize {
 				t.Errorf("Samples() = %d, want %d", gotSize, test.wantSize)
 			}
@@ -153,7 +150,7 @@ func TestPixiTileSamples(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			gotSize := test.dataset.TileSamples()
+			gotSize := test.dataset.Dimensions.TileSamples()
 			if gotSize != test.wantSize {
 				t.Errorf("Samples() = %d, want %d", gotSize, test.wantSize)
 			}
@@ -257,166 +254,11 @@ func TestPixiTiles(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			dataSet := Layer{
-				Separated:   tc.separated,
-				Compression: CompressionNone,
-				Dimensions:  tc.dims,
-				Fields:      []Field{},
+				Dimensions: tc.dims,
 			}
 
-			if dataSet.Tiles() != tc.want {
-				t.Errorf("PixiTiles() = %d, want %d", dataSet.Tiles(), tc.want)
-			}
-		})
-	}
-}
-
-func TestDimensionTiles(t *testing.T) {
-	tests := []struct {
-		name     string
-		size     int
-		tileSize int
-		want     int
-	}{
-		{"size same as tile size", 10, 10, 1},
-		{"small size, small tile", 100, 10, 10},
-		{"medium size, medium tile", 500, 50, 10},
-		{"large size, large tile", 2000, 100, 20},
-		{"zero size", 0, 10, 0},
-		{"negative size", -100, 10, 0},
-		{"tile not multiple", 100, 11, 10},
-		{"large multiple", 86400, 21600, 4},
-		{"half large multiple", 43200, 21600, 2},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			dimension := Dimension{
-				Size:     test.size,
-				TileSize: test.tileSize,
-			}
-			got := dimension.Tiles()
-			if got != test.want {
-				t.Errorf("got %d, want %d", got, test.want)
-			}
-		})
-	}
-}
-
-func TestAddBlankLayers(t *testing.T) {
-	tests := []struct {
-		name         string
-		layers       []Layer
-		expectLayers []DiskLayer
-	}{
-		{
-			"no layers", []Layer{}, []DiskLayer{},
-		},
-		{
-			"one layer, override compression",
-			[]Layer{
-				{
-					Name:        "layer",
-					Separated:   false,
-					Compression: CompressionFlate,
-					Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
-					Fields:      []Field{{Name: "a", Type: FieldFloat32}, {Name: "b", Type: FieldInt16}},
-				},
-			},
-			[]DiskLayer{
-				{
-					Layer: Layer{
-						Name:        "layer",
-						Separated:   false,
-						Compression: CompressionNone,
-						Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
-						Fields:      []Field{{Name: "a", Type: FieldFloat32}, {Name: "b", Type: FieldInt16}},
-					},
-					TileOffsets:    []int64{151, 175, 199, 223},
-					TileBytes:      []int64{24, 24, 24, 24},
-					NextLayerStart: 0,
-				},
-			},
-		},
-		{
-			"two same size layers",
-			[]Layer{
-				{
-					Name:        "one",
-					Separated:   false,
-					Compression: CompressionFlate,
-					Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
-					Fields:      []Field{{Name: "a", Type: FieldFloat32}, {Name: "b", Type: FieldInt16}},
-				},
-				{
-					Name:        "two",
-					Separated:   false,
-					Compression: CompressionFlate,
-					Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
-					Fields:      []Field{{Name: "c", Type: FieldFloat32}, {Name: "d", Type: FieldInt16}},
-				},
-			},
-			[]DiskLayer{
-				{
-					Layer: Layer{
-						Name:        "one",
-						Separated:   false,
-						Compression: CompressionNone,
-						Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
-						Fields:      []Field{{Name: "a", Type: FieldFloat32}, {Name: "b", Type: FieldInt16}},
-					},
-					TileOffsets:    []int64{149, 173, 197, 221},
-					TileBytes:      []int64{24, 24, 24, 24},
-					NextLayerStart: 221 + 24,
-				},
-				{
-					Layer: Layer{
-						Name:        "two",
-						Separated:   false,
-						Compression: CompressionNone,
-						Dimensions:  []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
-						Fields:      []Field{{Name: "c", Type: FieldFloat32}, {Name: "d", Type: FieldInt16}},
-					},
-					TileOffsets:    []int64{386, 410, 434, 458},
-					TileBytes:      []int64{24, 24, 24, 24},
-					NextLayerStart: 0,
-				},
-			},
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			buf := buffer.NewBuffer(10)
-			pix, err := StartPixi(buf)
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			diskLayers := make([]*DiskLayer, 0)
-			offset := FirstLayerOffset
-			for _, layer := range tc.layers {
-				dl, err := pix.AddBlankUncompressedLayer(buf, offset, layer)
-				if err != nil {
-					t.Fatal(err)
-				}
-				if dl == nil {
-					t.Fatal("disk layer nil")
-				}
-				diskLayers = append(diskLayers, dl)
-
-				if pix.LayerOffset(dl) != offset {
-					t.Errorf("expected offset %d, got %v", offset, pix.LayerOffset(dl))
-				}
-
-				offset += dl.DiskHeaderSize() + dl.DataSize()
-			}
-
-			for lind := range tc.expectLayers {
-				expect := tc.expectLayers[lind]
-				got := *diskLayers[lind]
-				if !reflect.DeepEqual(expect, got) {
-					t.Errorf("got %v, want %v", got, expect)
-				}
+			if dataSet.Dimensions.Tiles() != tc.want {
+				t.Errorf("PixiTiles() = %d, want %d", dataSet.Dimensions.Tiles(), tc.want)
 			}
 		})
 	}

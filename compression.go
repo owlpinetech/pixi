@@ -58,9 +58,8 @@ func (c Compression) ReadChunk(r io.Reader, chunk []byte) (int, error) {
 	case CompressionNone:
 		return r.Read(chunk)
 	case CompressionFlate:
-		byteBuf := make([]byte, 0, len(chunk))
-		bufRd := bytes.NewBuffer(byteBuf)
-		gzRdr := flate.NewReader(bufRd)
+		bufRd := bytes.NewBuffer(chunk[:0])
+		gzRdr := flate.NewReader(r)
 		defer gzRdr.Close()
 		amtRd, err := io.Copy(bufRd, gzRdr)
 		copy(chunk, bufRd.Bytes())

@@ -3,7 +3,6 @@ package edit
 import (
 	"bytes"
 	"io"
-	"iter"
 
 	"github.com/owlpinetech/pixi"
 )
@@ -11,37 +10,6 @@ import (
 type LayerWriter struct {
 	Layer  *pixi.Layer
 	IterFn func(*pixi.Layer, pixi.SampleCoordinate) ([]any, map[string]any)
-}
-
-type LayerReader struct {
-	Layer  *pixi.Layer
-	IterFn func(*pixi.Layer, pixi.SampleCoordinate, []any)
-}
-
-func ReadContiguousTileOrderPixi(r io.ReadSeeker, header pixi.PixiHeader, layer *pixi.Layer) iter.Seq2[pixi.SampleCoordinate, []any] {
-	return func(yield func(pixi.SampleCoordinate, []any) bool) {
-		for tileInd := 0; tileInd < layer.Dimensions.Tiles(); tileInd++ {
-			tileData := make([]byte, layer.DiskTileSize(tileInd))
-			inTileOffset := 0
-			err := layer.ReadTile(r, header, tileInd, tileData)
-			if err != nil {
-				return
-			}
-			for inTileInd := 0; inTileInd < layer.Dimensions.TileSamples(); inTileInd++ {
-				coord := pixi.TileSelector{Tile: tileInd, InTile: inTileInd}.
-					ToTileCoordinate(layer.Dimensions).
-					ToSampleCoordinate(layer.Dimensions)
-				comps := make([]any, len(layer.Fields))
-				for fieldInd, field := range layer.Fields {
-					comps[fieldInd] = field.BytesToValue(tileData[inTileOffset:], header.ByteOrder)
-					inTileOffset += field.Size()
-				}
-				if !yield(coord, comps) {
-					return
-				}
-			}
-		}
-	}
 }
 
 func WriteContiguousTileOrderPixi(w io.WriteSeeker, header pixi.PixiHeader, tags map[string]string, layerWriters ...LayerWriter) error {

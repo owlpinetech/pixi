@@ -44,11 +44,11 @@ func main() {
 		fmt.Printf("\t\tCompression: %s\n", layer.Compression)
 		fmt.Printf("\t\tDimensions: %d\n", len(layer.Dimensions))
 		for dimInd, dim := range layer.Dimensions {
-			fmt.Printf("\t\t\tDim %d - %s: %d / %d = %d tiles\n", dimInd, dim.Name, dim.Size, dim.TileSize, dim.Tiles())
+			fmt.Printf("\t\t\tDim %d (%s): %d / %d (%d tiles)\n", dimInd, dim.Name, dim.Size, dim.TileSize, dim.Tiles())
 		}
 		fmt.Printf("\t\tFields: %d\n", len(layer.Fields))
 		for fieldInd, field := range layer.Fields {
-			fmt.Printf("\t\t\tField %d - %s of type %s\n", fieldInd, field.Name, field.Type)
+			fmt.Printf("\t\t\tField %d (%s) : %s\n", fieldInd, field.Name, field.Type)
 		}
 	}
 

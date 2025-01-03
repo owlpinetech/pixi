@@ -7,6 +7,7 @@ import (
 	"io"
 
 	"github.com/owlpinetech/pixi"
+	"github.com/owlpinetech/pixi/read"
 )
 
 type FromImageOptions struct {
@@ -150,42 +151,42 @@ func LayerAsImage(r io.ReadSeeker, pixImg *pixi.Pixi, layer *pixi.Layer) (image.
 	switch pixImg.Tags[0].Tags["color-model"] {
 	case "nrgba":
 		nrgbaImg := image.NewNRGBA(image.Rect(0, 0, width, height))
-		for coord, comps := range ReadContiguousTileOrderPixi(r, pixImg.Header, layer) {
+		for coord, comps := range read.LayerContiguousTileOrder(r, pixImg.Header, layer) {
 			nrgbaImg.Set(coord[0], coord[1],
 				color.NRGBA{comps[0].(uint8), comps[1].(uint8), comps[2].(uint8), comps[3].(uint8)})
 		}
 		return nrgbaImg, nil
 	case "nrgba64":
 		nrgba64Img := image.NewNRGBA64(image.Rect(0, 0, width, height))
-		for coord, comps := range ReadContiguousTileOrderPixi(r, pixImg.Header, layer) {
+		for coord, comps := range read.LayerContiguousTileOrder(r, pixImg.Header, layer) {
 			nrgba64Img.Set(coord[0], coord[1],
 				color.NRGBA64{comps[0].(uint16), comps[1].(uint16), comps[2].(uint16), comps[3].(uint16)})
 		}
 		return nrgba64Img, nil
 	case "rgba":
 		rgbaImg := image.NewRGBA(image.Rect(0, 0, width, height))
-		for coord, comps := range ReadContiguousTileOrderPixi(r, pixImg.Header, layer) {
+		for coord, comps := range read.LayerContiguousTileOrder(r, pixImg.Header, layer) {
 			rgbaImg.Set(coord[0], coord[1],
 				color.RGBA{comps[0].(uint8), comps[1].(uint8), comps[2].(uint8), comps[3].(uint8)})
 		}
 		return rgbaImg, nil
 	case "rgba64":
 		rgba64Img := image.NewRGBA64(image.Rect(0, 0, width, height))
-		for coord, comps := range ReadContiguousTileOrderPixi(r, pixImg.Header, layer) {
+		for coord, comps := range read.LayerContiguousTileOrder(r, pixImg.Header, layer) {
 			rgba64Img.Set(coord[0], coord[1],
 				color.NRGBA64{comps[0].(uint16), comps[1].(uint16), comps[2].(uint16), comps[3].(uint16)})
 		}
 		return rgba64Img, nil
 	case "cmyk":
 		cmykImg := image.NewCMYK(image.Rect(0, 0, width, height))
-		for coord, comps := range ReadContiguousTileOrderPixi(r, pixImg.Header, layer) {
+		for coord, comps := range read.LayerContiguousTileOrder(r, pixImg.Header, layer) {
 			cmykImg.Set(coord[0], coord[1],
 				color.CMYK{comps[0].(uint8), comps[1].(uint8), comps[2].(uint8), comps[3].(uint8)})
 		}
 		return cmykImg, nil
 	case "YCbCr":
 		ycbcrImg := image.NewYCbCr(image.Rect(0, 0, width, height), image.YCbCrSubsampleRatio420)
-		for coord, comps := range ReadContiguousTileOrderPixi(r, pixImg.Header, layer) {
+		for coord, comps := range read.LayerContiguousTileOrder(r, pixImg.Header, layer) {
 			yOff := ycbcrImg.YOffset(coord[0], coord[1])
 			cOff := ycbcrImg.COffset(coord[0], coord[1])
 			ycbcrImg.Y[yOff] = comps[0].(uint8)

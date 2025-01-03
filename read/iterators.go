@@ -40,7 +40,7 @@ func LayerContiguousTileOrder(r io.ReadSeeker, header pixi.PixiHeader, layer *pi
 	}
 }
 
-// An optimization of LayerContiguousTileOrder function for Pixi layers when only a single field of the layer
+// An optimization of LayerContiguousTileOrder function for Pixi layers when only a single field of each sample
 // is needed for iteration.
 func LayerContiguousTileOrderSingleValue(r io.ReadSeeker, header pixi.PixiHeader, layer *pixi.Layer, fieldName string) iter.Seq2[pixi.SampleCoordinate, any] {
 	if layer.Separated {

@@ -99,6 +99,9 @@ func (s *PixiHeader) ReadOffsets(r io.Reader, offsets []int64) error {
 	panic("pixi: unsupported offset size")
 }
 
+// Writes a 'friendly' name from to the writer stream at the current position. A
+// 'friendly' string is always the same format, specified by a 16-bit length followed
+// by that number of bytes of UTF8 string.
 func (s *PixiHeader) WriteFriendly(w io.Writer, friendly string) error {
 	strBytes := []byte(friendly)
 	err := s.Write(w, uint16(len(strBytes)))
@@ -108,6 +111,9 @@ func (s *PixiHeader) WriteFriendly(w io.Writer, friendly string) error {
 	return s.Write(w, strBytes)
 }
 
+// Read a 'friendly' name from the reader stream at the current position. 'Friendly'
+// strings are always the same format, specified by a 16-bit length followed by that
+// number of bytes interpreted as a UTF8 string.
 func (s *PixiHeader) ReadFriendly(r io.Reader) (string, error) {
 	var strLen uint16
 	err := s.Read(r, &strLen)

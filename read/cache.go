@@ -109,7 +109,7 @@ func (c *LayerReadCache) loadTile(tileIndex int) ([]byte, error) {
 	}
 	c.manager.Add(tileIndex, chunk, c.cache)
 	tileData, _ := c.cache.Load(tileIndex)
-	return tileData.([]byte), err
+	return tileData.([]byte), nil
 }
 
 type LfuCacheManager struct {

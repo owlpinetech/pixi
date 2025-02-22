@@ -5,7 +5,7 @@ import (
 	"iter"
 )
 
-// Represents an axis along which tiled, gridded data is sstored in a Pixi file. Data sets can have
+// Represents an axis along which tiled, gridded data is stored in a Pixi file. Data sets can have
 // one or more dimensions, but never zero. If a dimension is not tiled, then the TileSize should be
 // the same as a the total Size.
 type Dimension struct {
@@ -112,8 +112,9 @@ func (d DimensionSet) Samples() int {
 }
 
 // Iterate over the sample indices of the dimensions in the order the dimensions are laid out. That is,
-// the index increments for the size of the first dimension, then the second (nesting the first), then
-// the third (nesting the second (nesting the first)), and so on.
+// the index increments all the way through the first dimension, then increments the second (nesting the first each time), then
+// the third (nesting the second (nesting the first)), and so on. The first dimension changes the most frequently, the last
+// dimension changes the least frequently.
 func (set DimensionSet) SampleCoordinates() iter.Seq[SampleCoordinate] {
 	return func(yield func(index SampleCoordinate) bool) {
 		samples := set.Samples()
@@ -122,7 +123,7 @@ func (set DimensionSet) SampleCoordinates() iter.Seq[SampleCoordinate] {
 			if !yield(curInd) {
 				break
 			}
-			for dInd := 0; dInd < len(curInd); dInd++ {
+			for dInd := range curInd {
 				// increment the lowest dimension
 				curInd[dInd] += 1
 				if curInd[dInd] >= set[dInd].Size {
@@ -136,6 +137,10 @@ func (set DimensionSet) SampleCoordinates() iter.Seq[SampleCoordinate] {
 	}
 }
 
+// Iterate over the indices of the dimensions in the 'tile order', such that all indices for the first tile are
+// yielded before the second tile, and so on. While iterating within the tile, the first dimension changes the
+// most frequently, all the way to the last which changes the least frequently. See the documentation for
+// SampleCoordinates for more details on iteration within tile coordinates.
 func (set DimensionSet) TileCoordinates() iter.Seq[TileCoordinate] {
 	return func(yield func(index TileCoordinate) bool) {
 		samples := set.Tiles() * set.TileSamples()
@@ -146,7 +151,7 @@ func (set DimensionSet) TileCoordinates() iter.Seq[TileCoordinate] {
 			}
 			// increment in-tile coordinates
 			needNextTile := true
-			for dInd := 0; dInd < len(set); dInd++ {
+			for dInd := range set {
 				// increment the lowest dimension in the tile
 				curInd.InTile[dInd] += 1
 				if curInd.InTile[dInd] >= set[dInd].TileSize {
@@ -159,7 +164,7 @@ func (set DimensionSet) TileCoordinates() iter.Seq[TileCoordinate] {
 			}
 			// made it out of the in-tile loop, so we must need to increment overall tile coordinates
 			if needNextTile {
-				for dInd := 0; dInd < len(set); dInd++ {
+				for dInd := range set {
 					curInd.Tile[dInd] += 1
 					if curInd.Tile[dInd] >= set[dInd].Tiles() {
 						// carry over into the next dimension

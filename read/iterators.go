@@ -16,14 +16,14 @@ func LayerContiguousTileOrder(r io.ReadSeeker, header pixi.PixiHeader, layer *pi
 		panic("this iterator does not support files with separated fields")
 	}
 	return func(yield func(pixi.SampleCoordinate, []any) bool) {
-		for tileInd := 0; tileInd < layer.Dimensions.Tiles(); tileInd++ {
+		for tileInd := range layer.Dimensions.Tiles() {
 			tileData := make([]byte, layer.DiskTileSize(tileInd))
 			inTileOffset := 0
 			err := layer.ReadTile(r, header, tileInd, tileData)
 			if err != nil {
 				return
 			}
-			for inTileInd := 0; inTileInd < layer.Dimensions.TileSamples(); inTileInd++ {
+			for inTileInd := range layer.Dimensions.TileSamples() {
 				coord := pixi.TileSelector{Tile: tileInd, InTile: inTileInd}.
 					ToTileCoordinate(layer.Dimensions).
 					ToSampleCoordinate(layer.Dimensions)
@@ -52,7 +52,7 @@ func LayerContiguousTileOrderSingleValue(r io.ReadSeeker, header pixi.PixiHeader
 	}
 	// number of bytes to skip to get the desired field in the sample
 	fieldOffset := 0
-	for i := 0; i < fieldInd; i++ {
+	for range fieldInd {
 		fieldOffset += layer.Fields[fieldInd].Size()
 	}
 	// number of bytes to skip after reading the desired field in the sample to get to the next
@@ -61,14 +61,14 @@ func LayerContiguousTileOrderSingleValue(r io.ReadSeeker, header pixi.PixiHeader
 		fieldSkip += layer.Fields[fieldInd].Size()
 	}
 	return func(yield func(pixi.SampleCoordinate, any) bool) {
-		for tileInd := 0; tileInd < layer.Dimensions.Tiles(); tileInd++ {
+		for tileInd := range layer.Dimensions.Tiles() {
 			tileData := make([]byte, layer.DiskTileSize(tileInd))
 			inTileOffset := fieldOffset
 			err := layer.ReadTile(r, header, tileInd, tileData)
 			if err != nil {
 				return
 			}
-			for inTileInd := 0; inTileInd < layer.Dimensions.TileSamples(); inTileInd++ {
+			for inTileInd := range layer.Dimensions.TileSamples() {
 				coord := pixi.TileSelector{Tile: tileInd, InTile: inTileInd}.
 					ToTileCoordinate(layer.Dimensions).
 					ToSampleCoordinate(layer.Dimensions)

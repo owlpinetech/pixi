@@ -99,7 +99,7 @@ func TestFieldType_WriteValue(t *testing.T) {
 
 	for i, test := range tests {
 		buf := make([]byte, test.fieldType.Size())
-		test.fieldType.WriteValue(buf, test.readExpected)
+		test.fieldType.ValueToBytes(test.readExpected, binary.BigEndian, buf)
 
 		written := buf
 		for b := 0; b < len(test.writeData); b++ {

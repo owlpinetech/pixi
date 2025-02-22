@@ -29,8 +29,8 @@ func (f Field) BytesToValue(raw []byte, order binary.ByteOrder) any {
 // This function writes a value of any type into bytes according to the specified FieldType.
 // The written bytes are stored in the provided byte array. This function will panic if
 // the FieldType is unknown or if an unsupported field type is encountered.
-func (f Field) WriteValue(raw []byte, val any) {
-	f.Type.WriteValue(raw, val)
+func (f Field) ValueToBytes(val any, order binary.ByteOrder, raw []byte) {
+	f.Type.ValueToBytes(val, order, raw)
 }
 
 // Get the size in bytes of this dimension description as it is laid out and written to disk.
@@ -136,55 +136,6 @@ func (f FieldType) String() string {
 	}
 }
 
-func (f FieldType) ReadValue(r io.Reader, o binary.ByteOrder) (any, error) {
-	switch f {
-	case FieldUnknown:
-		panic("pixi: tried to read field with unknown size")
-	case FieldInt8:
-		var val int8
-		err := binary.Read(r, o, &val)
-		return val, err
-	case FieldUint8:
-		var val uint8
-		err := binary.Read(r, o, &val)
-		return val, err
-	case FieldInt16:
-		var val int16
-		err := binary.Read(r, o, &val)
-		return val, err
-	case FieldUint16:
-		var val uint16
-		err := binary.Read(r, o, &val)
-		return val, err
-	case FieldInt32:
-		var val int32
-		err := binary.Read(r, o, &val)
-		return val, err
-	case FieldUint32:
-		var val uint32
-		err := binary.Read(r, o, &val)
-		return val, err
-	case FieldInt64:
-		var val int64
-		err := binary.Read(r, o, &val)
-		return val, err
-	case FieldUint64:
-		var val uint64
-		err := binary.Read(r, o, &val)
-		return val, err
-	case FieldFloat32:
-		var val float32
-		err := binary.Read(r, o, &val)
-		return val, err
-	case FieldFloat64:
-		var val float64
-		err := binary.Read(r, o, &val)
-		return val, err
-	default:
-		panic("pixi: tried to read unsupported field type")
-	}
-}
-
 // This function reads the value of a given FieldType from the provided raw byte slice.
 // The read operation is type-dependent, with each field type having its own specific method
 // for reading values. This ensures that the correct data is read and converted into the
@@ -218,33 +169,32 @@ func (f FieldType) BytesToValue(raw []byte, o binary.ByteOrder) any {
 	}
 }
 
-// This function writes a value of any type into bytes according to the specified FieldType.
-// The written bytes are stored in the provided byte array. This function will panic if
-// the FieldType is unknown or if an unsupported field type is encountered.
-func (f FieldType) WriteValue(raw []byte, val any) {
+// Writes the given value, assumed to correspond to the FieldType, into it's raw representation
+// in bytes according to the byte order specified.
+func (f FieldType) ValueToBytes(val any, o binary.ByteOrder, bytes []byte) {
 	switch f {
 	case FieldUnknown:
 		panic("pixi: tried to write field with unknown size")
 	case FieldInt8:
-		raw[0] = byte(val.(int8))
+		bytes[0] = byte(val.(int8))
 	case FieldUint8:
-		raw[0] = val.(uint8)
+		bytes[0] = val.(uint8)
 	case FieldInt16:
-		binary.BigEndian.PutUint16(raw, uint16(val.(int16)))
+		o.PutUint16(bytes, uint16(val.(int16)))
 	case FieldUint16:
-		binary.BigEndian.PutUint16(raw, val.(uint16))
+		o.PutUint16(bytes, val.(uint16))
 	case FieldInt32:
-		binary.BigEndian.PutUint32(raw, uint32(val.(int32)))
+		o.PutUint32(bytes, uint32(val.(int32)))
 	case FieldUint32:
-		binary.BigEndian.PutUint32(raw, val.(uint32))
+		o.PutUint32(bytes, val.(uint32))
 	case FieldInt64:
-		binary.BigEndian.PutUint64(raw, uint64(val.(int64)))
+		o.PutUint64(bytes, uint64(val.(int64)))
 	case FieldUint64:
-		binary.BigEndian.PutUint64(raw, val.(uint64))
+		o.PutUint64(bytes, val.(uint64))
 	case FieldFloat32:
-		binary.BigEndian.PutUint32(raw, math.Float32bits(val.(float32)))
+		o.PutUint32(bytes, math.Float32bits(val.(float32)))
 	case FieldFloat64:
-		binary.BigEndian.PutUint64(raw, math.Float64bits(val.(float64)))
+		o.PutUint64(bytes, math.Float64bits(val.(float64)))
 	default:
 		panic("pixi: tried to write unsupported field type")
 	}

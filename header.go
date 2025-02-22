@@ -12,7 +12,9 @@ const (
 )
 
 // Contains information used to read or write the rest of a Pixi data file. This information
-// is always found at the start of a stream of Pixi data.
+// is always found at the start of a stream of Pixi data. Because so much of how the rest of
+// the file is serialized is dependent on this information, it is threaded throughout the
+// reading and writing methods of the other structures that make up a Pixi stream.
 type PixiHeader struct {
 	Version          int
 	OffsetSize       int
@@ -231,11 +233,17 @@ func (h *PixiHeader) ReadHeader(r io.Reader) error {
 	return nil
 }
 
+// Temporarily returns to the beginning of the Pixi stream to overwrite the offsets of the first layer
+// and the first tags sections. Useful during initial file creation or editing, especially for large data
+// that is difficult to know the size of in advance. After completing the offsets overwrite, or upon encountering
+// an error in attempting to do so, this function will return the cursor to the position at which it was
+// when the call to this function was made.
 func (h *PixiHeader) OverwriteOffsets(w io.WriteSeeker, firstLayer int64, firstTags int64) error {
 	oldPos, err := w.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return err
 	}
+	defer w.Seek(oldPos, io.SeekStart)
 	_, err = w.Seek(offsetsOffset, io.SeekStart)
 	if err != nil {
 		return err
@@ -253,6 +261,5 @@ func (h *PixiHeader) OverwriteOffsets(w io.WriteSeeker, firstLayer int64, firstT
 	}
 	h.FirstTagsOffset = firstTags
 
-	_, err = w.Seek(oldPos, io.SeekStart)
-	return err
+	return nil
 }

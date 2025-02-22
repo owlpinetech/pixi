@@ -50,7 +50,7 @@ func (c *LayerReadCache) SampleAt(coord pixi.SampleCoordinate) ([]any, error) {
 		}
 		return sample, nil
 	} else {
-		fieldOffset := tileSelector.InTile * c.layer.SampleSize()
+		fieldOffset := tileSelector.InTile * c.layer.Fields.Size()
 
 		tileData, err := c.getTile(tileSelector.Tile)
 		if err != nil {
@@ -72,7 +72,7 @@ func (c *LayerReadCache) FieldAt(coord pixi.SampleCoordinate, fieldIndex int) (a
 		tileSelector.Tile *= c.layer.Dimensions.Tiles()
 		offset *= c.layer.Fields[fieldIndex].Size()
 	} else {
-		offset *= c.layer.SampleSize()
+		offset *= c.layer.Fields.Size()
 		for _, field := range c.layer.Fields[:fieldIndex] {
 			offset += field.Size()
 		}

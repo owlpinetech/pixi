@@ -52,7 +52,7 @@ func WriteContiguousTileOrderPixi(w io.WriteSeeker, header pixi.PixiHeader, tags
 		}
 
 		for tileInd := range layerWriter.Layer.Dimensions.Tiles() {
-			tileData := make([]byte, 0, layer.Dimensions.TileSamples()*layer.SampleSize())
+			tileData := make([]byte, 0, layer.Dimensions.TileSamples()*layer.Fields.Size())
 			tileBuf := bytes.NewBuffer(tileData)
 			for inTileInd := range layerWriter.Layer.Dimensions.TileSamples() {
 				sampleCoord := pixi.TileSelector{Tile: tileInd, InTile: inTileInd}.

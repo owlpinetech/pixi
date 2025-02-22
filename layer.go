@@ -22,10 +22,10 @@ type Layer struct {
 	// samples for the first dimension are the closest together in memory, with progressively
 	// higher dimensions samples becoming further apart.
 	Dimensions     DimensionSet
-	Fields         []Field // An array of Field structs representing the fields in this dataset.
-	TileBytes      []int64 // An array of byte counts representing (compressed) size of each tile in bytes for this dataset.
-	TileOffsets    []int64 // An array of byte offsets representing the position in the file of each tile in the dataset.
-	NextLayerStart int64   // The byte-index offset of the next layer in the file, from the start of the file. 0 if this is the last layer in the file.
+	Fields         FieldSet // An array of Field structs representing the fields in this dataset.
+	TileBytes      []int64  // An array of byte counts representing (compressed) size of each tile in bytes for this dataset.
+	TileOffsets    []int64  // An array of byte offsets representing the position in the file of each tile in the dataset.
+	NextLayerStart int64    // The byte-index offset of the next layer in the file, from the start of the file. 0 if this is the last layer in the file.
 }
 
 // Helper constructor to ensure that certain invariants in a layer are maintained when it is created.
@@ -55,7 +55,7 @@ func (d *Layer) DiskTileSize(tileIndex int) int {
 		field := tileIndex / d.Dimensions.Tiles()
 		return d.Dimensions.TileSamples() * d.Fields[field].Size()
 	} else {
-		return d.Dimensions.TileSamples() * d.SampleSize()
+		return d.Dimensions.TileSamples() * d.Fields.Size()
 	}
 }
 
@@ -68,16 +68,6 @@ func (d *Layer) DiskTiles() int {
 		tiles *= len(d.Fields)
 	}
 	return tiles
-}
-
-// The size in bytes of each sample in the data set. Each field has a fixed size, and a sample
-// is made up of one element of each field, so the sample size is the sum of all field sizes.
-func (d *Layer) SampleSize() int {
-	sampleSize := 0
-	for _, f := range d.Fields {
-		sampleSize += f.Size()
-	}
-	return sampleSize
 }
 
 // Get the total number of bytes that will be occupied in the file by this layer's header.

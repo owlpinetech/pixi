@@ -13,7 +13,7 @@ type TagSection struct {
 }
 
 // Writes the tag section in binary to the given stream, according to the specification
-// in the Pixi header h.
+// in the Pixi header.
 func (t *TagSection) Write(w io.Writer, h PixiHeader) error {
 	// write number of tags, then each key-value pair for tags
 	err := h.Write(w, uint32(len(t.Tags)))
@@ -34,7 +34,7 @@ func (t *TagSection) Write(w io.Writer, h PixiHeader) error {
 }
 
 // Reads a tag section from the given binary stream, according to the specification
-// in the Pixi header h.
+// in the Pixi header.
 func (t *TagSection) Read(r io.Reader, h PixiHeader) error {
 	var tagCount uint32
 	err := h.Read(r, &tagCount)

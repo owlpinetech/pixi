@@ -4,64 +4,6 @@ import (
 	"testing"
 )
 
-func TestPixiSampleSize(t *testing.T) {
-	tests := []struct {
-		name     string
-		dataset  Layer
-		wantSize int
-	}{
-		{
-			name: "Empty dataset",
-			dataset: Layer{
-				Separated:   false,
-				Compression: CompressionNone,
-				Dimensions:  []Dimension{},
-				Fields:      []Field{},
-			},
-			wantSize: 0,
-		},
-		{
-			name: "One field with size 1",
-			dataset: Layer{
-				Separated:   false,
-				Compression: CompressionNone,
-				Dimensions:  []Dimension{},
-				Fields:      []Field{{Name: "", Type: FieldInt8}},
-			},
-			wantSize: 1,
-		},
-		{
-			name: "One field with size 2",
-			dataset: Layer{
-				Separated:   false,
-				Compression: CompressionNone,
-				Dimensions:  []Dimension{},
-				Fields:      []Field{{Name: "", Type: FieldInt16}},
-			},
-			wantSize: 2,
-		},
-		{
-			name: "Multiple fields",
-			dataset: Layer{
-				Separated:   false,
-				Compression: CompressionNone,
-				Dimensions:  []Dimension{},
-				Fields:      []Field{{Name: "", Type: FieldInt8}, {Name: "", Type: FieldFloat32}},
-			},
-			wantSize: 5, // size of int8 + size of float32
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			gotSize := test.dataset.SampleSize()
-			if gotSize != test.wantSize {
-				t.Errorf("SampleSize() = %d, want %d", gotSize, test.wantSize)
-			}
-		})
-	}
-}
-
 func TestPixiSamples(t *testing.T) {
 	tests := []struct {
 		name     string

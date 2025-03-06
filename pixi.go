@@ -76,18 +76,6 @@ func ReadPixi(r io.ReadSeeker) (Pixi, error) {
 	return pixi, nil
 }
 
-// Gets the byte-index offset from the start of the file at which the layer header begins.
-func (d *Pixi) LayerOffset(l *Layer) int64 {
-	offset := d.Header.FirstLayerOffset
-	for _, item := range d.Layers {
-		if item == l {
-			break
-		}
-		offset = item.NextLayerStart
-	}
-	return offset
-}
-
 // The total size of the data portions of the file in bytes. Does not count header information
 // as part of the size.
 func (d *Pixi) DiskDataBytes() int64 {

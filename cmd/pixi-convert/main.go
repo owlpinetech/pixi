@@ -14,12 +14,16 @@ import (
 	"github.com/owlpinetech/pixi/edit"
 )
 
+// This application converts images to Pixi files, or Pixi files of a compatible structure to images. It serves
+// as an example for basic reading and writing of Pixi data.
+
 func main() {
 	toPixiFlags := flag.NewFlagSet("toPixi", flag.ExitOnError)
 	toSrcFile := toPixiFlags.String("src", "", "file to convert to Pixi")
 	toDstFile := toPixiFlags.String("dst", "", "name of the resulting Pixi file")
 	toTileSize := toPixiFlags.Int("tileSize", 0, "the size of tiles to generate in the Pixi file, if 0 will be calculated automatically")
 	toComp := toPixiFlags.Int("compression", 0, "compression to be used for data in Pixi, 0 for none, 1 for flate")
+
 	fromPixiFlags := flag.NewFlagSet("fromPixi", flag.ExitOnError)
 	fromSrcFile := fromPixiFlags.String("src", "", "Pixi file to convert")
 	fromDstFile := fromPixiFlags.String("dst", "", "name of the file resulting from Pixi conversion")
@@ -139,7 +143,7 @@ func pixiToOther(srcFile string, dstFile string) error {
 			return err
 		}
 	default:
-		return pixi.UnsupportedError("image format not yet supported for conversion to Pixi")
+		return pixi.UnsupportedError("image format not yet supported for conversion from Pixi")
 	}
 	return nil
 }

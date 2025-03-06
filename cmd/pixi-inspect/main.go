@@ -24,21 +24,21 @@ func main() {
 	}
 	defer pixiFile.Close()
 
-	pixiSum, err := pixi.ReadPixi(pixiFile)
+	summary, err := pixi.ReadPixi(pixiFile)
 
 	fmt.Printf("Inspecting %s\n", *fileName)
-	fmt.Printf("\tVersion: %d\n", pixiSum.Header.Version)
-	fmt.Printf("\tOffset size: %d\n", pixiSum.Header.OffsetSize)
-	fmt.Printf("\tByte order: %s\n", pixiSum.Header.ByteOrder)
-	fmt.Printf("Tag Sections: %d\n", len(pixiSum.Tags))
-	for sectionInd, section := range pixiSum.Tags {
+	fmt.Printf("\tVersion: %d\n", summary.Header.Version)
+	fmt.Printf("\tOffset size: %d\n", summary.Header.OffsetSize)
+	fmt.Printf("\tByte order: %s\n", summary.Header.ByteOrder)
+	fmt.Printf("Tag Sections: %d\n", len(summary.Tags))
+	for sectionInd, section := range summary.Tags {
 		fmt.Printf("\tSection %d\n", sectionInd)
 		for k, v := range section.Tags {
 			fmt.Printf("\t\t%s: %s\n", k, v)
 		}
 	}
-	fmt.Printf("Layers: %d\n", len(pixiSum.Layers))
-	for layerInd, layer := range pixiSum.Layers {
+	fmt.Printf("Layers: %d\n", len(summary.Layers))
+	for layerInd, layer := range summary.Layers {
 		fmt.Printf("\tLayer %d: %s\n", layerInd, layer.Name)
 		fmt.Printf("\t\tSeparated: %v\n", layer.Separated)
 		fmt.Printf("\t\tCompression: %s\n", layer.Compression)

@@ -11,7 +11,7 @@ import (
 
 func TestWriteContiguousTileOrder(t *testing.T) {
 	// two layers, two tags
-	header := pixi.PixiHeader{Version: pixi.Version, OffsetSize: 4, ByteOrder: binary.LittleEndian}
+	header := &pixi.PixiHeader{Version: pixi.Version, OffsetSize: 4, ByteOrder: binary.LittleEndian}
 
 	// layer data sets
 	layerOneXSize := 10

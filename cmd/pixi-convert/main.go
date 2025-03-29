@@ -21,7 +21,7 @@ func main() {
 	toPixiFlags := flag.NewFlagSet("toPixi", flag.ExitOnError)
 	toSrcFile := toPixiFlags.String("src", "", "file to convert to Pixi")
 	toDstFile := toPixiFlags.String("dst", "", "name of the resulting Pixi file")
-	toTileSize := toPixiFlags.Int("tileSize", 0, "the size of tiles to generate in the Pixi file, if 0 will be calculated automatically")
+	toTileSize := toPixiFlags.Int("tileSize", 0, "the size of tiles to generate in the Pixi file, if zero (default) will be the same size as the image")
 	toComp := toPixiFlags.Int("compression", 0, "compression to be used for data in Pixi, 0 for none, 1 for flate")
 
 	fromPixiFlags := flag.NewFlagSet("fromPixi", flag.ExitOnError)
@@ -124,7 +124,7 @@ func pixiToOther(srcFile string, dstFile string) error {
 
 	fmt.Println("read pixi summary", pixiSum.Header.OffsetSize, len(pixiSum.Layers), len(pixiSum.Tags))
 
-	img, err := edit.LayerAsImage(pixiFile, &pixiSum, pixiSum.Layers[0])
+	img, err := edit.LayerAsImage(pixiFile, pixiSum, pixiSum.Layers[0])
 	if err != nil {
 		return err
 	}

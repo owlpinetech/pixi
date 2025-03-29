@@ -17,13 +17,13 @@ type CacheManager[K comparable, V any] interface {
 type LayerReadCache struct {
 	lock    sync.RWMutex
 	layer   *pixi.Layer
-	header  pixi.PixiHeader
+	header  *pixi.PixiHeader
 	backing io.ReadSeeker
 	cache   *sync.Map // map[int][]byte, but safe for concurrent access/modification
 	manager CacheManager[int, []byte]
 }
 
-func NewLayerReadCache(backing io.ReadSeeker, header pixi.PixiHeader, layer *pixi.Layer, eviction CacheManager[int, []byte]) *LayerReadCache {
+func NewLayerReadCache(backing io.ReadSeeker, header *pixi.PixiHeader, layer *pixi.Layer, eviction CacheManager[int, []byte]) *LayerReadCache {
 	return &LayerReadCache{
 		header:  header,
 		layer:   layer,

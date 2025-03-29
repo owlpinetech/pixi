@@ -14,7 +14,7 @@ type Field struct {
 }
 
 // Returns the size of a field in bytes.
-func (f Field) Size() int {
+func (f *Field) Size() int {
 	return f.Type.Size()
 }
 
@@ -22,25 +22,25 @@ func (f Field) Size() int {
 // The read operation is type-dependent, with each field type having its own specific method
 // for reading values. This ensures that the correct data is read and converted into the
 // expected format.
-func (f Field) BytesToValue(raw []byte, order binary.ByteOrder) any {
+func (f *Field) BytesToValue(raw []byte, order binary.ByteOrder) any {
 	return f.Type.BytesToValue(raw, order)
 }
 
 // This function writes a value of any type into bytes according to the specified FieldType.
 // The written bytes are stored in the provided byte array. This function will panic if
 // the FieldType is unknown or if an unsupported field type is encountered.
-func (f Field) ValueToBytes(val any, order binary.ByteOrder, raw []byte) {
+func (f *Field) ValueToBytes(val any, order binary.ByteOrder, raw []byte) {
 	f.Type.ValueToBytes(val, order, raw)
 }
 
 // Get the size in bytes of this dimension description as it is laid out and written to disk.
-func (d Field) HeaderSize(h PixiHeader) int {
+func (d *Field) HeaderSize(h *PixiHeader) int {
 	return 2 + len([]byte(d.Name)) + 4
 }
 
 // Writes the binary description of the field to the given stream, according to the specification
 // in the Pixi header h.
-func (d *Field) Write(w io.Writer, h PixiHeader) error {
+func (d *Field) Write(w io.Writer, h *PixiHeader) error {
 	// write the name, then size and tile size
 	err := h.WriteFriendly(w, d.Name)
 	if err != nil {
@@ -51,7 +51,7 @@ func (d *Field) Write(w io.Writer, h PixiHeader) error {
 
 // Reads a description of the field from the given binary stream, according to the specification
 // in the Pixi header h.
-func (d *Field) Read(r io.Reader, h PixiHeader) error {
+func (d *Field) Read(r io.Reader, h *PixiHeader) error {
 	name, err := h.ReadFriendly(r)
 	if err != nil {
 		return err

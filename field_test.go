@@ -102,7 +102,7 @@ func TestFieldType_WriteValue(t *testing.T) {
 		test.fieldType.ValueToBytes(test.readExpected, binary.BigEndian, buf)
 
 		written := buf
-		for b := 0; b < len(test.writeData); b++ {
+		for b := range test.writeData {
 			if test.writeData[b] != written[b] {
 				t.Errorf("Test %d: unexpected write byte %d, expected %v, got %v", i+1, b, test.writeData[b], written[b])
 			}
@@ -111,12 +111,7 @@ func TestFieldType_WriteValue(t *testing.T) {
 }
 
 func TestFieldWriteRead(t *testing.T) {
-	headers := []PixiHeader{
-		{Version: 1, ByteOrder: binary.BigEndian, OffsetSize: 4},
-		{Version: 1, ByteOrder: binary.BigEndian, OffsetSize: 8},
-		{Version: 1, ByteOrder: binary.LittleEndian, OffsetSize: 4},
-		{Version: 1, ByteOrder: binary.LittleEndian, OffsetSize: 8},
-	}
+	headers := allHeaderVariants(Version)
 
 	cases := []Field{
 		{Name: "nameone", Type: FieldInt8},

@@ -263,3 +263,12 @@ func (h *PixiHeader) OverwriteOffsets(w io.WriteSeeker, firstLayer int64, firstT
 
 	return nil
 }
+
+func allHeaderVariants(version int) []*PixiHeader {
+	return []*PixiHeader{
+		{Version: version, ByteOrder: binary.BigEndian, OffsetSize: 4},
+		{Version: version, ByteOrder: binary.BigEndian, OffsetSize: 8},
+		{Version: version, ByteOrder: binary.LittleEndian, OffsetSize: 4},
+		{Version: version, ByteOrder: binary.LittleEndian, OffsetSize: 8},
+	}
+}

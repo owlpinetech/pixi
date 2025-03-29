@@ -71,7 +71,7 @@ func (d *Layer) DiskTiles() int {
 }
 
 // Get the total number of bytes that will be occupied in the file by this layer's header.
-func (d *Layer) HeaderSize(h PixiHeader) int {
+func (d *Layer) HeaderSize(h *PixiHeader) int {
 	headerSize := 4 + 4                   // 4 bytes each for configuration and compression
 	headerSize += 2 + len([]byte(d.Name)) // 2 bytes for name length, then name
 	headerSize += 4                       // four bytes for dimension count
@@ -100,7 +100,7 @@ func (d *Layer) DataSize() int64 {
 
 // Writes the binary description of the layer to the given stream, according to the specification
 // in the Pixi header h.
-func (d *Layer) WriteHeader(w io.Writer, h PixiHeader) error {
+func (d *Layer) WriteHeader(w io.Writer, h *PixiHeader) error {
 	tiles := d.DiskTiles()
 	if tiles != len(d.TileBytes) {
 		return FormatError("invalid TileBytes: must have same number of elements as tiles in data set for valid pixi files")
@@ -173,7 +173,7 @@ func (d *Layer) WriteHeader(w io.Writer, h PixiHeader) error {
 
 // Reads a description of the layer from the given binary stream, according to the specification
 // in the Pixi header h.
-func (d *Layer) ReadLayer(r io.Reader, h PixiHeader) error {
+func (d *Layer) ReadLayer(r io.Reader, h *PixiHeader) error {
 	// read configuration and compression
 	var configuration uint32
 	err := h.Read(r, &configuration)
@@ -253,7 +253,7 @@ func (d *Layer) ReadLayer(r io.Reader, h PixiHeader) error {
 // For a layer header which has already been written to the given position, writes the layer header again
 // to the same location before returning the stream cursor to the position it was at previously. Generally
 // this is used to update tile byte counts and tile offsets after they've been written to a stream.
-func (l *Layer) OverwriteHeader(w io.WriteSeeker, h PixiHeader, headerStartOffset int64) error {
+func (l *Layer) OverwriteHeader(w io.WriteSeeker, h *PixiHeader, headerStartOffset int64) error {
 	oldPos, err := w.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return err
@@ -276,7 +276,7 @@ func (l *Layer) OverwriteHeader(w io.WriteSeeker, h PixiHeader, headerStartOffse
 // for this tile in the layer header (but not writing those offsets to the stream just yet). The
 // data is written with a 4-byte checksum directly after it, which is used to verify data integrity
 // when reading the tile later.
-func (l *Layer) WriteTile(w io.WriteSeeker, h PixiHeader, tileIndex int, data []byte) error {
+func (l *Layer) WriteTile(w io.WriteSeeker, h *PixiHeader, tileIndex int, data []byte) error {
 	streamOffset, err := w.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return err
@@ -293,7 +293,7 @@ func (l *Layer) WriteTile(w io.WriteSeeker, h PixiHeader, tileIndex int, data []
 	return h.Write(w, checksum)
 }
 
-func (l *Layer) OverwriteTile(w io.WriteSeeker, h PixiHeader, tileIndex int, data []byte) error {
+func (l *Layer) OverwriteTile(w io.WriteSeeker, h *PixiHeader, tileIndex int, data []byte) error {
 	if l.TileOffsets[tileIndex] == 0 {
 		panic("cannot overwrite a tile that has not already been written")
 	}
@@ -311,7 +311,7 @@ func (l *Layer) OverwriteTile(w io.WriteSeeker, h PixiHeader, tileIndex int, dat
 // The data is verified for integrity using a four-byte checksum placed directly after the saved
 // tile data, and an error is returned (along with the data read into the chunk) if the checksum
 // check fails.
-func (l *Layer) ReadTile(r io.ReadSeeker, h PixiHeader, tileIndex int, data []byte) error {
+func (l *Layer) ReadTile(r io.ReadSeeker, h *PixiHeader, tileIndex int, data []byte) error {
 	if l.TileBytes[tileIndex] == 0 {
 		panic("invalid tile byte count, likely tried to read a tile that hasn't been written yet")
 	}

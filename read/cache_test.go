@@ -11,7 +11,7 @@ import (
 )
 
 func TestCacheSampleFieldConcurrent(t *testing.T) {
-	header := pixi.PixiHeader{
+	header := &pixi.PixiHeader{
 		Version:    pixi.Version,
 		OffsetSize: 4,
 		ByteOrder:  binary.BigEndian,

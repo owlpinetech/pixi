@@ -1,7 +1,6 @@
 package pixi
 
 import (
-	"encoding/binary"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -10,12 +9,7 @@ import (
 )
 
 func TestDimensionHeaderSize(t *testing.T) {
-	headers := []PixiHeader{
-		{Version: 1, ByteOrder: binary.BigEndian, OffsetSize: 4},
-		{Version: 1, ByteOrder: binary.BigEndian, OffsetSize: 8},
-		{Version: 1, ByteOrder: binary.LittleEndian, OffsetSize: 4},
-		{Version: 1, ByteOrder: binary.LittleEndian, OffsetSize: 8},
-	}
+	headers := allHeaderVariants(Version)
 
 	for _, header := range headers {
 		nameLen := rand.Intn(30)
@@ -32,12 +26,7 @@ func TestDimensionHeaderSize(t *testing.T) {
 }
 
 func TestDimensionWriteRead(t *testing.T) {
-	headers := []PixiHeader{
-		{Version: 1, ByteOrder: binary.BigEndian, OffsetSize: 4},
-		{Version: 1, ByteOrder: binary.BigEndian, OffsetSize: 8},
-		{Version: 1, ByteOrder: binary.LittleEndian, OffsetSize: 4},
-		{Version: 1, ByteOrder: binary.LittleEndian, OffsetSize: 8},
-	}
+	headers := allHeaderVariants(Version)
 
 	cases := []Dimension{
 		{Name: "nameone", Size: 40, TileSize: 20},

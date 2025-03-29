@@ -13,16 +13,16 @@ const (
 // Represents a single pixi file composed of one or more layers. Functions as a handle
 // to access the description of the each layer as well as the data stored in each layer.
 type Pixi struct {
-	Header PixiHeader    // The metadata about the file version and how to read information from the file.
+	Header *PixiHeader   // The metadata about the file version and how to read information from the file.
 	Layers []*Layer      // The metadata information about each layer in the file.
 	Tags   []*TagSection // The string tags of the file, broken up into sections for easy appending.
 }
 
 // Convenience function to read all the metadata information from a Pixi file into a single
 // containing struct.
-func ReadPixi(r io.ReadSeeker) (Pixi, error) {
-	pixi := Pixi{
-		Header: PixiHeader{},
+func ReadPixi(r io.ReadSeeker) (*Pixi, error) {
+	pixi := &Pixi{
+		Header: &PixiHeader{},
 		Layers: make([]*Layer, 0),
 		Tags:   make([]*TagSection, 0),
 	}
@@ -30,7 +30,7 @@ func ReadPixi(r io.ReadSeeker) (Pixi, error) {
 	seenOffsets := []int64{}
 
 	// read the header first, then the layers and tags.
-	err := (&pixi.Header).ReadHeader(r)
+	err := pixi.Header.ReadHeader(r)
 	if err != nil {
 		return pixi, err
 	}

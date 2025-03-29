@@ -12,7 +12,7 @@ type LayerWriter struct {
 	IterFn func(*pixi.Layer, pixi.SampleCoordinate) ([]any, map[string]any)
 }
 
-func WriteContiguousTileOrderPixi(w io.WriteSeeker, header pixi.PixiHeader, tags map[string]string, layerWriters ...LayerWriter) error {
+func WriteContiguousTileOrderPixi(w io.WriteSeeker, header *pixi.PixiHeader, tags map[string]string, layerWriters ...LayerWriter) error {
 	// write the header first
 	err := header.WriteHeader(w)
 	if err != nil {

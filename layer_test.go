@@ -1,7 +1,6 @@
 package pixi
 
 import (
-	"encoding/binary"
 	"math/rand/v2"
 	"reflect"
 	"slices"
@@ -94,12 +93,7 @@ func TestLayerHeaderWriteRead(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// do this test with all header types
-			headers := []PixiHeader{
-				{Version: 1, ByteOrder: binary.BigEndian, OffsetSize: 4},
-				{Version: 1, ByteOrder: binary.BigEndian, OffsetSize: 8},
-				{Version: 1, ByteOrder: binary.LittleEndian, OffsetSize: 4},
-				{Version: 1, ByteOrder: binary.LittleEndian, OffsetSize: 8},
-			}
+			headers := allHeaderVariants(Version)
 			for _, h := range headers {
 				buf := buffer.NewBuffer(10)
 				err := h.WriteHeader(buf)
@@ -118,7 +112,7 @@ func TestLayerHeaderWriteRead(t *testing.T) {
 				}
 
 				readBuf := buffer.NewBufferFrom(buf.Bytes())
-				readHdr := PixiHeader{}
+				readHdr := &PixiHeader{}
 				err = readHdr.ReadHeader(readBuf)
 				if err != nil {
 					t.Fatal("read header", err)
@@ -143,12 +137,7 @@ func TestLayerHeaderWriteRead(t *testing.T) {
 }
 
 func TestLayerFlateCompressionTileWriteRead(t *testing.T) {
-	baseCases := []PixiHeader{
-		{Version: Version, OffsetSize: 8, ByteOrder: binary.LittleEndian},
-		{Version: Version, OffsetSize: 4, ByteOrder: binary.LittleEndian},
-		{Version: Version, OffsetSize: 8, ByteOrder: binary.BigEndian},
-		{Version: Version, OffsetSize: 4, ByteOrder: binary.BigEndian},
-	}
+	baseCases := allHeaderVariants(Version)
 	for _, pheader := range baseCases {
 		for range 25 {
 			// minimum layer needed to write a tile, must have compression and tile bytes/offsets slices created
@@ -186,12 +175,7 @@ func TestLayerFlateCompressionTileWriteRead(t *testing.T) {
 }
 
 func TestLayerTileWriteReadCorrupted(t *testing.T) {
-	baseCases := []PixiHeader{
-		{Version: Version, OffsetSize: 8, ByteOrder: binary.LittleEndian},
-		{Version: Version, OffsetSize: 4, ByteOrder: binary.LittleEndian},
-		{Version: Version, OffsetSize: 8, ByteOrder: binary.BigEndian},
-		{Version: Version, OffsetSize: 4, ByteOrder: binary.BigEndian},
-	}
+	baseCases := allHeaderVariants(Version)
 	for _, pheader := range baseCases {
 		// minimum layer needed to write a tile, must have compression and tile bytes/offsets slices created
 		layer := &Layer{

@@ -19,7 +19,7 @@ type FromImageOptions struct {
 }
 
 func PixiFromImage(w io.WriteSeeker, img image.Image, options FromImageOptions) error {
-	header := pixi.PixiHeader{Version: pixi.Version, OffsetSize: 4, ByteOrder: options.ByteOrder}
+	header := &pixi.PixiHeader{Version: pixi.Version, OffsetSize: 4, ByteOrder: options.ByteOrder}
 	// write the header first
 	err := header.WriteHeader(w)
 	if err != nil {

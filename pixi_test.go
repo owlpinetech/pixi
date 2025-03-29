@@ -15,8 +15,8 @@ func TestPixiSamples(t *testing.T) {
 			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
-				Dimensions:  []Dimension{},
-				Fields:      []Field{},
+				Dimensions:  DimensionSet{},
+				Fields:      FieldSet{},
 			},
 			wantSize: 0,
 		},
@@ -25,8 +25,8 @@ func TestPixiSamples(t *testing.T) {
 			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
-				Dimensions:  []Dimension{{Size: 10}},
-				Fields:      []Field{},
+				Dimensions:  DimensionSet{{Size: 10}},
+				Fields:      FieldSet{},
 			},
 			wantSize: 10,
 		},
@@ -35,8 +35,8 @@ func TestPixiSamples(t *testing.T) {
 			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
-				Dimensions:  []Dimension{{Size: 2}, {Size: 3}},
-				Fields:      []Field{},
+				Dimensions:  DimensionSet{{Size: 2}, {Size: 3}},
+				Fields:      FieldSet{},
 			},
 			wantSize: 6, // 2 x 3 = 6
 		},
@@ -63,8 +63,8 @@ func TestPixiTileSamples(t *testing.T) {
 			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
-				Dimensions:  []Dimension{},
-				Fields:      []Field{},
+				Dimensions:  DimensionSet{},
+				Fields:      FieldSet{},
 			},
 			wantSize: 0,
 		},
@@ -73,8 +73,8 @@ func TestPixiTileSamples(t *testing.T) {
 			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
-				Dimensions:  []Dimension{{Size: 10, TileSize: 5}},
-				Fields:      []Field{},
+				Dimensions:  DimensionSet{{Size: 10, TileSize: 5}},
+				Fields:      FieldSet{},
 			},
 			wantSize: 5,
 		},
@@ -83,8 +83,8 @@ func TestPixiTileSamples(t *testing.T) {
 			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
-				Dimensions:  []Dimension{{Size: 2, TileSize: 2}, {Size: 3, TileSize: 3}},
-				Fields:      []Field{},
+				Dimensions:  DimensionSet{{Size: 2, TileSize: 2}, {Size: 3, TileSize: 3}},
+				Fields:      FieldSet{},
 			},
 			wantSize: 6,
 		},
@@ -111,8 +111,8 @@ func TestPixiTileSize(t *testing.T) {
 			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
-				Dimensions:  []Dimension{},
-				Fields:      []Field{},
+				Dimensions:  DimensionSet{},
+				Fields:      FieldSet{},
 			},
 			wantSize: 0,
 		},
@@ -121,8 +121,8 @@ func TestPixiTileSize(t *testing.T) {
 			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
-				Dimensions:  []Dimension{{Size: 10, TileSize: 10}},
-				Fields:      []Field{{Type: FieldInt8}},
+				Dimensions:  DimensionSet{{Size: 10, TileSize: 10}},
+				Fields:      FieldSet{{Type: FieldInt8}},
 			},
 			wantSize: 10,
 		},
@@ -131,8 +131,8 @@ func TestPixiTileSize(t *testing.T) {
 			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
-				Dimensions:  []Dimension{{Size: 10, TileSize: 5}, {Size: 8, TileSize: 4}},
-				Fields:      []Field{{Type: FieldInt8}},
+				Dimensions:  DimensionSet{{Size: 10, TileSize: 5}, {Size: 8, TileSize: 4}},
+				Fields:      FieldSet{{Type: FieldInt8}},
 			},
 			wantSize: 4 * 5,
 		},
@@ -141,8 +141,8 @@ func TestPixiTileSize(t *testing.T) {
 			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
-				Dimensions:  []Dimension{{Size: 4, TileSize: 4}, {Size: 2, TileSize: 2}, {Size: 1, TileSize: 1}},
-				Fields:      []Field{{Type: FieldInt8}},
+				Dimensions:  DimensionSet{{Size: 4, TileSize: 4}, {Size: 2, TileSize: 2}, {Size: 1, TileSize: 1}},
+				Fields:      FieldSet{{Type: FieldInt8}},
 			},
 			wantSize: 8, // 4 * 2 * 1 = 8
 		},
@@ -151,8 +151,8 @@ func TestPixiTileSize(t *testing.T) {
 			dataset: Layer{
 				Separated:   true,
 				Compression: CompressionNone,
-				Dimensions:  []Dimension{{Size: 20, TileSize: 5}, {Size: 10, TileSize: 5}},
-				Fields:      []Field{{Type: FieldFloat32}, {Type: FieldFloat64}},
+				Dimensions:  DimensionSet{{Size: 20, TileSize: 5}, {Size: 10, TileSize: 5}},
+				Fields:      FieldSet{{Type: FieldFloat32}, {Type: FieldFloat64}},
 			},
 			wantSize: 4 * 5 * 5,
 		},
@@ -161,8 +161,8 @@ func TestPixiTileSize(t *testing.T) {
 			dataset: Layer{
 				Separated:   false,
 				Compression: CompressionNone,
-				Dimensions:  []Dimension{{Size: 10, TileSize: 5}},
-				Fields:      []Field{{Type: FieldInt16}},
+				Dimensions:  DimensionSet{{Size: 10, TileSize: 5}},
+				Fields:      FieldSet{{Type: FieldInt16}},
 			},
 			wantSize: 10,
 		},
@@ -181,13 +181,13 @@ func TestPixiTileSize(t *testing.T) {
 func TestPixiTiles(t *testing.T) {
 	tests := []struct {
 		name      string
-		dims      []Dimension
+		dims      DimensionSet
 		separated bool
 		want      int
 	}{
 		{
 			name:      "two rows of 4 tiles",
-			dims:      []Dimension{{Size: 86400, TileSize: 21600}, {Size: 43200, TileSize: 21600}},
+			dims:      DimensionSet{{Size: 86400, TileSize: 21600}, {Size: 43200, TileSize: 21600}},
 			separated: false,
 			want:      8,
 		},

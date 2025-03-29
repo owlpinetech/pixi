@@ -14,14 +14,14 @@ type Dimension struct {
 }
 
 // Get the size in bytes of this dimension description as it is laid out and written to disk.
-func (d Dimension) HeaderSize(h *PixiHeader) int {
+func (d *Dimension) HeaderSize(h *PixiHeader) int {
 	return 2 + len([]byte(d.Name)) + h.OffsetSize + h.OffsetSize
 }
 
 // Returns the number of tiles in this dimension.
 // The number of tiles is calculated by dividing the size of the dimension by the tile size,
 // and then rounding up to the nearest whole number if there are any remaining bytes that do not fit into a full tile.
-func (d Dimension) Tiles() int {
+func (d *Dimension) Tiles() int {
 	tiles := d.Size / d.TileSize
 	if d.Size%d.TileSize != 0 {
 		tiles += 1

@@ -3,7 +3,7 @@ package pixi
 import "iter"
 
 // An ordered set of named dimensions present in the layer of a Pixi file.
-type DimensionSet []Dimension
+type DimensionSet []*Dimension
 
 // Computes the number of non-separated tiles in the data set. This number is the same regardless
 // of how the tiles are laid out on disk; use the DiskTiles() method to determine the number of

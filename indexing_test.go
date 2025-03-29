@@ -13,12 +13,12 @@ func TestDimensionCoordinateToSampleIndex(t *testing.T) {
 		expect []SampleIndex
 	}{
 		{
-			dims:   []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+			dims:   DimensionSet{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
 			coords: []SampleCoordinate{{0, 0}, {3, 0}, {0, 3}, {3, 3}},
 			expect: []SampleIndex{0, 3, 12, 15},
 		},
 		{
-			dims: []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+			dims: DimensionSet{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
 			coords: []SampleCoordinate{
 				{0, 0, 0}, {3, 0, 0}, {0, 3, 0}, {0, 0, 3},
 				{3, 3, 0}, {3, 0, 3}, {0, 3, 3}, {3, 3, 3},
@@ -44,12 +44,12 @@ func TestSampleIndexToDimensionCoordinate(t *testing.T) {
 		expect []SampleCoordinate
 	}{
 		{
-			dims:   []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+			dims:   DimensionSet{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
 			expect: []SampleCoordinate{{0, 0}, {3, 0}, {0, 3}, {3, 3}},
 			index:  []SampleIndex{0, 3, 12, 15},
 		},
 		{
-			dims: []Dimension{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
+			dims: DimensionSet{{Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}, {Size: 4, TileSize: 2}},
 			expect: []SampleCoordinate{
 				{0, 0, 0}, {3, 0, 0}, {0, 3, 0}, {0, 0, 3},
 				{3, 3, 0}, {3, 0, 3}, {0, 3, 3}, {3, 3, 3},

@@ -21,7 +21,7 @@ func TestCacheSampleFieldConcurrent(t *testing.T) {
 		false,
 		pixi.CompressionNone,
 		pixi.DimensionSet{{Name: "x", Size: 500, TileSize: 100}, {Name: "y", Size: 500, TileSize: 100}},
-		[]pixi.Field{{Name: "one", Type: pixi.FieldUint16}, {Name: "two", Type: pixi.FieldUint32}},
+		pixi.FieldSet{{Name: "one", Type: pixi.FieldUint16}, {Name: "two", Type: pixi.FieldUint32}},
 	)
 
 	// write some test data

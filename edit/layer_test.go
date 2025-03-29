@@ -46,7 +46,7 @@ func TestWriteContiguousTileOrder(t *testing.T) {
 				pixi.DimensionSet{
 					{Name: "x", Size: layerOneXSize, TileSize: 5},
 					{Name: "y", Size: layerOneYSize, TileSize: 5}},
-				[]pixi.Field{
+				pixi.FieldSet{
 					{Name: "lum", Type: pixi.FieldFloat32},
 					{Name: "depth", Type: pixi.FieldUint16}},
 			),
@@ -64,7 +64,7 @@ func TestWriteContiguousTileOrder(t *testing.T) {
 					{Name: "x", Size: layerTwoXSize, TileSize: 5},
 					{Name: "y", Size: layerTwoYSize, TileSize: 5},
 					{Name: "z", Size: layerTwoZSize, TileSize: 5}},
-				[]pixi.Field{
+				pixi.FieldSet{
 					{Name: "r", Type: pixi.FieldUint8},
 					{Name: "g", Type: pixi.FieldUint8},
 					{Name: "b", Type: pixi.FieldUint8}},

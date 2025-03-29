@@ -29,7 +29,7 @@ type Layer struct {
 }
 
 // Helper constructor to ensure that certain invariants in a layer are maintained when it is created.
-func NewLayer(name string, separated bool, compression Compression, dimensions []Dimension, fields []Field) *Layer {
+func NewLayer(name string, separated bool, compression Compression, dimensions DimensionSet, fields FieldSet) *Layer {
 	l := &Layer{
 		Name:        name,
 		Separated:   separated,
@@ -201,10 +201,10 @@ func (d *Layer) ReadLayer(r io.Reader, h *PixiHeader) error {
 	if dimCount < 1 {
 		return FormatError("must have at least one dimension for a valid pixi file")
 	}
-	d.Dimensions = make([]Dimension, dimCount)
+	d.Dimensions = make(DimensionSet, dimCount)
 	for dInd := range d.Dimensions {
-		dim := Dimension{}
-		err = (&dim).Read(r, h)
+		dim := &Dimension{}
+		err = dim.Read(r, h)
 		if err != nil {
 			return err
 		}
@@ -220,10 +220,10 @@ func (d *Layer) ReadLayer(r io.Reader, h *PixiHeader) error {
 	if fieldCount < 1 {
 		return FormatError("must have at least one field for a valid pixi file")
 	}
-	d.Fields = make([]Field, fieldCount)
+	d.Fields = make(FieldSet, fieldCount)
 	for fInd := range d.Fields {
-		field := Field{}
-		err = (&field).Read(r, h)
+		field := &Field{}
+		err = field.Read(r, h)
 		if err != nil {
 			return err
 		}

@@ -76,45 +76,45 @@ func PixiFromImage(w io.WriteSeeker, img image.Image, options FromImageOptions) 
 }
 
 func ImageToLayer(img image.Image, layerName string, separated bool, compression pixi.Compression, xTileSize int, yTileSize int) (*pixi.Layer, error) {
-	var fields []pixi.Field
+	var fields pixi.FieldSet
 	switch img.ColorModel() {
 	case color.NRGBAModel:
-		fields = []pixi.Field{
+		fields = pixi.FieldSet{
 			{Name: "r", Type: pixi.FieldUint8},
 			{Name: "g", Type: pixi.FieldUint8},
 			{Name: "b", Type: pixi.FieldUint8},
 			{Name: "a", Type: pixi.FieldUint8},
 		}
 	case color.NRGBA64Model:
-		fields = []pixi.Field{
+		fields = pixi.FieldSet{
 			{Name: "r", Type: pixi.FieldUint16},
 			{Name: "g", Type: pixi.FieldUint16},
 			{Name: "b", Type: pixi.FieldUint16},
 			{Name: "a", Type: pixi.FieldUint16},
 		}
 	case color.RGBAModel:
-		fields = []pixi.Field{
+		fields = pixi.FieldSet{
 			{Name: "r", Type: pixi.FieldUint8},
 			{Name: "g", Type: pixi.FieldUint8},
 			{Name: "b", Type: pixi.FieldUint8},
 			{Name: "a", Type: pixi.FieldUint8},
 		}
 	case color.RGBA64Model:
-		fields = []pixi.Field{
+		fields = pixi.FieldSet{
 			{Name: "r", Type: pixi.FieldUint16},
 			{Name: "g", Type: pixi.FieldUint16},
 			{Name: "b", Type: pixi.FieldUint16},
 			{Name: "a", Type: pixi.FieldUint16},
 		}
 	case color.CMYKModel:
-		fields = []pixi.Field{
+		fields = pixi.FieldSet{
 			{Name: "c", Type: pixi.FieldUint8},
 			{Name: "m", Type: pixi.FieldUint8},
 			{Name: "y", Type: pixi.FieldUint8},
 			{Name: "k", Type: pixi.FieldUint8},
 		}
 	case color.YCbCrModel:
-		fields = []pixi.Field{
+		fields = pixi.FieldSet{
 			{Name: "Y", Type: pixi.FieldUint8},
 			{Name: "Cb", Type: pixi.FieldUint8},
 			{Name: "Cr", Type: pixi.FieldUint8},
@@ -138,7 +138,7 @@ func ImageToLayer(img image.Image, layerName string, separated bool, compression
 		layerName,
 		separated,
 		compression,
-		[]pixi.Dimension{
+		pixi.DimensionSet{
 			{Name: "x", Size: width, TileSize: xTileSize},
 			{Name: "y", Size: height, TileSize: yTileSize}},
 		fields), nil

@@ -46,7 +46,7 @@ func LayerContiguousTileOrderSingleValue(r io.ReadSeeker, header *pixi.PixiHeade
 	if layer.Separated {
 		panic("this iterator does not support files with separated fields")
 	}
-	fieldInd := slices.IndexFunc(layer.Fields, func(f pixi.Field) bool { return f.Name == fieldName })
+	fieldInd := slices.IndexFunc(layer.Fields, func(f *pixi.Field) bool { return f.Name == fieldName })
 	if fieldInd == -1 {
 		panic("field to iterate over is not present in the given layer")
 	}

@@ -122,8 +122,6 @@ func pixiToOther(srcFile string, dstFile string) error {
 		return err
 	}
 
-	fmt.Println("read pixi summary", pixiSum.Header.OffsetSize, len(pixiSum.Layers), len(pixiSum.Tags))
-
 	img, err := edit.LayerAsImage(pixiFile, pixiSum, pixiSum.Layers[0])
 	if err != nil {
 		return err

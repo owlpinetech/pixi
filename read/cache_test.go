@@ -29,7 +29,7 @@ func TestCacheSampleFieldConcurrent(t *testing.T) {
 	rawTiles := [][]byte{}
 	for i := range layer.Dimensions.Tiles() {
 		chunk := make([]byte, layer.DiskTileSize(i))
-		for i := 0; i < len(chunk); i++ {
+		for i := range chunk {
 			chunk[i] = byte(rand.IntN(256))
 		}
 		layer.WriteTile(wrtBuf, header, i, chunk)

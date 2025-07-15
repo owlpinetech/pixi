@@ -9,7 +9,7 @@ import (
 )
 
 // Returns a sequence of every sample in the layer, in tile iteration order (efficient from a disk-loading
-// perspective, each tile will only be loaded once exactly once it is needed). Each iteration contains the
+// perspective, each tile will only be loaded exactly once, as it is needed). Each iteration contains the
 // coordinate of the sample by each dimension, as well as every field of the sample.
 func LayerContiguousTileOrder(r io.ReadSeeker, header *pixi.PixiHeader, layer *pixi.Layer) iter.Seq2[pixi.SampleCoordinate, []any] {
 	if layer.Separated {

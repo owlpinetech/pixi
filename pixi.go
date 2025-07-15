@@ -2,6 +2,7 @@ package pixi
 
 import (
 	"io"
+	"maps"
 	"slices"
 )
 
@@ -74,6 +75,14 @@ func ReadPixi(r io.ReadSeeker) (*Pixi, error) {
 	}
 
 	return pixi, nil
+}
+
+func (d *Pixi) AllTags() map[string]string {
+	tags := map[string]string{}
+	for _, t := range d.Tags {
+		maps.Copy(tags, t.Tags)
+	}
+	return tags
 }
 
 // The total size of the data portions of the file in bytes. Does not count header information

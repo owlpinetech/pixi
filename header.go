@@ -208,11 +208,12 @@ func (h *PixiHeader) ReadHeader(r io.Reader) error {
 	}
 	h.OffsetSize = int(buf[0])
 
-	if buf[1] == 0x00 {
+	switch buf[1] {
+	case 0x00:
 		h.ByteOrder = binary.LittleEndian
-	} else if buf[1] == 0xff {
+	case 0xff:
 		h.ByteOrder = binary.BigEndian
-	} else {
+	default:
 		return FormatError("unsupported or invalid byte order specified")
 	}
 

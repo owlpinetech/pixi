@@ -3,30 +3,30 @@ package main
 import (
 	"flag"
 	"fmt"
-	"os"
 
 	"github.com/owlpinetech/pixi"
+	"github.com/owlpinetech/pixi/read"
 )
 
 func main() {
-	fileName := flag.String("file", "", "name of the pixi file to open")
+	pixiPath := flag.String("path", "", "path to the pixi file to open, e.g. /path/to/file.pixi or http://example.com/file.pixi")
 	flag.Parse()
 
-	if *fileName == "" {
+	if *pixiPath == "" {
 		fmt.Println("must specify a Pixi file to inspect")
-		os.Exit(-1)
+		return
 	}
 
-	pixiFile, err := os.Open(*fileName)
+	pixiStream, err := read.OpenFileOrHttp(*pixiPath)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		fmt.Println("Failed to open source Pixi file:", err)
+		return
 	}
-	defer pixiFile.Close()
+	defer pixiStream.Close()
 
-	summary, err := pixi.ReadPixi(pixiFile)
+	summary, err := pixi.ReadPixi(pixiStream)
 
-	fmt.Printf("Inspecting %s\n", *fileName)
+	fmt.Printf("Inspecting %s\n", *pixiPath)
 	fmt.Printf("\tVersion: %d\n", summary.Header.Version)
 	fmt.Printf("\tOffset size: %d\n", summary.Header.OffsetSize)
 	fmt.Printf("\tByte order: %s\n", summary.Header.ByteOrder)
@@ -54,6 +54,6 @@ func main() {
 
 	if err != nil {
 		fmt.Println(err)
-		os.Exit(1)
+		return
 	}
 }

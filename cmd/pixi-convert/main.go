@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"image/jpeg"
 	"image/png"
+	"io"
+	"net/http"
 	"os"
 	"path"
 	"strings"
 
 	"github.com/owlpinetech/pixi"
 	"github.com/owlpinetech/pixi/edit"
+	"github.com/owlpinetech/pixi/read"
 )
 
 // This application converts images to Pixi files, or Pixi files of a compatible structure to images. It serves
@@ -33,37 +36,53 @@ func main() {
 		err := toPixiFlags.Parse(os.Args[2:])
 		if err != nil {
 			fmt.Println(err)
-			os.Exit(-1)
+			return
 		}
 
 		if err := otherToPixi(*toSrcFile, *toDstFile, *toTileSize, *toComp); err != nil {
 			fmt.Println(err)
-			os.Exit(-1)
+			return
 		}
 	case "from":
 		err := fromPixiFlags.Parse(os.Args[2:])
 		if err != nil {
 			fmt.Println(err)
-			os.Exit(-1)
+			return
 		}
 
 		if err := pixiToOther(*fromSrcFile, *fromDstFile); err != nil {
 			fmt.Println(err)
-			os.Exit(-1)
+			return
 		}
 	default:
 		fmt.Printf("unknown subcommand: %s\n", os.Args[1])
 		fmt.Println("available subcommands: to, from")
-		os.Exit(-1)
+		return
 	}
 }
 
 func otherToPixi(srcFile string, dstFile string, tileSize int, comp int) error {
-	rdFile, err := os.Open(srcFile)
-	if err != nil {
-		return err
+	var srcStream io.Reader
+	if strings.HasPrefix(srcFile, "http://") || strings.HasPrefix(srcFile, "https://") {
+		resp, err := http.Get(srcFile)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close() // Close the response body when done
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			return fmt.Errorf("failed to fetch file, status code: %d", resp.StatusCode)
+		}
+		srcStream = resp.Body
+	} else {
+		rdFile, err := os.Open(srcFile)
+		if err != nil {
+			return err
+		}
+		defer rdFile.Close()
+
+		srcStream = rdFile
 	}
-	defer rdFile.Close()
 
 	pixiFile, err := os.Create(dstFile)
 	if err != nil {
@@ -85,7 +104,7 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int) error {
 
 	switch strings.ToLower(path.Ext(srcFile)) {
 	case ".png":
-		img, err := png.Decode(rdFile)
+		img, err := png.Decode(srcStream)
 		if err != nil {
 			return err
 		}
@@ -94,7 +113,7 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int) error {
 	case ".jpg":
 		fallthrough
 	case ".jpeg":
-		img, err := jpeg.Decode(rdFile)
+		img, err := jpeg.Decode(srcStream)
 		if err != nil {
 			return err
 		}
@@ -105,11 +124,11 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int) error {
 }
 
 func pixiToOther(srcFile string, dstFile string) error {
-	pixiFile, err := os.Open(srcFile)
+	pixiStream, err := read.OpenFileOrHttp(srcFile)
 	if err != nil {
 		return err
 	}
-	defer pixiFile.Close()
+	defer pixiStream.Close()
 
 	imgFile, err := os.Create(dstFile)
 	if err != nil {
@@ -117,12 +136,12 @@ func pixiToOther(srcFile string, dstFile string) error {
 	}
 	defer imgFile.Close()
 
-	pixiSum, err := pixi.ReadPixi(pixiFile)
+	pixiSum, err := pixi.ReadPixi(pixiStream)
 	if err != nil {
 		return err
 	}
 
-	img, err := edit.LayerAsImage(pixiFile, pixiSum, pixiSum.Layers[0])
+	img, err := edit.LayerAsImage(pixiStream, pixiSum, pixiSum.Layers[0])
 	if err != nil {
 		return err
 	}

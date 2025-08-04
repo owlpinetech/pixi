@@ -4,41 +4,59 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"strings"
 
 	"github.com/owlpinetech/pixi"
+	"github.com/owlpinetech/pixi/read"
 )
 
 func main() {
-	fileName := flag.String("file", "", "name of the pixi file to examine or tag")
+	pixiPath := flag.String("path", "", "path of the pixi file to examine or tag")
 	tags := flag.String("tags", "", "tag name to add to the pixi file")
 	vals := flag.String("vals", "", "value of the tag to add to the pixi file")
 	flag.Parse()
 
-	if *fileName == "" {
+	if *pixiPath == "" {
 		fmt.Println("No pixi file provided")
 		os.Exit(1)
 	}
 
-	fileInfo, err := os.Stat(*fileName)
+	var editFile *os.File
+	var pixiStream io.ReadSeeker
+	if strings.HasPrefix(*pixiPath, "http://") || strings.HasPrefix(*pixiPath, "https://") {
+		pixiUrl, err := url.Parse(*pixiPath)
+		if err != nil {
+			fmt.Println("Invalid URL:", err)
+			return
+		}
+		pixiStream, err = read.OpenBufferedHttp(pixiUrl, nil)
+		if err != nil {
+			fmt.Println("Failed to open remote Pixi file:", err)
+			return
+		}
+
+		if *tags != "" || *vals != "" {
+			fmt.Println("Editing remote Pixi files over HTTP is not supported.")
+			return
+		}
+	} else {
+		file, err := os.OpenFile(*pixiPath, os.O_RDWR, 0644)
+		if err != nil {
+			fmt.Println("Failed to open pixi file.")
+			return
+		}
+		defer file.Close()
+
+		editFile = file
+		pixiStream = file
+	}
+
+	root, err := pixi.ReadPixi(pixiStream)
 	if err != nil {
-		fmt.Println("Error:", err)
+		fmt.Println("Failed to read source Pixi file.", err)
 		return
-	}
-	fileSize := fileInfo.Size()
-
-	file, err := os.OpenFile(*fileName, os.O_RDWR, 0644)
-	if err != nil {
-		fmt.Println("Failed to open pixi file.")
-		os.Exit(1)
-	}
-	defer file.Close()
-
-	root, err := pixi.ReadPixi(file)
-	if err != nil {
-		fmt.Println("Failed to read source Pixi file.")
-		os.Exit(1)
 	}
 
 	allTags := root.AllTags()
@@ -48,11 +66,11 @@ func main() {
 
 	if len(tagNames) != len(tagVals) {
 		fmt.Println("Number of tags and values must match")
-		os.Exit(1)
+		return
 	}
 
 	if *tags == "" || len(tagNames) == 0 {
-		fmt.Println("No tag names provided, printing all tags:")
+		fmt.Println("Listing Pixi tags:")
 		for k, v := range allTags {
 			fmt.Printf("%s => %s\n", k, v)
 		}
@@ -61,7 +79,7 @@ func main() {
 	for _, tag := range tagNames {
 		if _, ok := allTags[tag]; ok {
 			fmt.Printf("Tag %s already exists with value %s\n", tag, allTags[tag])
-			os.Exit(1)
+			return
 		}
 	}
 
@@ -74,21 +92,28 @@ func main() {
 		NextTagsStart: 0,
 	}
 
+	fileInfo, err := editFile.Stat()
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+	fileSize := fileInfo.Size()
+
 	root.Tags[len(root.Tags)-1].NextTagsStart = fileSize
 	if len(root.Tags) > 1 {
-		file.Seek(root.Tags[len(root.Tags)-2].NextTagsStart, io.SeekStart)
+		editFile.Seek(root.Tags[len(root.Tags)-2].NextTagsStart, io.SeekStart)
 	} else {
-		file.Seek(root.Header.FirstTagsOffset, io.SeekStart)
+		editFile.Seek(root.Header.FirstTagsOffset, io.SeekStart)
 	}
-	err = root.Tags[len(root.Tags)-1].Write(file, root.Header)
+	err = root.Tags[len(root.Tags)-1].Write(editFile, root.Header)
 	if err != nil {
 		fmt.Println("Failed to overwrite previous tag section in Pixi file.")
-		os.Exit(1)
+		return
 	}
-	file.Seek(fileSize, io.SeekStart)
-	err = newSection.Write(file, root.Header)
+	editFile.Seek(fileSize, io.SeekStart)
+	err = newSection.Write(editFile, root.Header)
 	if err != nil {
 		fmt.Println("Failed to write new tag section to Pixi file.")
-		os.Exit(1)
+		return
 	}
 }

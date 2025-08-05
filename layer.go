@@ -275,7 +275,8 @@ func (l *Layer) OverwriteHeader(w io.WriteSeeker, h *PixiHeader, headerStartOffs
 // Write the encoded tile data to the current stream position, updating the offset and byte count
 // for this tile in the layer header (but not writing those offsets to the stream just yet). The
 // data is written with a 4-byte checksum directly after it, which is used to verify data integrity
-// when reading the tile later.
+// when reading the tile later. The compression attribute of the layer is used to apply compression
+// to the tile data before writing it to the stream.
 func (l *Layer) WriteTile(w io.WriteSeeker, h *PixiHeader, tileIndex int, data []byte) error {
 	streamOffset, err := w.Seek(0, io.SeekCurrent)
 	if err != nil {

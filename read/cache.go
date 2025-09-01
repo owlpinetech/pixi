@@ -35,8 +35,8 @@ func NewLayerReadCache(backing io.ReadSeeker, header *pixi.PixiHeader, layer *pi
 
 func (c *LayerReadCache) SampleAt(coord pixi.SampleCoordinate) ([]any, error) {
 	tileSelector := coord.ToTileSelector(c.layer.Dimensions)
+	sample := make([]any, len(c.layer.Fields))
 	if c.layer.Separated {
-		sample := make([]any, len(c.layer.Fields))
 		for fieldIndex, field := range c.layer.Fields {
 			fieldTile := tileSelector.Tile + c.layer.Dimensions.Tiles()*fieldIndex
 			fieldOffset := tileSelector.InTile * field.Size()
@@ -56,7 +56,6 @@ func (c *LayerReadCache) SampleAt(coord pixi.SampleCoordinate) ([]any, error) {
 		if err != nil {
 			return nil, err
 		}
-		sample := make([]any, len(c.layer.Fields))
 		for i, field := range c.layer.Fields {
 			sample[i] = field.BytesToValue(tileData[fieldOffset:], c.header.ByteOrder)
 			fieldOffset += field.Size()

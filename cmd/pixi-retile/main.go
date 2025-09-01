@@ -85,11 +85,6 @@ func main() {
 	}
 	dstLayer := pixi.NewLayer(srcLayer.Name, srcLayer.Separated, srcLayer.Compression, dstDims, srcLayer.Fields)
 
-	if err := dstPixi.WriteHeader(dstFile); err != nil {
-		fmt.Println("Failed to header to write destination Pixi file.")
-		return
-	}
-
 	srcData := read.NewLayerReadCache(srcStream, srcPixi.Header, srcLayer, read.NewLfuCacheManager(4))
 
 	err = edit.WriteContiguousTileOrderPixi(dstFile, dstPixi, srcPixi.AllTags(), edit.LayerWriter{

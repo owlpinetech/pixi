@@ -43,6 +43,29 @@ func NewLayer(name string, separated bool, compression Compression, dimensions D
 	return l
 }
 
+// Creates a new blank uncompressed layer, initializing all fields and allocating space for all tiles in the data set with
+// blank (zeroed) data. The backing WriteSeeker is left at the end of the written data, ready for further writes. This function
+// assumes that the PixiHeader has already been written to the backing stream, and that the stream cursor is at the correct
+// offset for writing the layer header. If the write fails partway through, an error is returned, but the backing stream may be
+// partially written.
+func NewBlankUncompressedLayer(backing io.WriteSeeker, header *PixiHeader, name string, separated bool, dimensions DimensionSet, fields FieldSet) (*Layer, error) {
+	layer := NewLayer(name, separated, CompressionNone, dimensions, fields)
+	err := layer.WriteHeader(backing, header)
+	if err != nil {
+		return nil, err
+	}
+
+	for tileIndex := range layer.DiskTiles() {
+		tileData := make([]byte, layer.DiskTileSize(tileIndex))
+		err = layer.WriteTile(backing, header, tileIndex, tileData)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return layer, nil
+}
+
 // The size of the requested disk tile in bytes. For contiguous files, the size of each tile is always
 // the same. However, for separated data sets, each field is tiled (so the number of on-disk
 // tiles is actually fieldCount * Tiles()). Hence, the tile size changes depending on which

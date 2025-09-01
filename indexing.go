@@ -17,6 +17,9 @@ func (index SampleIndex) ToSampleCoordinate(set DimensionSet) SampleCoordinate {
 type SampleCoordinate []int
 
 func (coord SampleCoordinate) ToSampleIndex(set DimensionSet) SampleIndex {
+	if len(coord) != len(set) {
+		panic("pixi: SampleCoordinate dimension mismatch")
+	}
 	index := coord[len(coord)-1]
 	for i := len(coord) - 2; i >= 0; i-- {
 		index *= set[i].Size
@@ -26,6 +29,9 @@ func (coord SampleCoordinate) ToSampleIndex(set DimensionSet) SampleIndex {
 }
 
 func (coord SampleCoordinate) ToTileSelector(set DimensionSet) TileSelector {
+	if len(coord) != len(set) {
+		panic("pixi: SampleCoordinate dimension mismatch")
+	}
 	tileIndex := 0
 	inTileIndex := 0
 	tileMul := 1
@@ -40,6 +46,9 @@ func (coord SampleCoordinate) ToTileSelector(set DimensionSet) TileSelector {
 }
 
 func (coord SampleCoordinate) ToTileCoordinate(set DimensionSet) TileCoordinate {
+	if len(coord) != len(set) {
+		panic("pixi: SampleCoordinate dimension mismatch")
+	}
 	tile := make([]int, len(set))
 	inTile := make([]int, len(set))
 	for i := range coord {

@@ -1,7 +1,10 @@
 package pixi
 
+// Represents a linear index into the samples of a DimensionSet. This is the result of converting
+// the multidimensional SampleCoordinate into a single integer in the range [0, Samples()).
 type SampleIndex int
 
+// Convert this linear SampleIndex into a multidimensional SampleCoordinate for the given DimensionSet.
 func (index SampleIndex) ToSampleCoordinate(set DimensionSet) SampleCoordinate {
 	coord := make([]int, len(set))
 	total := set.Samples()
@@ -14,8 +17,11 @@ func (index SampleIndex) ToSampleCoordinate(set DimensionSet) SampleCoordinate {
 	return coord
 }
 
+// Represents a multidimensional coordinate into the samples of a DimensionSet. Each element of the coordinate
+// indexes into the corresponding dimension of the DimensionSet, and must be in the range [0, Size).
 type SampleCoordinate []int
 
+// Convert this multidimensional SampleCoordinate into an equivalent linear SampleIndex for the given DimensionSet.
 func (coord SampleCoordinate) ToSampleIndex(set DimensionSet) SampleIndex {
 	if len(coord) != len(set) {
 		panic("pixi: SampleCoordinate dimension mismatch")
@@ -28,6 +34,7 @@ func (coord SampleCoordinate) ToSampleIndex(set DimensionSet) SampleIndex {
 	return SampleIndex(index)
 }
 
+// Convert this multidimensional SampleCoordinate into an equivalent TileSelector for the given DimensionSet.
 func (coord SampleCoordinate) ToTileSelector(set DimensionSet) TileSelector {
 	if len(coord) != len(set) {
 		panic("pixi: SampleCoordinate dimension mismatch")
@@ -45,6 +52,7 @@ func (coord SampleCoordinate) ToTileSelector(set DimensionSet) TileSelector {
 	return TileSelector{Tile: tileIndex, InTile: inTileIndex}
 }
 
+// Convert this multidimensional SampleCoordinate into an equivalent TileCoordinate for the given DimensionSet.
 func (coord SampleCoordinate) ToTileCoordinate(set DimensionSet) TileCoordinate {
 	if len(coord) != len(set) {
 		panic("pixi: SampleCoordinate dimension mismatch")
@@ -61,15 +69,20 @@ func (coord SampleCoordinate) ToTileCoordinate(set DimensionSet) TileCoordinate 
 
 type TileIndex int
 
+// Indexes into a sample of a particular tile in the DimensionSet. The Tile field is a linear index into the tiles of the DimensionSet,
+// and the InTile field is a linear index into the samples of that tile. The Tile field is converted from a multidimensional TileCoordinate
+// in a similar way to SampleIndex being converted from SampleCoordinate, and the same for the InTile linear index.
 type TileSelector struct {
 	Tile   int
 	InTile int
 }
 
+// Convert this TileSelector into a linear TileIndex for the given DimensionSet.
 func (s TileSelector) ToTileIndex(set DimensionSet) TileIndex {
 	return TileIndex(set.TileSamples()*s.Tile + s.InTile)
 }
 
+// Convert this TileSelector into a multidimensional TileCoordinate for the given DimensionSet.
 func (s TileSelector) ToTileCoordinate(set DimensionSet) TileCoordinate {
 	coord := TileCoordinate{make([]int, len(set)), make([]int, len(set))}
 	tileIndex := s.Tile
@@ -89,11 +102,16 @@ func (s TileSelector) ToTileCoordinate(set DimensionSet) TileCoordinate {
 	return coord
 }
 
+// Represents a multidimensional coordinate into the tiles of a DimensionSet, and a multidimensional coordinate into the samples
+// of that tile. Each element of the Tile coordinate indexes into the corresponding dimension of the DimensionSet, and must be
+// in the range [0, Tiles()). Each element of the InTile coordinate indexes into the corresponding dimension of the tile, and must be
+// in the range [0, TileSize).
 type TileCoordinate struct {
 	Tile   []int
 	InTile []int
 }
 
+// Convert this TileCoordinate into an equivalent TileSelector for the given DimensionSet.
 func (coord TileCoordinate) ToTileSelector(set DimensionSet) TileSelector {
 	tile := coord.Tile[len(coord.Tile)-1]
 	inTile := coord.InTile[len(coord.InTile)-1]
@@ -106,6 +124,7 @@ func (coord TileCoordinate) ToTileSelector(set DimensionSet) TileSelector {
 	return TileSelector{Tile: tile, InTile: inTile}
 }
 
+// Convert this TileCoordinate into an equivalent SampleCoordinate for the given DimensionSet.
 func (coord TileCoordinate) ToSampleCoordinate(set DimensionSet) SampleCoordinate {
 	sampleCoord := make(SampleCoordinate, len(coord.Tile))
 	for i := range sampleCoord {

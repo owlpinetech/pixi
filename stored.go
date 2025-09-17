@@ -5,12 +5,17 @@ import (
 	"sync"
 )
 
+// StoredLayer provides direct access to samples and fields in a layer stored in a backing io.ReadSeeker/io.WriteSeeker.
+// Every access is protected by a mutex, so it is safe for concurrent use by multiple goroutines. However, every access
+// also goes to the backing store, with no caching, so it may be slow.
 type StoredLayer struct {
 	lock   sync.RWMutex
 	header *PixiHeader
 	layer  *Layer
 }
 
+// NewStoredLayer creates a new StoredLayer for the given layer and header. This does not fill any data or create a
+// backing store; the backing store must be initialized elsewhere and provided to each access method.
 func NewStoredLayer(header *PixiHeader, layer *Layer) *StoredLayer {
 	return &StoredLayer{
 		header: header,

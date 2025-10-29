@@ -14,7 +14,6 @@ import (
 
 	"github.com/owlpinetech/pixi"
 	"github.com/owlpinetech/pixi/edit"
-	"github.com/owlpinetech/pixi/read"
 )
 
 // This application converts images to Pixi files, or Pixi files of a compatible structure to images. It serves
@@ -124,7 +123,7 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int) error {
 }
 
 func pixiToOther(srcFile string, dstFile string) error {
-	pixiStream, err := read.OpenFileOrHttp(srcFile)
+	pixiStream, err := pixi.OpenFileOrHttp(srcFile)
 	if err != nil {
 		return err
 	}

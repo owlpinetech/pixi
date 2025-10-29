@@ -8,14 +8,15 @@ type LayerExtension interface {
 
 type DirectAccessLayerReader interface {
 	LayerExtension
-	SampleAt(backing io.ReadSeeker, coord SampleCoordinate) ([]any, error)
-	FieldAt(backing io.ReadSeeker, coord SampleCoordinate, fieldIndex int) (any, error)
+	SampleAt(coord SampleCoordinate) ([]any, error)
+	FieldAt(coord SampleCoordinate, fieldIndex int) (any, error)
 }
 
 type DirectAccessLayerWriter interface {
 	LayerExtension
-	SetSampleAt(backing io.WriteSeeker, coord SampleCoordinate, values []any) error
-	SetFieldAt(backing io.WriteSeeker, coord SampleCoordinate, fieldIndex int, value any) error
+	SetSampleAt(coord SampleCoordinate, values []any) error
+	SetFieldAt(coord SampleCoordinate, fieldIndex int, value any) error
+	Flush() error
 }
 
 type DirectAccessLayerReadWriter interface {

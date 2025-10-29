@@ -29,7 +29,7 @@ func TestDimensionSetIndicesSampleOrder(t *testing.T) {
 func TestDimensionSetIndicesTileOrder(t *testing.T) {
 	dims := DimensionSet{{"", 15, 5}, {"", 60, 30}} //newRandomValidDimensionSet(5, 99, 5)
 
-	tileInd := TileIndex(0)
+	tileInd := TileOrderIndex(0)
 	for coord := range dims.TileCoordinates() {
 		if coord.ToTileSelector(dims).ToTileIndex(dims) != tileInd {
 			t.Fatalf("expected %v to be sample index %d, but got %d for %v", coord, tileInd, coord.ToTileSelector(dims).ToTileIndex(dims), dims)

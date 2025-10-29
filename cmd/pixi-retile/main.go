@@ -9,7 +9,6 @@ import (
 
 	"github.com/owlpinetech/pixi"
 	"github.com/owlpinetech/pixi/edit"
-	"github.com/owlpinetech/pixi/read"
 )
 
 func main() {
@@ -41,7 +40,7 @@ func main() {
 	}
 
 	// open source and destination files
-	srcStream, err := read.OpenFileOrHttp(*srcFileName)
+	srcStream, err := pixi.OpenFileOrHttp(*srcFileName)
 	if err != nil {
 		fmt.Println("Failed to open source Pixi file:", err)
 		return
@@ -85,7 +84,7 @@ func main() {
 	}
 	dstLayer := pixi.NewLayer(srcLayer.Name, srcLayer.Separated, srcLayer.Compression, dstDims, srcLayer.Fields)
 
-	srcData := read.NewLayerReadCache(srcStream, srcPixi.Header, srcLayer, read.NewLfuCacheManager(4))
+	srcData := pixi.NewReadCachedLayer(srcPixi.Header, pixi.NewLayerReadFifoCache(srcStream, srcLayer, 4))
 
 	err = edit.WriteContiguousTileOrderPixi(dstFile, dstPixi, srcPixi.AllTags(), edit.LayerWriter{
 		Layer: dstLayer,

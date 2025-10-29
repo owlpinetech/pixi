@@ -1,4 +1,4 @@
-package read
+package pixi
 
 import (
 	"io"

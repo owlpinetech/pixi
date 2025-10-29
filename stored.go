@@ -6,20 +6,22 @@ import (
 )
 
 // StoredLayer provides direct access to samples and fields in a layer stored in a backing io.ReadSeeker/io.WriteSeeker.
-// Every access is protected by a mutex, so it is safe for concurrent use by multiple goroutines. However, every access
+// Every access is protected by a RW mutex, so it is safe for concurrent use by multiple goroutines. However, every access
 // also goes to the backing store, with no caching, so it may be slow.
 type StoredLayer struct {
-	lock   sync.RWMutex
-	header *PixiHeader
-	layer  *Layer
+	lock    sync.RWMutex
+	header  *PixiHeader
+	layer   *Layer
+	backing io.ReadWriteSeeker
 }
 
 // NewStoredLayer creates a new StoredLayer for the given layer and header. This does not fill any data or create a
-// backing store; the backing store must be initialized elsewhere and provided to each access method.
-func NewStoredLayer(header *PixiHeader, layer *Layer) *StoredLayer {
+// backing store; the backing store must be initialized elsewhere and provided as an IO stream to each access method.
+func NewStoredLayer(backing io.ReadWriteSeeker, header *PixiHeader, layer *Layer) *StoredLayer {
 	return &StoredLayer{
-		header: header,
-		layer:  layer,
+		header:  header,
+		layer:   layer,
+		backing: backing,
 	}
 }
 
@@ -31,7 +33,7 @@ func (s *StoredLayer) Header() *PixiHeader {
 	return s.header
 }
 
-func (s *StoredLayer) SampleAt(backing io.ReadSeeker, coord SampleCoordinate) ([]any, error) {
+func (s *StoredLayer) SampleAt(coord SampleCoordinate) ([]any, error) {
 	tileSelector := coord.ToTileSelector(s.layer.Dimensions)
 	sample := make([]any, len(s.layer.Fields))
 
@@ -44,7 +46,7 @@ func (s *StoredLayer) SampleAt(backing io.ReadSeeker, coord SampleCoordinate) ([
 				fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
 				fieldOffset := tileSelector.InTile * field.Size()
 
-				tileData, err := s.loadTile(backing, fieldTile)
+				tileData, err := s.loadTile(fieldTile)
 				if err != nil {
 					return nil, err
 				}
@@ -54,7 +56,7 @@ func (s *StoredLayer) SampleAt(backing io.ReadSeeker, coord SampleCoordinate) ([
 		} else {
 			fieldOffset := tileSelector.InTile * s.layer.Fields.Size()
 
-			tileData, err := s.loadTile(backing, tileSelector.Tile)
+			tileData, err := s.loadTile(tileSelector.Tile)
 			if err != nil {
 				return nil, err
 			}
@@ -71,11 +73,11 @@ func (s *StoredLayer) SampleAt(backing io.ReadSeeker, coord SampleCoordinate) ([
 				fieldFileOffset := s.layer.TileOffsets[separatedTileIndex] + int64(tileSelector.InTile*field.Size())
 
 				fieldRead := make([]byte, field.Size())
-				_, err := backing.Seek(fieldFileOffset, io.SeekStart)
+				_, err := s.backing.Seek(fieldFileOffset, io.SeekStart)
 				if err != nil {
 					return nil, err
 				}
-				_, err = io.ReadFull(backing, fieldRead)
+				_, err = io.ReadFull(s.backing, fieldRead)
 				if err != nil {
 					return nil, err
 				}
@@ -85,11 +87,11 @@ func (s *StoredLayer) SampleAt(backing io.ReadSeeker, coord SampleCoordinate) ([
 			fieldTileOffset := tileSelector.InTile * s.layer.Fields.Size()
 			fieldFileOffset := s.layer.TileOffsets[tileSelector.Tile] + int64(fieldTileOffset)
 			sampleRead := make([]byte, s.layer.Fields.Size())
-			_, err := backing.Seek(fieldFileOffset, io.SeekStart)
+			_, err := s.backing.Seek(fieldFileOffset, io.SeekStart)
 			if err != nil {
 				return nil, err
 			}
-			_, err = io.ReadFull(backing, sampleRead)
+			_, err = io.ReadFull(s.backing, sampleRead)
 			if err != nil {
 				return nil, err
 			}
@@ -104,7 +106,7 @@ func (s *StoredLayer) SampleAt(backing io.ReadSeeker, coord SampleCoordinate) ([
 	return sample, nil
 }
 
-func (s *StoredLayer) FieldAt(backing io.ReadSeeker, coord SampleCoordinate, fieldIndex int) (any, error) {
+func (s *StoredLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, error) {
 	tileSelector := coord.ToTileSelector(s.layer.Dimensions)
 	field := s.layer.Fields[fieldIndex]
 
@@ -116,13 +118,13 @@ func (s *StoredLayer) FieldAt(backing io.ReadSeeker, coord SampleCoordinate, fie
 			fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
 			fieldOffset := tileSelector.InTile * field.Size()
 
-			tileData, err := s.loadTile(backing, fieldTile)
+			tileData, err := s.loadTile(fieldTile)
 			if err != nil {
 				return nil, err
 			}
 			return field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder), nil
 		} else {
-			tileData, err := s.loadTile(backing, tileSelector.Tile)
+			tileData, err := s.loadTile(tileSelector.Tile)
 			if err != nil {
 				return nil, err
 			}
@@ -139,11 +141,11 @@ func (s *StoredLayer) FieldAt(backing io.ReadSeeker, coord SampleCoordinate, fie
 			fieldFileOffset := s.layer.TileOffsets[separatedTileIndex] + int64(tileSelector.InTile*field.Size())
 
 			fieldRead := make([]byte, field.Size())
-			_, err := backing.Seek(fieldFileOffset, io.SeekStart)
+			_, err := s.backing.Seek(fieldFileOffset, io.SeekStart)
 			if err != nil {
 				return nil, err
 			}
-			_, err = io.ReadFull(backing, fieldRead)
+			_, err = io.ReadFull(s.backing, fieldRead)
 			if err != nil {
 				return nil, err
 			}
@@ -155,11 +157,11 @@ func (s *StoredLayer) FieldAt(backing io.ReadSeeker, coord SampleCoordinate, fie
 			}
 			fieldFileOffset := s.layer.TileOffsets[tileSelector.Tile] + int64(fieldTileOffset)
 			fieldRead := make([]byte, field.Size())
-			_, err := backing.Seek(fieldFileOffset, io.SeekStart)
+			_, err := s.backing.Seek(fieldFileOffset, io.SeekStart)
 			if err != nil {
 				return nil, err
 			}
-			_, err = io.ReadFull(backing, fieldRead)
+			_, err = io.ReadFull(s.backing, fieldRead)
 			if err != nil {
 				return nil, err
 			}
@@ -168,7 +170,7 @@ func (s *StoredLayer) FieldAt(backing io.ReadSeeker, coord SampleCoordinate, fie
 	}
 }
 
-func (s *StoredLayer) SetSampleAt(backing io.WriteSeeker, coord SampleCoordinate, values []any) error {
+func (s *StoredLayer) SetSampleAt(coord SampleCoordinate, values []any) error {
 	if s.layer.Compression != CompressionNone {
 		panic("pixi: cannot set direct access sample on compressed layer")
 	}
@@ -192,11 +194,11 @@ func (s *StoredLayer) SetSampleAt(backing io.WriteSeeker, coord SampleCoordinate
 			separatedTileIndex := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
 			fieldFileOffset := s.layer.TileOffsets[separatedTileIndex] + int64(tileSelector.InTile*field.Size())
 
-			_, err := backing.Seek(fieldFileOffset, io.SeekStart)
+			_, err := s.backing.Seek(fieldFileOffset, io.SeekStart)
 			if err != nil {
 				return err
 			}
-			_, err = backing.Write(raw[writeFieldOffset : writeFieldOffset+field.Size()])
+			_, err = s.backing.Write(raw[writeFieldOffset : writeFieldOffset+field.Size()])
 			if err != nil {
 				return err
 			}
@@ -205,11 +207,11 @@ func (s *StoredLayer) SetSampleAt(backing io.WriteSeeker, coord SampleCoordinate
 	} else {
 		fieldTileOffset := tileSelector.InTile * s.layer.Fields.Size()
 		fieldFileOffset := s.layer.TileOffsets[tileSelector.Tile] + int64(fieldTileOffset)
-		_, err := backing.Seek(fieldFileOffset, io.SeekStart)
+		_, err := s.backing.Seek(fieldFileOffset, io.SeekStart)
 		if err != nil {
 			return err
 		}
-		_, err = backing.Write(raw)
+		_, err = s.backing.Write(raw)
 		if err != nil {
 			return err
 		}
@@ -218,7 +220,7 @@ func (s *StoredLayer) SetSampleAt(backing io.WriteSeeker, coord SampleCoordinate
 	return nil
 }
 
-func (s *StoredLayer) SetFieldAt(backing io.WriteSeeker, coord SampleCoordinate, fieldIndex int, value any) error {
+func (s *StoredLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, value any) error {
 	if s.layer.Compression != CompressionNone {
 		panic("cannot set field on compressed layer")
 	}
@@ -238,11 +240,11 @@ func (s *StoredLayer) SetFieldAt(backing io.WriteSeeker, coord SampleCoordinate,
 		separatedTileIndex := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
 		fieldFileOffset := s.layer.TileOffsets[separatedTileIndex] + int64(tileSelector.InTile*field.Size())
 
-		_, err := backing.Seek(fieldFileOffset, io.SeekStart)
+		_, err := s.backing.Seek(fieldFileOffset, io.SeekStart)
 		if err != nil {
 			return err
 		}
-		_, err = backing.Write(raw)
+		_, err = s.backing.Write(raw)
 		if err != nil {
 			return err
 		}
@@ -252,11 +254,11 @@ func (s *StoredLayer) SetFieldAt(backing io.WriteSeeker, coord SampleCoordinate,
 			fieldTileOffset += field.Size()
 		}
 		fieldFileOffset := s.layer.TileOffsets[tileSelector.Tile] + int64(fieldTileOffset)
-		_, err := backing.Seek(fieldFileOffset, io.SeekStart)
+		_, err := s.backing.Seek(fieldFileOffset, io.SeekStart)
 		if err != nil {
 			return err
 		}
-		_, err = backing.Write(raw)
+		_, err = s.backing.Write(raw)
 		if err != nil {
 			return err
 		}
@@ -265,12 +267,17 @@ func (s *StoredLayer) SetFieldAt(backing io.WriteSeeker, coord SampleCoordinate,
 	return nil
 }
 
-func (c *StoredLayer) loadTile(backing io.ReadSeeker, tileIndex int) ([]byte, error) {
+func (s *StoredLayer) Flush() error {
+	// nothing to do for stored layer
+	return nil
+}
+
+func (c *StoredLayer) loadTile(tileIndex int) ([]byte, error) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
 
 	chunk := make([]byte, c.layer.DiskTileSize(tileIndex))
-	err := c.layer.ReadTile(backing, c.header, tileIndex, chunk)
+	err := c.layer.ReadTile(c.backing, c.header, tileIndex, chunk)
 	if err != nil {
 		return nil, err
 	}

@@ -67,19 +67,20 @@ func (coord SampleCoordinate) ToTileCoordinate(set DimensionSet) TileCoordinate 
 
 }
 
-type TileIndex int
+type TileOrderIndex int
 
 // Indexes into a sample of a particular tile in the DimensionSet. The Tile field is a linear index into the tiles of the DimensionSet,
 // and the InTile field is a linear index into the samples of that tile. The Tile field is converted from a multidimensional TileCoordinate
-// in a similar way to SampleIndex being converted from SampleCoordinate, and the same for the InTile linear index.
+// in a similar way to SampleIndex being converted from SampleCoordinate, and the same for the InTile linear index. Note that Tile here is
+// NOT guaranteed to be usable as a TileIndex for a Layer, since that requires knowledge of whether the Layer is separated or not.
 type TileSelector struct {
 	Tile   int
 	InTile int
 }
 
 // Convert this TileSelector into a linear TileIndex for the given DimensionSet.
-func (s TileSelector) ToTileIndex(set DimensionSet) TileIndex {
-	return TileIndex(set.TileSamples()*s.Tile + s.InTile)
+func (s TileSelector) ToTileIndex(set DimensionSet) TileOrderIndex {
+	return TileOrderIndex(set.TileSamples()*s.Tile + s.InTile)
 }
 
 // Convert this TileSelector into a multidimensional TileCoordinate for the given DimensionSet.

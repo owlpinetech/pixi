@@ -1,4 +1,4 @@
-package read
+package pixi
 
 import (
 	"bufio"
@@ -107,8 +107,6 @@ func (h *HttpReadSeeker) Read(p []byte) (n int, err error) {
 	if n > 0 {
 		h.offset += int64(n)
 	}
-
-	fmt.Println("read from HTTP resource", "n", n, "offset", h.offset, "size", h.size)
 
 	// eof of current response body is not necessarily (or even usually) the end of the entire resource
 	if err != nil && errors.Is(err, io.EOF) && h.offset+int64(n) < h.size {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/owlpinetech/pixi"
-	"github.com/owlpinetech/pixi/read"
 )
 
 func main() {
@@ -17,7 +16,7 @@ func main() {
 		return
 	}
 
-	pixiStream, err := read.OpenFileOrHttp(*pixiPath)
+	pixiStream, err := pixi.OpenFileOrHttp(*pixiPath)
 	if err != nil {
 		fmt.Println("Failed to open source Pixi file:", err)
 		return

@@ -179,7 +179,7 @@ func (h *PixiHeader) ReadHeader(r io.Reader) error {
 	}
 	fileType := string(buf)
 	if fileType != FileType {
-		return FormatError("pixi file marker not found at start of file")
+		return ErrFormat("pixi file marker not found at start of file")
 	}
 
 	// check file version
@@ -192,7 +192,7 @@ func (h *PixiHeader) ReadHeader(r io.Reader) error {
 		return err
 	}
 	if int(version) > Version {
-		return FormatError("reader does not support this version of pixi file")
+		return ErrFormat("reader does not support this version of pixi file")
 	}
 
 	h.Version = int(version)
@@ -204,7 +204,7 @@ func (h *PixiHeader) ReadHeader(r io.Reader) error {
 	}
 
 	if buf[0] != 4 && buf[0] != 8 {
-		return FormatError("reader only supports offset sizes of 4 or 8 bytes")
+		return ErrFormat("reader only supports offset sizes of 4 or 8 bytes")
 	}
 	h.OffsetSize = int(buf[0])
 
@@ -214,7 +214,7 @@ func (h *PixiHeader) ReadHeader(r io.Reader) error {
 	case 0xff:
 		h.ByteOrder = binary.BigEndian
 	default:
-		return FormatError("unsupported or invalid byte order specified")
+		return ErrFormat("unsupported or invalid byte order specified")
 	}
 
 	// read first layer offset

@@ -84,7 +84,7 @@ func (c Compression) WriteChunk(w io.Writer, chunk []byte) (int, error) {
 		writeAmt, err := io.Copy(w, buf)
 		return int(writeAmt), err
 	default:
-		return 0, UnsupportedError("unknown compression")
+		return 0, ErrUnsupported("unknown compression")
 	}
 }
 
@@ -116,6 +116,6 @@ func (c Compression) ReadChunk(r io.Reader, chunk []byte) (int, error) {
 		copy(chunk, bufRd.Bytes())
 		return int(amtRd), err
 	default:
-		return 0, UnsupportedError("unknown compression")
+		return 0, ErrUnsupported("unknown compression")
 	}
 }

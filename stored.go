@@ -33,7 +33,7 @@ func (s *StoredLayer) Header() *PixiHeader {
 	return s.header
 }
 
-func (s *StoredLayer) SampleAt(coord SampleCoordinate) ([]any, error) {
+func (s *StoredLayer) SampleAt(coord SampleCoordinate) (Sample, error) {
 	tileSelector := coord.ToTileSelector(s.layer.Dimensions)
 	sample := make([]any, len(s.layer.Fields))
 
@@ -170,7 +170,7 @@ func (s *StoredLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, erro
 	}
 }
 
-func (s *StoredLayer) SetSampleAt(coord SampleCoordinate, values []any) error {
+func (s *StoredLayer) SetSampleAt(coord SampleCoordinate, values Sample) error {
 	if s.layer.Compression != CompressionNone {
 		panic("pixi: cannot set direct access sample on compressed layer")
 	}

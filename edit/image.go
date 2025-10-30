@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/owlpinetech/pixi"
-	"github.com/owlpinetech/pixi/read"
 )
 
 type FromImageOptions struct {
@@ -120,7 +119,7 @@ func ImageToLayer(img image.Image, layerName string, separated bool, compression
 			{Name: "Cr", Type: pixi.FieldUint8},
 		}
 	default:
-		return nil, pixi.UnsupportedError("color model of the image not yet supported for conversion to Pixi")
+		return nil, pixi.ErrUnsupported("color model of the image not yet supported for conversion to Pixi")
 	}
 
 	width := img.Bounds().Dx()
@@ -148,53 +147,145 @@ func LayerAsImage(r io.ReadSeeker, pixImg *pixi.Pixi, layer *pixi.Layer) (image.
 	width := layer.Dimensions[0].Size
 	height := layer.Dimensions[1].Size
 
+	iterator := pixi.NewTileOrderSampleReadIterator(r, pixImg.Header, layer)
+	defer iterator.Done()
+
 	switch pixImg.Tags[0].Tags["color-model"] {
 	case "nrgba":
+		if len(layer.Fields) < 4 {
+			return nil, pixi.ErrUnsupported("layer does not have enough fields for NRGBA color model")
+		}
+		rIndex := layer.Fields.Index("r")
+		gIndex := layer.Fields.Index("g")
+		bIndex := layer.Fields.Index("b")
+		aIndex := layer.Fields.Index("a")
+		if rIndex == -1 || gIndex == -1 || bIndex == -1 || aIndex == -1 {
+			rIndex, gIndex, bIndex, aIndex = 0, 1, 2, 3
+		}
 		nrgbaImg := image.NewNRGBA(image.Rect(0, 0, width, height))
-		for coord, comps := range read.LayerContiguousTileOrder(r, pixImg.Header, layer) {
+		for iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, iterator.Error()
+			}
+			coord := iterator.Coordinate()
+			sample := iterator.Sample()
 			nrgbaImg.Set(coord[0], coord[1],
-				color.NRGBA{comps[0].(uint8), comps[1].(uint8), comps[2].(uint8), comps[3].(uint8)})
+				color.NRGBA{sample[rIndex].(uint8), sample[gIndex].(uint8), sample[bIndex].(uint8), sample[aIndex].(uint8)})
 		}
 		return nrgbaImg, nil
 	case "nrgba64":
+		if len(layer.Fields) < 4 {
+			return nil, pixi.ErrUnsupported("layer does not have enough fields for NRGBA64 color model")
+		}
 		nrgba64Img := image.NewNRGBA64(image.Rect(0, 0, width, height))
-		for coord, comps := range read.LayerContiguousTileOrder(r, pixImg.Header, layer) {
+		rIndex := layer.Fields.Index("r")
+		gIndex := layer.Fields.Index("g")
+		bIndex := layer.Fields.Index("b")
+		aIndex := layer.Fields.Index("a")
+		if rIndex == -1 || gIndex == -1 || bIndex == -1 || aIndex == -1 {
+			rIndex, gIndex, bIndex, aIndex = 0, 1, 2, 3
+		}
+		for iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, iterator.Error()
+			}
+			coord := iterator.Coordinate()
+			sample := iterator.Sample()
 			nrgba64Img.Set(coord[0], coord[1],
-				color.NRGBA64{comps[0].(uint16), comps[1].(uint16), comps[2].(uint16), comps[3].(uint16)})
+				color.NRGBA64{sample[rIndex].(uint16), sample[gIndex].(uint16), sample[bIndex].(uint16), sample[aIndex].(uint16)})
 		}
 		return nrgba64Img, nil
 	case "rgba":
+		if len(layer.Fields) < 4 {
+			return nil, pixi.ErrUnsupported("layer does not have enough fields for RGBA color model")
+		}
 		rgbaImg := image.NewRGBA(image.Rect(0, 0, width, height))
-		for coord, comps := range read.LayerContiguousTileOrder(r, pixImg.Header, layer) {
+		rIndex := layer.Fields.Index("r")
+		gIndex := layer.Fields.Index("g")
+		bIndex := layer.Fields.Index("b")
+		aIndex := layer.Fields.Index("a")
+		if rIndex == -1 || gIndex == -1 || bIndex == -1 || aIndex == -1 {
+			rIndex, gIndex, bIndex, aIndex = 0, 1, 2, 3
+		}
+		for iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, iterator.Error()
+			}
+			coord := iterator.Coordinate()
+			sample := iterator.Sample()
 			rgbaImg.Set(coord[0], coord[1],
-				color.RGBA{comps[0].(uint8), comps[1].(uint8), comps[2].(uint8), comps[3].(uint8)})
+				color.RGBA{sample[0].(uint8), sample[1].(uint8), sample[2].(uint8), sample[3].(uint8)})
 		}
 		return rgbaImg, nil
 	case "rgba64":
+		if len(layer.Fields) < 4 {
+			return nil, pixi.ErrUnsupported("layer does not have enough fields for RGBA64 color model")
+		}
 		rgba64Img := image.NewRGBA64(image.Rect(0, 0, width, height))
-		for coord, comps := range read.LayerContiguousTileOrder(r, pixImg.Header, layer) {
+		rIndex := layer.Fields.Index("r")
+		gIndex := layer.Fields.Index("g")
+		bIndex := layer.Fields.Index("b")
+		aIndex := layer.Fields.Index("a")
+		if rIndex == -1 || gIndex == -1 || bIndex == -1 || aIndex == -1 {
+			rIndex, gIndex, bIndex, aIndex = 0, 1, 2, 3
+		}
+		for iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, iterator.Error()
+			}
+			coord := iterator.Coordinate()
+			sample := iterator.Sample()
 			rgba64Img.Set(coord[0], coord[1],
-				color.NRGBA64{comps[0].(uint16), comps[1].(uint16), comps[2].(uint16), comps[3].(uint16)})
+				color.NRGBA64{sample[rIndex].(uint16), sample[bIndex].(uint16), sample[gIndex].(uint16), sample[aIndex].(uint16)})
 		}
 		return rgba64Img, nil
 	case "cmyk":
+		if len(layer.Fields) < 4 {
+			return nil, pixi.ErrUnsupported("layer does not have enough fields for CMYK color model")
+		}
 		cmykImg := image.NewCMYK(image.Rect(0, 0, width, height))
-		for coord, comps := range read.LayerContiguousTileOrder(r, pixImg.Header, layer) {
+		cIndex := layer.Fields.Index("c")
+		mIndex := layer.Fields.Index("m")
+		yIndex := layer.Fields.Index("y")
+		kIndex := layer.Fields.Index("k")
+		if cIndex == -1 || mIndex == -1 || yIndex == -1 || kIndex == -1 {
+			cIndex, mIndex, yIndex, kIndex = 0, 1, 2, 3
+		}
+		for iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, iterator.Error()
+			}
+			coord := iterator.Coordinate()
+			sample := iterator.Sample()
 			cmykImg.Set(coord[0], coord[1],
-				color.CMYK{comps[0].(uint8), comps[1].(uint8), comps[2].(uint8), comps[3].(uint8)})
+				color.CMYK{sample[cIndex].(uint8), sample[mIndex].(uint8), sample[yIndex].(uint8), sample[kIndex].(uint8)})
 		}
 		return cmykImg, nil
 	case "YCbCr":
+		if len(layer.Fields) < 3 {
+			return nil, pixi.ErrUnsupported("layer does not have enough fields for YCbCr color model")
+		}
 		ycbcrImg := image.NewYCbCr(image.Rect(0, 0, width, height), image.YCbCrSubsampleRatio420)
-		for coord, comps := range read.LayerContiguousTileOrder(r, pixImg.Header, layer) {
+		yIndex := layer.Fields.Index("Y")
+		cbIndex := layer.Fields.Index("Cb")
+		crIndex := layer.Fields.Index("Cr")
+		if yIndex == -1 || cbIndex == -1 || crIndex == -1 {
+			yIndex, cbIndex, crIndex = 0, 1, 2
+		}
+		for iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, iterator.Error()
+			}
+			coord := iterator.Coordinate()
+			sample := iterator.Sample()
 			yOff := ycbcrImg.YOffset(coord[0], coord[1])
 			cOff := ycbcrImg.COffset(coord[0], coord[1])
-			ycbcrImg.Y[yOff] = comps[0].(uint8)
-			ycbcrImg.Cb[cOff] = comps[1].(uint8)
-			ycbcrImg.Cr[cOff] = comps[2].(uint8)
+			ycbcrImg.Y[yOff] = sample[yIndex].(uint8)
+			ycbcrImg.Cb[cOff] = sample[cbIndex].(uint8)
+			ycbcrImg.Cr[cOff] = sample[crIndex].(uint8)
 		}
 		return ycbcrImg, nil
 	default:
-		return nil, pixi.UnsupportedError("color model of the layer not yet supported for conversion to Pixi")
+		return nil, pixi.ErrUnsupported("color model of the layer not yet supported for conversion to Pixi")
 	}
 }

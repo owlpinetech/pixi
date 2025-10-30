@@ -39,7 +39,7 @@ func ReadPixi(r io.ReadSeeker) (*Pixi, error) {
 	layerOffset := pixi.Header.FirstLayerOffset
 	for layerOffset != 0 {
 		if slices.Contains(seenOffsets, layerOffset) {
-			return pixi, FormatError("loop detected in layer offsets")
+			return pixi, ErrFormat("loop detected in layer offsets")
 		}
 		seenOffsets = append(seenOffsets, layerOffset)
 		_, err = r.Seek(layerOffset, io.SeekStart)
@@ -58,7 +58,7 @@ func ReadPixi(r io.ReadSeeker) (*Pixi, error) {
 	tagOffset := pixi.Header.FirstTagsOffset
 	for tagOffset != 0 {
 		if slices.Contains(seenOffsets, tagOffset) {
-			return pixi, FormatError("loop detected in tag offsets")
+			return pixi, ErrFormat("loop detected in tag offsets")
 		}
 		seenOffsets = append(seenOffsets, layerOffset)
 		_, err := r.Seek(tagOffset, io.SeekStart)

@@ -126,10 +126,10 @@ func (d *Layer) DataSize() int64 {
 func (d *Layer) WriteHeader(w io.Writer, h *PixiHeader) error {
 	tiles := d.DiskTiles()
 	if tiles != len(d.TileBytes) {
-		return FormatError("invalid TileBytes: must have same number of elements as tiles in data set for valid pixi files")
+		return ErrFormat("invalid TileBytes: must have same number of elements as tiles in data set for valid pixi files")
 	}
 	if tiles != len(d.TileOffsets) {
-		return FormatError("invalid TileOffsets: must have same number of elements as tiles in data set for valid pixi files")
+		return ErrFormat("invalid TileOffsets: must have same number of elements as tiles in data set for valid pixi files")
 	}
 
 	// write configuration and compression
@@ -222,7 +222,7 @@ func (d *Layer) ReadLayer(r io.Reader, h *PixiHeader) error {
 		return err
 	}
 	if dimCount < 1 {
-		return FormatError("must have at least one dimension for a valid pixi file")
+		return ErrFormat("must have at least one dimension for a valid pixi file")
 	}
 	d.Dimensions = make(DimensionSet, dimCount)
 	for dInd := range d.Dimensions {
@@ -241,7 +241,7 @@ func (d *Layer) ReadLayer(r io.Reader, h *PixiHeader) error {
 		return err
 	}
 	if fieldCount < 1 {
-		return FormatError("must have at least one field for a valid pixi file")
+		return ErrFormat("must have at least one field for a valid pixi file")
 	}
 	d.Fields = make(FieldSet, fieldCount)
 	for fInd := range d.Fields {
@@ -364,7 +364,7 @@ func (l *Layer) ReadTile(r io.ReadSeeker, h *PixiHeader, tileIndex int, data []b
 	}
 
 	if savedChecksum != crc32.ChecksumIEEE(data) {
-		return IntegrityError{TileIndex: tileIndex, LayerName: l.Name}
+		return ErrDataIntegrity{TileIndex: tileIndex, LayerName: l.Name}
 	}
 	return nil
 }

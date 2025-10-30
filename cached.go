@@ -222,7 +222,7 @@ func (s *CachedLayer) Header() *PixiHeader {
 	return s.ReadCachedLayer.header
 }
 
-func (s *ReadCachedLayer) SampleAt(coord SampleCoordinate) ([]any, error) {
+func (s *ReadCachedLayer) SampleAt(coord SampleCoordinate) (Sample, error) {
 	tileSelector := coord.ToTileSelector(s.Layer().Dimensions)
 	sample := make([]any, len(s.Layer().Fields))
 
@@ -280,7 +280,7 @@ func (s *ReadCachedLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, 
 	}
 }
 
-func (s *WriteCachedLayer) SetSampleAt(coord SampleCoordinate, values []any) error {
+func (s *WriteCachedLayer) SetSampleAt(coord SampleCoordinate, values Sample) error {
 	if s.Layer().Compression != CompressionNone {
 		panic("pixi: cannot set direct access sample on compressed layer")
 	}

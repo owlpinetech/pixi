@@ -2,23 +2,31 @@ package pixi
 
 import "fmt"
 
-type FormatError string
+type ErrFormat string
 
-func (e FormatError) Error() string {
+func (e ErrFormat) Error() string {
 	return "pixi: format error - " + string(e)
 }
 
-type UnsupportedError string
+type ErrUnsupported string
 
-func (e UnsupportedError) Error() string {
+func (e ErrUnsupported) Error() string {
 	return "pixi: unsupported action - " + string(e)
 }
 
-type IntegrityError struct {
+type ErrDataIntegrity struct {
 	TileIndex int
 	LayerName string
 }
 
-func (e IntegrityError) Error() string {
+func (e ErrDataIntegrity) Error() string {
 	return fmt.Sprintf("pixi: data integrity compromised - tile %d, layer '%s'", e.TileIndex, e.LayerName)
+}
+
+type ErrFieldNotFound struct {
+	FieldName string
+}
+
+func (e ErrFieldNotFound) Error() string {
+	return fmt.Sprintf("pixi: field not found - '%s'", e.FieldName)
 }

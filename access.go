@@ -1,20 +1,18 @@
 package pixi
 
-import "io"
-
 type LayerExtension interface {
 	Layer() *Layer
 }
 
 type DirectAccessLayerReader interface {
 	LayerExtension
-	SampleAt(coord SampleCoordinate) ([]any, error)
+	SampleAt(coord SampleCoordinate) (Sample, error)
 	FieldAt(coord SampleCoordinate, fieldIndex int) (any, error)
 }
 
 type DirectAccessLayerWriter interface {
 	LayerExtension
-	SetSampleAt(coord SampleCoordinate, values []any) error
+	SetSampleAt(coord SampleCoordinate, values Sample) error
 	SetFieldAt(coord SampleCoordinate, fieldIndex int, value any) error
 	Flush() error
 }
@@ -24,18 +22,24 @@ type DirectAccessLayerReadWriter interface {
 	DirectAccessLayerWriter
 }
 
-type IterativeLayerReader interface {
+type IterativeLayer interface {
 	LayerExtension
-	NextField(backing io.ReadSeeker) (SampleCoordinate, any, error)
-	NextSample(backing io.ReadSeeker) (SampleCoordinate, []any, error)
-	NamedNextSample(backing io.ReadSeeker) (SampleCoordinate, map[string]any, error)
+	Done()
+	Next() bool
+	Error() error
+	Coordinate() SampleCoordinate
+}
+
+type IterativeLayerReader interface {
+	IterativeLayer
+	Field(fieldIndex int) any
+	Sample() Sample
 }
 
 type IterativeLayerWriter interface {
-	LayerExtension
-	SetNextField(backing io.WriteSeeker, value any) error
-	SetNextSample(backing io.WriteSeeker, values []any) error
-	SetNamedNextSample(backing io.WriteSeeker, values map[string]any) error
+	IterativeLayer
+	SetField(fieldIndex int, value any)
+	SetSample(values Sample)
 }
 
 type IterativeLayerReadWriter interface {

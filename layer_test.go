@@ -74,7 +74,7 @@ func TestLayerHeaderWriteRead(t *testing.T) {
 				TileBytes:   []int64{100, 200, 300, 400, 500, 600, 700},
 				TileOffsets: []int64{100, 200, 300, 400, 500, 600, 700, 800},
 			}},
-			err: FormatError("TileBytes must have same number of tiles as data set for valid pixi files"),
+			err: ErrFormat("TileBytes must have same number of tiles as data set for valid pixi files"),
 		},
 		{
 			name: "tile offsets err",
@@ -86,7 +86,7 @@ func TestLayerHeaderWriteRead(t *testing.T) {
 				TileBytes:   []int64{100, 200, 300, 400, 500, 600, 700, 800},
 				TileOffsets: []int64{100, 200, 300, 400, 500, 600, 700},
 			}},
-			err: FormatError("TileOffsets must have same number of tiles as data set for valid pixi files"),
+			err: ErrFormat("TileOffsets must have same number of tiles as data set for valid pixi files"),
 		},
 	}
 

@@ -12,3 +12,35 @@ func (set FieldSet) Size() int {
 	}
 	return sampleSize
 }
+
+// The index of the field with the given name in the set, or -1 if not found.
+func (set FieldSet) Index(fieldName string) int {
+	for i, field := range set {
+		if field.Name == fieldName {
+			return i
+		}
+	}
+	return -1
+}
+
+// The byte offset of the field within a given sample. This is the sum of the sizes of all preceding fields.
+func (set FieldSet) Offset(fieldIndex int) int {
+	offset := 0
+	for i := range fieldIndex {
+		offset += set[i].Size()
+	}
+	return offset
+}
+
+// The byte offset of the field with the given name within a sample. This is the sum of the sizes of all preceding fields.
+// Panics if the field is not found in the set.
+func (set FieldSet) NamedOffset(fieldName string) int {
+	offset := 0
+	for _, field := range set {
+		if field.Name == fieldName {
+			return offset
+		}
+		offset += field.Size()
+	}
+	panic("pixi: field not found in field set")
+}

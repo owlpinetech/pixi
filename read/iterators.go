@@ -8,38 +8,6 @@ import (
 	"github.com/owlpinetech/pixi"
 )
 
-// Returns a sequence of every sample in the layer, in tile iteration order (efficient from a disk-loading
-// perspective, each tile will only be loaded exactly once, as it is needed). Each iteration contains the
-// coordinate of the sample by each dimension, as well as every field of the sample.
-func LayerContiguousTileOrder(r io.ReadSeeker, header *pixi.PixiHeader, layer *pixi.Layer) iter.Seq2[pixi.SampleCoordinate, []any] {
-	if layer.Separated {
-		panic("this iterator does not support files with separated fields")
-	}
-	return func(yield func(pixi.SampleCoordinate, []any) bool) {
-		for tileInd := range layer.Dimensions.Tiles() {
-			tileData := make([]byte, layer.DiskTileSize(tileInd))
-			inTileOffset := 0
-			err := layer.ReadTile(r, header, tileInd, tileData)
-			if err != nil {
-				return
-			}
-			for inTileInd := range layer.Dimensions.TileSamples() {
-				coord := pixi.TileSelector{Tile: tileInd, InTile: inTileInd}.
-					ToTileCoordinate(layer.Dimensions).
-					ToSampleCoordinate(layer.Dimensions)
-				comps := make([]any, len(layer.Fields))
-				for fieldInd, field := range layer.Fields {
-					comps[fieldInd] = field.BytesToValue(tileData[inTileOffset:], header.ByteOrder)
-					inTileOffset += field.Size()
-				}
-				if !yield(coord, comps) {
-					return
-				}
-			}
-		}
-	}
-}
-
 // An optimization of LayerContiguousTileOrder function for Pixi layers when only a single field of each sample
 // is needed for iteration.
 func LayerContiguousTileOrderSingleValue(r io.ReadSeeker, header *pixi.PixiHeader, layer *pixi.Layer, fieldName string) iter.Seq2[pixi.SampleCoordinate, any] {

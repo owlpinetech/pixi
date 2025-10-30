@@ -119,7 +119,7 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int) error {
 		return edit.PixiFromImage(pixiFile, img, options)
 	}
 
-	return pixi.UnsupportedError("image format not yet supported for conversion to Pixi")
+	return pixi.ErrUnsupported("image format not yet supported for conversion to Pixi")
 }
 
 func pixiToOther(srcFile string, dstFile string) error {
@@ -159,7 +159,7 @@ func pixiToOther(srcFile string, dstFile string) error {
 			return err
 		}
 	default:
-		return pixi.UnsupportedError("image format not yet supported for conversion from Pixi")
+		return pixi.ErrUnsupported("image format not yet supported for conversion from Pixi")
 	}
 	return nil
 }

@@ -84,7 +84,7 @@ func main() {
 	}
 	dstLayer := pixi.NewLayer(srcLayer.Name, srcLayer.Separated, srcLayer.Compression, dstDims, srcLayer.Fields)
 
-	srcData := pixi.NewReadCachedLayer(srcPixi.Header, pixi.NewLayerReadFifoCache(srcStream, srcLayer, 4))
+	srcData := pixi.NewReadCachedLayer(pixi.NewLayerReadFifoCache(srcStream, srcPixi.Header, srcLayer, 4))
 
 	err = edit.WriteContiguousTileOrderPixi(dstFile, dstPixi, srcPixi.AllTags(), edit.LayerWriter{
 		Layer: dstLayer,

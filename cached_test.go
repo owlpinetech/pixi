@@ -37,7 +37,7 @@ func TestCachedSampleFieldConcurrent(t *testing.T) {
 
 	// create a cache
 	rdBuffer := buffer.NewBufferFrom(wrtBuf.Bytes())
-	cache := NewCachedLayer(header, NewLayerFifoCache(rdBuffer, layer, 4))
+	cache := NewCachedLayer(NewLayerFifoCache(rdBuffer, header, layer, 4))
 
 	// we're only going to look at the second field for this test
 	testSampleCount := layer.Dimensions.Samples() / 4
@@ -79,7 +79,7 @@ func TestCachedSetSampleAt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cached := NewCachedLayer(header, NewLayerFifoCache(wrtBuf, layer, 4))
+	cached := NewCachedLayer(NewLayerFifoCache(wrtBuf, header, layer, 4))
 
 	sample0, err := cached.SampleAt(SampleCoordinate{250, 250})
 	if err != nil {

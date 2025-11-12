@@ -58,7 +58,7 @@ func main() {
 
 	for _, srcLayer := range srcPixi.Layers {
 		dstLayer := pixi.NewLayer(srcLayer.Name, srcLayer.Separated, compression, srcLayer.Dimensions, srcLayer.Fields)
-		srcData := pixi.NewReadCachedLayer(srcPixi.Header, pixi.NewLayerReadFifoCache(srcStream, srcLayer, 4))
+		srcData := pixi.NewReadCachedLayer(pixi.NewLayerReadFifoCache(srcStream, srcPixi.Header, srcLayer, 4))
 		err = edit.WriteContiguousTileOrderPixi(dstFile, dstPixi, srcPixi.AllTags(), edit.LayerWriter{
 			Layer: dstLayer,
 			IterFn: func(layer *pixi.Layer, coord pixi.SampleCoordinate) ([]any, map[string]any) {

@@ -8,6 +8,7 @@ import (
 
 type CachedLayerReadCache interface {
 	LayerExtension
+	Header() *PixiHeader
 	Get(tile int) ([]byte, error)
 }
 
@@ -25,14 +26,16 @@ type LayerFifoCacheTile struct {
 type LayerReadFifoCache struct {
 	cacheLock sync.RWMutex
 	backing   io.ReadSeeker
+	header    *PixiHeader
 	layer     *Layer
 	cache     map[int]LayerFifoCacheTile
 	maxSize   int
 }
 
-func NewLayerReadFifoCache(backing io.ReadSeeker, layer *Layer, maxSize int) *LayerReadFifoCache {
+func NewLayerReadFifoCache(backing io.ReadSeeker, header *PixiHeader, layer *Layer, maxSize int) *LayerReadFifoCache {
 	return &LayerReadFifoCache{
 		backing: backing,
+		header:  header,
 		layer:   layer,
 		cache:   make(map[int]LayerFifoCacheTile),
 		maxSize: maxSize,
@@ -43,23 +46,21 @@ func (c *LayerReadFifoCache) Layer() *Layer {
 	return c.layer
 }
 
+func (c *LayerReadFifoCache) Header() *PixiHeader {
+	return c.header
+}
+
 func (c *LayerReadFifoCache) Get(tile int) ([]byte, error) {
 	c.cacheLock.RLock()
 	cached, found := c.cache[tile]
-	tileOffset := c.layer.TileOffsets[tile]
-	tileSize := c.layer.TileBytes[tile]
 	c.cacheLock.RUnlock()
 	if found {
 		return cached.data, nil
 	}
 
-	data := make([]byte, tileSize)
+	data := make([]byte, c.layer.DiskTileSize(tile))
 	c.cacheLock.Lock()
-	_, err := c.backing.Seek(tileOffset, io.SeekStart)
-	if err != nil {
-		return nil, err
-	}
-	_, err = c.backing.Read(data)
+	err := c.layer.ReadTile(c.backing, c.header, tile, data)
 	if err != nil {
 		return nil, err
 	}
@@ -89,10 +90,11 @@ type LayerFifoCache struct {
 	backing io.ReadWriteSeeker
 }
 
-func NewLayerFifoCache(backing io.ReadWriteSeeker, layer *Layer, maxSize int) *LayerFifoCache {
+func NewLayerFifoCache(backing io.ReadWriteSeeker, header *PixiHeader, layer *Layer, maxSize int) *LayerFifoCache {
 	return &LayerFifoCache{
 		LayerReadFifoCache: LayerReadFifoCache{
 			backing: backing,
+			header:  header,
 			layer:   layer,
 			cache:   make(map[int]LayerFifoCacheTile),
 			maxSize: maxSize,
@@ -170,13 +172,11 @@ func (c *LayerFifoCache) Flush() error {
 }
 
 type ReadCachedLayer struct {
-	header *PixiHeader
-	cache  CachedLayerReadCache
+	cache CachedLayerReadCache
 }
 
 type WriteCachedLayer struct {
-	header *PixiHeader
-	cache  CachedLayerCache
+	cache CachedLayerCache
 }
 
 type CachedLayer struct {
@@ -184,17 +184,16 @@ type CachedLayer struct {
 	WriteCachedLayer
 }
 
-func NewReadCachedLayer(header *PixiHeader, cache CachedLayerReadCache) *ReadCachedLayer {
+func NewReadCachedLayer(cache CachedLayerReadCache) *ReadCachedLayer {
 	return &ReadCachedLayer{
-		header: header,
-		cache:  cache,
+		cache: cache,
 	}
 }
 
-func NewCachedLayer(header *PixiHeader, cache CachedLayerCache) *CachedLayer {
+func NewCachedLayer(cache CachedLayerCache) *CachedLayer {
 	return &CachedLayer{
-		ReadCachedLayer:  ReadCachedLayer{header: header, cache: cache},
-		WriteCachedLayer: WriteCachedLayer{header: header, cache: cache},
+		ReadCachedLayer:  ReadCachedLayer{cache: cache},
+		WriteCachedLayer: WriteCachedLayer{cache: cache},
 	}
 }
 
@@ -202,24 +201,12 @@ func (s *ReadCachedLayer) Layer() *Layer {
 	return s.cache.Layer()
 }
 
-func (s *ReadCachedLayer) Header() *PixiHeader {
-	return s.header
-}
-
 func (s *WriteCachedLayer) Layer() *Layer {
 	return s.cache.Layer()
 }
 
-func (s *WriteCachedLayer) Header() *PixiHeader {
-	return s.header
-}
-
 func (s *CachedLayer) Layer() *Layer {
 	return s.ReadCachedLayer.cache.Layer()
-}
-
-func (s *CachedLayer) Header() *PixiHeader {
-	return s.ReadCachedLayer.header
 }
 
 func (s *ReadCachedLayer) SampleAt(coord SampleCoordinate) (Sample, error) {
@@ -236,7 +223,7 @@ func (s *ReadCachedLayer) SampleAt(coord SampleCoordinate) (Sample, error) {
 				return nil, err
 			}
 
-			sample[fieldIndex] = field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder)
+			sample[fieldIndex] = field.BytesToValue(tileData[fieldOffset:], s.cache.Header().ByteOrder)
 		}
 	} else {
 		fieldOffset := tileSelector.InTile * s.Layer().Fields.Size()
@@ -246,7 +233,7 @@ func (s *ReadCachedLayer) SampleAt(coord SampleCoordinate) (Sample, error) {
 			return nil, err
 		}
 		for i, field := range s.Layer().Fields {
-			sample[i] = field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder)
+			sample[i] = field.BytesToValue(tileData[fieldOffset:], s.cache.Header().ByteOrder)
 			fieldOffset += field.Size()
 		}
 	}
@@ -266,7 +253,7 @@ func (s *ReadCachedLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, 
 		if err != nil {
 			return nil, err
 		}
-		return field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder), nil
+		return field.BytesToValue(tileData[fieldOffset:], s.cache.Header().ByteOrder), nil
 	} else {
 		tileData, err := s.cache.Get(tileSelector.Tile)
 		if err != nil {
@@ -276,7 +263,7 @@ func (s *ReadCachedLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, 
 		for _, field := range s.Layer().Fields[:fieldIndex] {
 			fieldOffset += field.Size()
 		}
-		return field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder), nil
+		return field.BytesToValue(tileData[fieldOffset:], s.cache.Header().ByteOrder), nil
 	}
 }
 
@@ -292,7 +279,7 @@ func (s *WriteCachedLayer) SetSampleAt(coord SampleCoordinate, values Sample) er
 	raw := make([]byte, s.Layer().Fields.Size())
 	fieldOffset := 0
 	for i, field := range s.Layer().Fields {
-		field.ValueToBytes(values[i], s.header.ByteOrder, raw[fieldOffset:])
+		field.ValueToBytes(values[i], s.cache.Header().ByteOrder, raw[fieldOffset:])
 		fieldOffset += field.Size()
 	}
 
@@ -331,7 +318,7 @@ func (s *WriteCachedLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, va
 	field := s.Layer().Fields[fieldIndex]
 
 	raw := make([]byte, field.Size())
-	field.ValueToBytes(value, s.header.ByteOrder, raw)
+	field.ValueToBytes(value, s.cache.Header().ByteOrder, raw)
 
 	if s.Layer().Separated {
 		separatedTileIndex := tileSelector.Tile + s.Layer().Dimensions.Tiles()*fieldIndex

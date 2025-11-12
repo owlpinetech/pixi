@@ -28,6 +28,7 @@ func NewTileOrderReadIterator(backing io.ReadSeeker, header *PixiHeader, layer *
 		header:       header,
 		layer:        layer,
 		sampleInTile: -1, // so first Next() goes to 0
+		tiles:        make(map[int][]byte),
 	}
 	iterator.preloader = NewPreloader(iterator.readTiles, 2)
 	// notify twice so we load more than we need right away
@@ -137,28 +138,43 @@ func (t *TileOrderReadIterator) readTiles(tileIndex int) (map[int][]byte, error)
 	if t.layer.Separated {
 		for fieldIndex := range t.layer.Fields {
 			fieldTile := tileIndex + t.layer.Dimensions.Tiles()*fieldIndex
-			tileData := make([]byte, t.layer.TileBytes[fieldTile])
-			_, err := t.backing.Seek(t.layer.TileOffsets[fieldTile], io.SeekStart)
-			if err != nil {
-				return nil, err
-			}
-			_, err = io.ReadFull(t.backing, tileData)
+			tileData := make([]byte, t.layer.DiskTileSize(fieldTile))
+			err := t.layer.ReadTile(t.backing, t.header, fieldTile, tileData)
 			if err != nil {
 				return nil, err
 			}
 			result[fieldIndex] = tileData
 		}
 	} else {
-		tileData := make([]byte, t.layer.TileBytes[tileIndex])
-		_, err := t.backing.Seek(t.layer.TileOffsets[tileIndex], io.SeekStart)
-		if err != nil {
-			return nil, err
-		}
-		_, err = io.ReadFull(t.backing, tileData)
+		tileData := make([]byte, t.layer.DiskTileSize(tileIndex))
+		err := t.layer.ReadTile(t.backing, t.header, tileIndex, tileData)
 		if err != nil {
 			return nil, err
 		}
 		result[nonSeparatedKey] = tileData
 	}
 	return result, nil
+}
+
+type TileOrderWriteIterator struct {
+	backing io.WriteSeeker
+	header  *PixiHeader
+	layer   *Layer
+
+	tile         int
+	sampleInTile int
+	flusher      *Flusher
+
+	tiles        map[int][]byte
+	currentError error
+}
+
+func NewTileOrderIterator(backing io.WriteSeeker, header *PixiHeader, layer *Layer) *TileOrderWriteIterator {
+	return &TileOrderWriteIterator{
+		backing: backing,
+		header:  header,
+		layer:   layer,
+
+		sampleInTile: -1, // so first Next() goes to 0
+	}
 }

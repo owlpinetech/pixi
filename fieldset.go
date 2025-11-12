@@ -13,7 +13,7 @@ func (set FieldSet) Size() int {
 	return sampleSize
 }
 
-// The index of the field with the given name in the set, or -1 if not found.
+// The index of the (first) field with the given name in the set, or -1 if not found.
 func (set FieldSet) Index(fieldName string) int {
 	for i, field := range set {
 		if field.Name == fieldName {

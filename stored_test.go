@@ -35,9 +35,9 @@ func TestStoredSampleFieldConcurrent(t *testing.T) {
 		rawTiles = append(rawTiles, chunk)
 	}
 
-	// create a cache
+	// create a disk-backed layer
 	rdBuffer := buffer.NewBufferFrom(wrtBuf.Bytes())
-	cache := NewStoredLayer(rdBuffer, header, layer)
+	stored := NewStoredLayer(rdBuffer, header, layer)
 
 	// we're only going to look at the second field for this test
 	testSampleCount := layer.Dimensions.Samples() / 4
@@ -53,7 +53,7 @@ func TestStoredSampleFieldConcurrent(t *testing.T) {
 	var wg sync.WaitGroup
 	for randInd := range testCoords {
 		wg.Add(1)
-		go testSampleAtSameAsRaw(t, &wg, cache, testCoords[randInd], testExpect[randInd])
+		go testSampleAtSameAsRaw(t, &wg, stored, testCoords[randInd], testExpect[randInd])
 	}
 	wg.Wait()
 }

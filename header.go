@@ -136,7 +136,7 @@ func (h *PixiHeader) WriteHeader(w io.Writer) error {
 	}
 
 	// write file version (2 bytes)
-	_, err = w.Write([]byte(fmt.Sprintf("%02d", h.Version)))
+	_, err = fmt.Fprintf(w, "%02d", h.Version)
 	if err != nil {
 		return err
 	}

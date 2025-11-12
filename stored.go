@@ -7,7 +7,8 @@ import (
 
 // StoredLayer provides direct access to samples and fields in a layer stored in a backing io.ReadSeeker/io.WriteSeeker.
 // Every access is protected by a RW mutex, so it is safe for concurrent use by multiple goroutines. However, every access
-// also goes to the backing store, with no caching, so it may be slow.
+// also goes to the backing store, with no caching, so it's performance is bounded on every read/write by the performance
+// of the backing store.
 type StoredLayer struct {
 	lock    sync.RWMutex
 	header  *PixiHeader

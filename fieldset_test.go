@@ -137,6 +137,13 @@ func TestFieldSetNamedOffset(t *testing.T) {
 			wantPanic:  false,
 		},
 		{
+			name:       "Offset of third field",
+			fields:     FieldSet{{Name: "field1", Type: FieldInt8}, {Name: "field2", Type: FieldInt16}, {Name: "field3", Type: FieldFloat32}},
+			fieldName:  "field3",
+			wantOffset: 3, // size of int8 + size of int16
+			wantPanic:  false,
+		},
+		{
 			name:       "Field does not exist",
 			fields:     FieldSet{{Name: "field1", Type: FieldInt8}, {Name: "field2", Type: FieldInt16}},
 			fieldName:  "field3",

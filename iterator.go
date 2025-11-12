@@ -2,6 +2,7 @@ package pixi
 
 import (
 	"io"
+	"log/slog"
 )
 
 const (
@@ -21,7 +22,7 @@ type TileOrderReadIterator struct {
 	currentError error
 }
 
-func NewTileOrderSampleReadIterator(backing io.ReadSeeker, header *PixiHeader, layer *Layer) *TileOrderReadIterator {
+func NewTileOrderReadIterator(backing io.ReadSeeker, header *PixiHeader, layer *Layer) *TileOrderReadIterator {
 	iterator := &TileOrderReadIterator{
 		backing:      backing,
 		header:       header,
@@ -31,7 +32,9 @@ func NewTileOrderSampleReadIterator(backing io.ReadSeeker, header *PixiHeader, l
 	iterator.preloader = NewPreloader(iterator.readTiles, 2)
 	// notify twice so we load more than we need right away
 	iterator.preloader.Notify()
+	slog.Info("preloading next tile", "tile", 0)
 	iterator.preloader.Notify()
+	slog.Info("preloading next tile", "tile", 1)
 	iterator.preloader.Start()
 
 	iterator.tiles, iterator.currentError = iterator.preloader.Next()
@@ -61,16 +64,17 @@ func (t *TileOrderReadIterator) Next() bool {
 	if t.sampleInTile >= t.layer.Dimensions.TileSamples() {
 		t.sampleInTile = 0
 		t.tile += 1
-		// load the next tile (or tiles, if separated)
-		if t.tile < t.layer.Dimensions.Tiles() {
-			t.preloader.Notify()
+		// check if we are done
+		if t.tile >= t.layer.Dimensions.Tiles() {
+			return false
+		} else {
+			// load the next tile (or tiles, if separated)
+			if t.tile < t.layer.Dimensions.Tiles()-1 {
+				slog.Info("preloading next tile", "tile", t.tile)
+				t.preloader.Notify()
+			}
+			t.tiles, t.currentError = t.preloader.Next()
 		}
-		t.tiles, t.currentError = t.preloader.Next()
-	}
-
-	// check if we are done
-	if t.tile >= t.layer.Dimensions.Tiles() {
-		return false
 	}
 
 	return true

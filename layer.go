@@ -47,7 +47,7 @@ func NewLayer(name string, separated bool, compression Compression, dimensions D
 // blank (zeroed) data. The backing WriteSeeker is left at the end of the written data, ready for further writes. This function
 // assumes that the PixiHeader has already been written to the backing stream, and that the stream cursor is at the correct
 // offset for writing the layer header. If the write fails partway through, an error is returned, but the backing stream may be
-// partially written.
+// partially written. Otherwise, returns a pointer to the created Layer, with supporting fields ready for further read/write access.
 func NewBlankUncompressedLayer(backing io.WriteSeeker, header *PixiHeader, name string, separated bool, dimensions DimensionSet, fields FieldSet) (*Layer, error) {
 	layer := NewLayer(name, separated, CompressionNone, dimensions, fields)
 	err := layer.WriteHeader(backing, header)

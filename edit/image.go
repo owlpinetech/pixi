@@ -147,7 +147,7 @@ func LayerAsImage(r io.ReadSeeker, pixImg *pixi.Pixi, layer *pixi.Layer) (image.
 	width := layer.Dimensions[0].Size
 	height := layer.Dimensions[1].Size
 
-	iterator := pixi.NewTileOrderSampleReadIterator(r, pixImg.Header, layer)
+	iterator := pixi.NewTileOrderReadIterator(r, pixImg.Header, layer)
 	defer iterator.Done()
 
 	switch pixImg.Tags[0].Tags["color-model"] {

@@ -171,7 +171,7 @@ type TileOrderWriteIterator struct {
 	tiles map[int][]byte
 }
 
-func NewTileOrderIterator(backing io.WriteSeeker, header *PixiHeader, layer *Layer) *TileOrderWriteIterator {
+func NewTileOrderWriteIterator(backing io.WriteSeeker, header *PixiHeader, layer *Layer) *TileOrderWriteIterator {
 	iterator := &TileOrderWriteIterator{
 		backing: backing,
 		header:  header,

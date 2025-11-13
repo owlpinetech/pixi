@@ -2,7 +2,9 @@ package pixi
 
 import (
 	"io"
-	"log/slog"
+	"sync"
+
+	"github.com/owlpinetech/pixi/internal/preload"
 )
 
 const (
@@ -16,7 +18,7 @@ type TileOrderReadIterator struct {
 
 	tile         int
 	sampleInTile int
-	preloader    *Preloader[map[int][]byte]
+	preloader    *preload.Preloader[map[int][]byte]
 
 	tiles        map[int][]byte
 	currentError error
@@ -30,12 +32,10 @@ func NewTileOrderReadIterator(backing io.ReadSeeker, header *PixiHeader, layer *
 		sampleInTile: -1, // so first Next() goes to 0
 		tiles:        make(map[int][]byte),
 	}
-	iterator.preloader = NewPreloader(iterator.readTiles, 2)
+	iterator.preloader = preload.NewPreloader(iterator.readTiles, 2)
 	// notify twice so we load more than we need right away
 	iterator.preloader.Notify()
-	slog.Info("preloading next tile", "tile", 0)
 	iterator.preloader.Notify()
-	slog.Info("preloading next tile", "tile", 1)
 	iterator.preloader.Start()
 
 	iterator.tiles, iterator.currentError = iterator.preloader.Next()
@@ -71,7 +71,6 @@ func (t *TileOrderReadIterator) Next() bool {
 		} else {
 			// load the next tile (or tiles, if separated)
 			if t.tile < t.layer.Dimensions.Tiles()-1 {
-				slog.Info("preloading next tile", "tile", t.tile)
 				t.preloader.Notify()
 			}
 			t.tiles, t.currentError = t.preloader.Next()
@@ -163,18 +162,162 @@ type TileOrderWriteIterator struct {
 
 	tile         int
 	sampleInTile int
-	flusher      *Flusher
 
-	tiles        map[int][]byte
+	wg           sync.WaitGroup
+	writeLock    sync.RWMutex
+	writeQueue   chan map[int][]byte
 	currentError error
+
+	tiles map[int][]byte
 }
 
 func NewTileOrderIterator(backing io.WriteSeeker, header *PixiHeader, layer *Layer) *TileOrderWriteIterator {
-	return &TileOrderWriteIterator{
+	iterator := &TileOrderWriteIterator{
 		backing: backing,
 		header:  header,
 		layer:   layer,
 
 		sampleInTile: -1, // so first Next() goes to 0
+
+		writeQueue: make(chan map[int][]byte, 100),
+
+		tiles: make(map[int][]byte),
+	}
+
+	if layer.Separated {
+		for fieldIndex := range layer.Fields {
+			tileSize := layer.DiskTileSize(layer.Dimensions.Tiles() * fieldIndex)
+			iterator.tiles[fieldIndex] = make([]byte, tileSize)
+		}
+	} else {
+		tileSize := layer.DiskTileSize(0)
+		iterator.tiles[nonSeparatedKey] = make([]byte, tileSize)
+	}
+
+	iterator.wg.Go(func() {
+		tileIndex := 0
+		for tiles := range iterator.writeQueue {
+			err := iterator.writeTiles(tiles, tileIndex)
+			if err != nil {
+				iterator.writeLock.Lock()
+				iterator.currentError = err
+				iterator.writeLock.Unlock()
+				return
+			}
+			tileIndex += 1
+		}
+	})
+
+	return iterator
+}
+
+func (t *TileOrderWriteIterator) Layer() *Layer {
+	return t.layer
+}
+
+func (t *TileOrderWriteIterator) Done() {
+	close(t.writeQueue)
+	t.wg.Wait()
+}
+
+func (t *TileOrderWriteIterator) Error() error {
+	t.writeLock.RLock()
+	defer t.writeLock.RUnlock()
+	return t.currentError
+}
+
+func (t *TileOrderWriteIterator) Next() bool {
+	if t.Error() != nil {
+		return false
+	}
+
+	// advance to next sample
+	t.sampleInTile += 1
+	if t.sampleInTile >= t.layer.Dimensions.TileSamples() {
+		t.sampleInTile = 0
+		t.tile += 1
+		// check if we are done
+		if t.tile >= t.layer.Dimensions.Tiles() {
+			return false
+		} else {
+			// load the next tile (or tiles, if separated)
+			t.writeQueue <- t.tiles
+			t.tiles = make(map[int][]byte)
+			if t.layer.Separated {
+				for fieldIndex := range t.layer.Fields {
+					tileSize := t.layer.DiskTileSize(t.tile + t.layer.Dimensions.Tiles()*fieldIndex)
+					t.tiles[fieldIndex] = make([]byte, tileSize)
+				}
+			} else {
+				tileSize := t.layer.DiskTileSize(t.tile)
+				t.tiles[nonSeparatedKey] = make([]byte, tileSize)
+			}
+		}
+	}
+
+	return true
+}
+
+func (t *TileOrderWriteIterator) Coordinate() SampleCoordinate {
+	tileSelector := TileSelector{
+		Tile:   t.tile,
+		InTile: t.sampleInTile,
+	}
+	// TODO: track and increment coordinates directly instead of converting from tile selector each time
+	return tileSelector.
+		ToTileCoordinate(t.layer.Dimensions).
+		ToSampleCoordinate(t.layer.Dimensions)
+}
+
+func (t *TileOrderWriteIterator) SetField(fieldIndex int, value any) {
+	if t.Error() != nil {
+		return
+	}
+
+	if t.layer.Separated {
+		tileData := t.tiles[fieldIndex]
+		inTileOffset := t.sampleInTile * t.layer.Fields[fieldIndex].Size()
+		t.layer.Fields[fieldIndex].ValueToBytes(value, t.header.ByteOrder, tileData[inTileOffset:])
+	} else {
+		tileData := t.tiles[nonSeparatedKey]
+		inTileOffset := t.sampleInTile * t.layer.Fields.Size()
+		fieldOffset := t.layer.Fields.Offset(fieldIndex)
+		t.layer.Fields[fieldIndex].ValueToBytes(value, t.header.ByteOrder, tileData[inTileOffset+fieldOffset:])
+	}
+}
+
+func (t *TileOrderWriteIterator) SetSample(value Sample) {
+	if t.Error() != nil {
+		return
+	}
+
+	if t.layer.Separated {
+		for fieldIndex, field := range t.layer.Fields {
+			tileData := t.tiles[fieldIndex]
+			inTileOffset := t.sampleInTile * field.Size()
+			field.ValueToBytes(value[fieldIndex], t.header.ByteOrder, tileData[inTileOffset:])
+		}
+	} else {
+		tileData := t.tiles[nonSeparatedKey]
+		inTileOffset := t.sampleInTile * t.layer.Fields.Size()
+		for fieldIndex, field := range t.layer.Fields {
+			field.ValueToBytes(value[fieldIndex], t.header.ByteOrder, tileData[inTileOffset:])
+			inTileOffset += field.Size()
+		}
+	}
+}
+
+func (t *TileOrderWriteIterator) writeTiles(tiles map[int][]byte, tileIndex int) error {
+	if t.layer.Separated {
+		for fieldIndex := range t.layer.Fields {
+			fieldTile := tileIndex + t.layer.Dimensions.Tiles()*fieldIndex
+			err := t.layer.WriteTile(t.backing, t.header, fieldTile, tiles[fieldTile])
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	} else {
+		return t.layer.WriteTile(t.backing, t.header, tileIndex, tiles[nonSeparatedKey])
 	}
 }

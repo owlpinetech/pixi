@@ -1,4 +1,4 @@
-package pixi
+package preload
 
 import (
 	"io"

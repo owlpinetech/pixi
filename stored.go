@@ -38,69 +38,29 @@ func (s *StoredLayer) SampleAt(coord SampleCoordinate) (Sample, error) {
 	tileSelector := coord.ToTileSelector(s.layer.Dimensions)
 	sample := make([]any, len(s.layer.Fields))
 
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	if s.layer.Compression != CompressionNone {
-		// inefficiently, we have to load the whole tile of the sample in order to extract it from compression
-		if s.layer.Separated {
-			for fieldIndex, field := range s.layer.Fields {
-				fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
-				fieldOffset := tileSelector.InTile * field.Size()
+	// inefficiently, we have to load the whole tile of the sample in order to extract it while checking for data integrity
+	if s.layer.Separated {
+		for fieldIndex, field := range s.layer.Fields {
+			fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
+			fieldOffset := tileSelector.InTile * field.Size()
 
-				tileData, err := s.loadTile(fieldTile)
-				if err != nil {
-					return nil, err
-				}
-
-				sample[fieldIndex] = field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder)
-			}
-		} else {
-			fieldOffset := tileSelector.InTile * s.layer.Fields.Size()
-
-			tileData, err := s.loadTile(tileSelector.Tile)
+			tileData, err := s.loadTile(fieldTile)
 			if err != nil {
 				return nil, err
 			}
-			for i, field := range s.layer.Fields {
-				sample[i] = field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder)
-				fieldOffset += field.Size()
-			}
+
+			sample[fieldIndex] = field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder)
 		}
 	} else {
-		// with no compression, still inefficiently (but maybe less so), we can seek directly to the sample fields and read them only
-		if s.layer.Separated {
-			for fieldIndex, field := range s.layer.Fields {
-				separatedTileIndex := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
-				fieldFileOffset := s.layer.TileOffsets[separatedTileIndex] + int64(tileSelector.InTile*field.Size())
+		fieldOffset := tileSelector.InTile * s.layer.Fields.Size()
 
-				fieldRead := make([]byte, field.Size())
-				_, err := s.backing.Seek(fieldFileOffset, io.SeekStart)
-				if err != nil {
-					return nil, err
-				}
-				_, err = io.ReadFull(s.backing, fieldRead)
-				if err != nil {
-					return nil, err
-				}
-				sample[fieldIndex] = field.BytesToValue(fieldRead, s.header.ByteOrder)
-			}
-		} else {
-			fieldTileOffset := tileSelector.InTile * s.layer.Fields.Size()
-			fieldFileOffset := s.layer.TileOffsets[tileSelector.Tile] + int64(fieldTileOffset)
-			sampleRead := make([]byte, s.layer.Fields.Size())
-			_, err := s.backing.Seek(fieldFileOffset, io.SeekStart)
-			if err != nil {
-				return nil, err
-			}
-			_, err = io.ReadFull(s.backing, sampleRead)
-			if err != nil {
-				return nil, err
-			}
-			fieldOffset := 0
-			for i, field := range s.layer.Fields {
-				sample[i] = field.BytesToValue(sampleRead[fieldOffset:], s.header.ByteOrder)
-				fieldOffset += field.Size()
-			}
+		tileData, err := s.loadTile(tileSelector.Tile)
+		if err != nil {
+			return nil, err
+		}
+		for i, field := range s.layer.Fields {
+			sample[i] = field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder)
+			fieldOffset += field.Size()
 		}
 	}
 
@@ -111,63 +71,26 @@ func (s *StoredLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, erro
 	tileSelector := coord.ToTileSelector(s.layer.Dimensions)
 	field := s.layer.Fields[fieldIndex]
 
-	s.lock.Lock()
-	defer s.lock.Unlock()
-	if s.layer.Compression != CompressionNone {
-		// inefficiently, we have to load the whole tile of the sample in order to extract it from compression
-		if s.layer.Separated {
-			fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
-			fieldOffset := tileSelector.InTile * field.Size()
+	// inefficiently, we have to load the whole tile of the sample in order to extract it while checking for data integrity
+	if s.layer.Separated {
+		fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
+		fieldOffset := tileSelector.InTile * field.Size()
 
-			tileData, err := s.loadTile(fieldTile)
-			if err != nil {
-				return nil, err
-			}
-			return field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder), nil
-		} else {
-			tileData, err := s.loadTile(tileSelector.Tile)
-			if err != nil {
-				return nil, err
-			}
-			fieldOffset := tileSelector.InTile * s.layer.Fields.Size()
-			for _, field := range s.layer.Fields[:fieldIndex] {
-				fieldOffset += field.Size()
-			}
-			return field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder), nil
+		tileData, err := s.loadTile(fieldTile)
+		if err != nil {
+			return nil, err
 		}
+		return field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder), nil
 	} else {
-		// with no compression, still inefficiently (but maybe less so), we can seek directly to the sample fields and read them only
-		if s.layer.Separated {
-			separatedTileIndex := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
-			fieldFileOffset := s.layer.TileOffsets[separatedTileIndex] + int64(tileSelector.InTile*field.Size())
-
-			fieldRead := make([]byte, field.Size())
-			_, err := s.backing.Seek(fieldFileOffset, io.SeekStart)
-			if err != nil {
-				return nil, err
-			}
-			_, err = io.ReadFull(s.backing, fieldRead)
-			if err != nil {
-				return nil, err
-			}
-			return field.BytesToValue(fieldRead, s.header.ByteOrder), nil
-		} else {
-			fieldTileOffset := tileSelector.InTile * s.layer.Fields.Size()
-			for _, field := range s.layer.Fields[:fieldIndex] {
-				fieldTileOffset += field.Size()
-			}
-			fieldFileOffset := s.layer.TileOffsets[tileSelector.Tile] + int64(fieldTileOffset)
-			fieldRead := make([]byte, field.Size())
-			_, err := s.backing.Seek(fieldFileOffset, io.SeekStart)
-			if err != nil {
-				return nil, err
-			}
-			_, err = io.ReadFull(s.backing, fieldRead)
-			if err != nil {
-				return nil, err
-			}
-			return field.BytesToValue(fieldRead, s.header.ByteOrder), nil
+		tileData, err := s.loadTile(tileSelector.Tile)
+		if err != nil {
+			return nil, err
 		}
+		fieldOffset := tileSelector.InTile * s.layer.Fields.Size()
+		for _, field := range s.layer.Fields[:fieldIndex] {
+			fieldOffset += field.Size()
+		}
+		return field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder), nil
 	}
 }
 

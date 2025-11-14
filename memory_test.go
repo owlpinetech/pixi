@@ -9,7 +9,7 @@ import (
 	"github.com/owlpinetech/pixi/internal/buffer"
 )
 
-func TestCachedSampleFieldConcurrent(t *testing.T) {
+func TestMemorySampleFieldConcurrent(t *testing.T) {
 	header := &PixiHeader{
 		Version:    Version,
 		OffsetSize: 4,
@@ -35,9 +35,9 @@ func TestCachedSampleFieldConcurrent(t *testing.T) {
 		rawTiles = append(rawTiles, chunk)
 	}
 
-	// create a cache
+	// create a disk-backed layer
 	rdBuffer := buffer.NewBufferFrom(wrtBuf.Bytes())
-	cache := NewCachedLayer(NewLayerFifoCache(rdBuffer, header, layer, 4))
+	stored := NewMemoryLayer(rdBuffer, header, layer)
 
 	// we're only going to look at the second field for this test
 	testSampleCount := layer.Dimensions.Samples() / 4
@@ -53,12 +53,12 @@ func TestCachedSampleFieldConcurrent(t *testing.T) {
 	var wg sync.WaitGroup
 	for randInd := range testCoords {
 		wg.Add(1)
-		go testSampleAtSameAsRaw(t, &wg, cache, testCoords[randInd], testExpect[randInd])
+		go testSampleAtSameAsRaw(t, &wg, stored, testCoords[randInd], testExpect[randInd])
 	}
 	wg.Wait()
 }
 
-func TestCachedSetSampleAt(t *testing.T) {
+func TestMemorySetSampleAt(t *testing.T) {
 	header := &PixiHeader{
 		Version:    Version,
 		OffsetSize: 4,
@@ -79,9 +79,9 @@ func TestCachedSetSampleAt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cached := NewCachedLayer(NewLayerFifoCache(wrtBuf, header, layer, 4))
+	stored := NewMemoryLayer(wrtBuf, header, layer)
 
-	sample0, err := cached.SampleAt(SampleCoordinate{25, 25})
+	sample0, err := stored.SampleAt(SampleCoordinate{25, 25})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,12 +89,12 @@ func TestCachedSetSampleAt(t *testing.T) {
 		t.Fatalf("expected initial sample to be all zero, got %v", sample0)
 	}
 
-	err = cached.SetSampleAt(SampleCoordinate{25, 25}, []any{uint16(42), uint32(4242)})
+	err = stored.SetSampleAt(SampleCoordinate{25, 25}, []any{uint16(42), uint32(4242)})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	sample1, err := cached.SampleAt(SampleCoordinate{25, 25})
+	sample1, err := stored.SampleAt(SampleCoordinate{25, 25})
 	if err != nil {
 		t.Fatal(err)
 	}

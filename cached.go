@@ -114,12 +114,8 @@ func (c *LayerFifoCache) SetFragment(tile int, tileOffset int, data []byte) erro
 			data: cached.data,
 		}
 	} else {
-		tileData := make([]byte, c.layer.TileBytes[tile])
-		_, err := c.backing.Seek(c.layer.TileOffsets[tile], io.SeekStart)
-		if err != nil {
-			return err
-		}
-		_, err = c.backing.Read(tileData)
+		tileData := make([]byte, c.layer.DiskTileSize(tile))
+		err := c.layer.ReadTile(c.backing, c.header, tile, tileData)
 		if err != nil {
 			return err
 		}
@@ -136,11 +132,7 @@ func (c *LayerFifoCache) SetFragment(tile int, tileOffset int, data []byte) erro
 			}
 
 			oldest := c.cache[oldestTile]
-			_, err := c.backing.Seek(c.layer.TileOffsets[oldestTile], io.SeekStart)
-			if err != nil {
-				return err
-			}
-			_, err = c.backing.Write(oldest.data)
+			err := c.layer.OverwriteTile(c.backing, c.header, oldestTile, oldest.data)
 			if err != nil {
 				return err
 			}
@@ -159,11 +151,7 @@ func (c *LayerFifoCache) Flush() error {
 	c.cacheLock.Lock()
 	defer c.cacheLock.Unlock()
 	for tile, entry := range c.cache {
-		_, err := c.backing.Seek(c.layer.TileOffsets[tile], io.SeekStart)
-		if err != nil {
-			return err
-		}
-		_, err = c.backing.Write(entry.data)
+		err := c.layer.OverwriteTile(c.backing, c.header, tile, entry.data)
 		if err != nil {
 			return err
 		}

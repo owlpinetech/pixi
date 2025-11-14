@@ -236,13 +236,15 @@ func (t *TileOrderWriteIterator) Next() bool {
 	if t.sampleInTile >= t.layer.Dimensions.TileSamples() {
 		t.sampleInTile = 0
 		t.tile += 1
+
+		t.writeQueue <- t.tiles
+		t.tiles = make(map[int][]byte)
+
 		// check if we are done
 		if t.tile >= t.layer.Dimensions.Tiles() {
 			return false
 		} else {
 			// load the next tile (or tiles, if separated)
-			t.writeQueue <- t.tiles
-			t.tiles = make(map[int][]byte)
 			if t.layer.Separated {
 				for fieldIndex := range t.layer.Fields {
 					tileSize := t.layer.DiskTileSize(t.tile + t.layer.Dimensions.Tiles()*fieldIndex)

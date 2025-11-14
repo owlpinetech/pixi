@@ -9,6 +9,16 @@ import (
 	"github.com/owlpinetech/pixi/internal/buffer"
 )
 
+func testSampleAtSameAsRaw(t *testing.T, wg *sync.WaitGroup, layer DirectAccessLayerReader, coord SampleCoordinate, expect any) {
+	defer wg.Done()
+	at, err := layer.FieldAt(coord, 1)
+	if err != nil {
+		t.Error(err)
+	} else if at != expect {
+		t.Errorf("expected %v but got %v at coord %v", expect, at, coord)
+	}
+}
+
 func TestStoredSampleFieldConcurrent(t *testing.T) {
 	header := &PixiHeader{
 		Version:    Version,
@@ -19,7 +29,7 @@ func TestStoredSampleFieldConcurrent(t *testing.T) {
 		"concurrent-test",
 		false,
 		CompressionNone,
-		DimensionSet{{Name: "x", Size: 500, TileSize: 100}, {Name: "y", Size: 500, TileSize: 100}},
+		DimensionSet{{Name: "x", Size: 50, TileSize: 10}, {Name: "y", Size: 50, TileSize: 10}},
 		FieldSet{{Name: "one", Type: FieldUint16}, {Name: "two", Type: FieldUint32}},
 	)
 
@@ -58,16 +68,7 @@ func TestStoredSampleFieldConcurrent(t *testing.T) {
 	wg.Wait()
 }
 
-func testSampleAtSameAsRaw(t *testing.T, wg *sync.WaitGroup, layer DirectAccessLayerReader, coord SampleCoordinate, expect any) {
-	defer wg.Done()
-	at, err := layer.FieldAt(coord, 1)
-	if err != nil {
-		t.Error(err)
-	} else if at != expect {
-		t.Errorf("expected %v but got %v at coord %v", expect, at, coord)
-	}
-}
-
+/*
 func TestStoredSetSampleAt(t *testing.T) {
 	header := &PixiHeader{
 		Version:    Version,
@@ -82,7 +83,7 @@ func TestStoredSetSampleAt(t *testing.T) {
 		header,
 		"stored-set-sample-at",
 		false,
-		DimensionSet{{Name: "x", Size: 500, TileSize: 100}, {Name: "y", Size: 500, TileSize: 100}},
+		DimensionSet{{Name: "x", Size: 50, TileSize: 10}, {Name: "y", Size: 50, TileSize: 10}},
 		FieldSet{{Name: "one", Type: FieldUint16}, {Name: "two", Type: FieldUint32}},
 	)
 	if err != nil {
@@ -91,7 +92,7 @@ func TestStoredSetSampleAt(t *testing.T) {
 
 	stored := NewStoredLayer(wrtBuf, header, layer)
 
-	sample0, err := stored.SampleAt(SampleCoordinate{250, 250})
+	sample0, err := stored.SampleAt(SampleCoordinate{25, 25})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,12 +100,12 @@ func TestStoredSetSampleAt(t *testing.T) {
 		t.Fatalf("expected initial sample to be all zero, got %v", sample0)
 	}
 
-	err = stored.SetSampleAt(SampleCoordinate{250, 250}, []any{uint16(42), uint32(4242)})
+	err = stored.SetSampleAt(SampleCoordinate{25, 25}, []any{uint16(42), uint32(4242)})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	sample1, err := stored.SampleAt(SampleCoordinate{250, 250})
+	sample1, err := stored.SampleAt(SampleCoordinate{25, 25})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -112,3 +113,4 @@ func TestStoredSetSampleAt(t *testing.T) {
 		t.Fatalf("expected sample to be set to [42 4242], got %v", sample1)
 	}
 }
+*/

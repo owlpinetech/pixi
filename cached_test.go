@@ -9,6 +9,16 @@ import (
 	"github.com/owlpinetech/pixi/internal/buffer"
 )
 
+func testSampleAtSameAsRaw(t *testing.T, wg *sync.WaitGroup, layer DirectAccessLayerReader, coord SampleCoordinate, expect any) {
+	defer wg.Done()
+	at, err := layer.FieldAt(coord, 1)
+	if err != nil {
+		t.Error(err)
+	} else if at != expect {
+		t.Errorf("expected %v but got %v at coord %v", expect, at, coord)
+	}
+}
+
 func TestCachedSampleFieldConcurrent(t *testing.T) {
 	header := &PixiHeader{
 		Version:    Version,

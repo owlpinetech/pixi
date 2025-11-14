@@ -3,12 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/owlpinetech/pixi"
-	"github.com/owlpinetech/pixi/edit"
 )
 
 func main() {
@@ -86,18 +86,51 @@ func main() {
 
 	srcData := pixi.NewReadCachedLayer(pixi.NewLayerReadFifoCache(srcStream, srcPixi.Header, srcLayer, 4))
 
-	err = edit.WriteContiguousTileOrderPixi(dstFile, dstPixi, srcPixi.AllTags(), edit.LayerWriter{
-		Layer: dstLayer,
-		IterFn: func(layer *pixi.Layer, coord pixi.SampleCoordinate) ([]any, map[string]any) {
-			pixel, err := srcData.SampleAt(coord)
-			if err != nil {
-				fmt.Println("Failed to read sample from source Pixi file.")
-				os.Exit(1)
-			}
-			return pixel, nil
-		},
-	})
+	err = dstPixi.WriteHeader(dstFile)
 	if err != nil {
+		fmt.Println("Failed to write Pixi header to destination Pixi file.")
+		return
+	}
+	tagsOffset, err := dstFile.Seek(0, io.SeekCurrent)
+	if err != nil {
+		fmt.Println("Failed to seek in destination Pixi file.")
+		return
+	}
+	tagSection := pixi.TagSection{Tags: srcPixi.AllTags(), NextTagsStart: 0}
+	err = tagSection.Write(dstFile, dstPixi)
+	if err != nil {
+		fmt.Println("Failed to write tags to destination Pixi file.")
+		return
+	}
+
+	firstlayerOffset, err := dstFile.Seek(0, io.SeekCurrent)
+	if err != nil {
+		fmt.Println("Failed to seek in destination Pixi file.")
+		return
+	}
+
+	// update offsets to different sections
+	err = dstPixi.OverwriteOffsets(dstFile, firstlayerOffset, tagsOffset)
+	if err != nil {
+		fmt.Println("Failed to overwrite offsets in destination Pixi file.")
+		return
+	}
+
+	dstLayer.WriteHeader(dstFile, dstPixi)
+	dstIterator := pixi.NewTileOrderWriteIterator(dstFile, dstPixi, dstLayer)
+
+	for dstIterator.Next() {
+		coord := dstIterator.Coordinate()
+		pixel, err := srcData.SampleAt(coord)
+		if err != nil {
+			fmt.Println("Failed to read sample from source Pixi file.")
+			return
+		}
+		dstIterator.SetSample(pixel)
+	}
+
+	dstIterator.Done()
+	if dstIterator.Error() != nil {
 		fmt.Println("Failed to write destination Pixi file.")
 		return
 	}

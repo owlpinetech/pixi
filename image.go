@@ -1,16 +1,14 @@
-package edit
+package pixi
 
 import (
 	"encoding/binary"
 	"image"
 	"image/color"
 	"io"
-
-	"github.com/owlpinetech/pixi"
 )
 
 type FromImageOptions struct {
-	Compression pixi.Compression
+	Compression Compression
 	ByteOrder   binary.ByteOrder
 	XTileSize   int
 	YTileSize   int
@@ -18,14 +16,9 @@ type FromImageOptions struct {
 }
 
 func PixiFromImage(w io.WriteSeeker, img image.Image, options FromImageOptions) error {
-	header := &pixi.PixiHeader{Version: pixi.Version, OffsetSize: 4, ByteOrder: options.ByteOrder}
+	header := &PixiHeader{Version: Version, OffsetSize: 4, ByteOrder: options.ByteOrder}
 	// write the header first
 	err := header.WriteHeader(w)
-	if err != nil {
-		return err
-	}
-
-	layer, err := ImageToLayer(img, "image", false, options.Compression, options.XTileSize, options.YTileSize)
 	if err != nil {
 		return err
 	}
@@ -45,81 +38,114 @@ func PixiFromImage(w io.WriteSeeker, img image.Image, options FromImageOptions) 
 		options.Tags["color-model"] = "YCbCr"
 	}
 
-	return WriteContiguousTileOrderPixi(w, header, options.Tags, LayerWriter{
-		Layer: layer,
-		IterFn: func(layer *pixi.Layer, coord pixi.SampleCoordinate) ([]any, map[string]any) {
-			pixel := img.At(coord[0], coord[1])
-			switch img.ColorModel() {
-			case color.NRGBAModel:
-				col := pixel.(color.NRGBA)
-				return []any{col.R, col.G, col.B, col.A}, nil
-			case color.NRGBA64Model:
-				col := pixel.(color.NRGBA64)
-				return []any{col.R, col.G, col.B, col.A}, nil
-			case color.RGBAModel:
-				col := pixel.(color.RGBA)
-				return []any{col.R, col.G, col.B, col.A}, nil
-			case color.RGBA64Model:
-				col := pixel.(color.RGBA64)
-				return []any{col.R, col.G, col.B, col.A}, nil
-			case color.CMYKModel:
-				col := pixel.(color.CMYK)
-				return []any{col.C, col.M, col.Y, col.K}, nil
-			case color.YCbCrModel:
-				col := pixel.(color.YCbCr)
-				return []any{col.Y, col.Cb, col.Cr}, nil
-			}
+	// write out the tags, 0 for next start means no further sections
+	tagsOffset, err := w.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return err
+	}
+	tagSection := TagSection{Tags: options.Tags, NextTagsStart: 0}
+	err = tagSection.Write(w, header)
+	if err != nil {
+		return err
+	}
+
+	firstlayerOffset, err := w.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return err
+	}
+
+	// update offsets to different sections
+	err = header.OverwriteOffsets(w, firstlayerOffset, tagsOffset)
+	if err != nil {
+		return err
+	}
+
+	layer, err := ImageToLayer(img, "image", false, options.Compression, options.XTileSize, options.YTileSize)
+	if err != nil {
+		return err
+	}
+
+	layer.WriteHeader(w, header)
+
+	writerIterator := NewTileOrderWriteIterator(w, header, layer)
+
+	for writerIterator.Next() {
+		coord := writerIterator.Coordinate()
+		pixel := img.At(coord[0], coord[1])
+		switch img.ColorModel() {
+		case color.NRGBAModel:
+			col := pixel.(color.NRGBA)
+			writerIterator.SetSample([]any{col.R, col.G, col.B, col.A})
+		case color.NRGBA64Model:
+			col := pixel.(color.NRGBA64)
+			writerIterator.SetSample([]any{col.R, col.G, col.B, col.A})
+		case color.RGBAModel:
+			col := pixel.(color.RGBA)
+			writerIterator.SetSample([]any{col.R, col.G, col.B, col.A})
+		case color.RGBA64Model:
+			col := pixel.(color.RGBA64)
+			writerIterator.SetSample([]any{col.R, col.G, col.B, col.A})
+		case color.CMYKModel:
+			col := pixel.(color.CMYK)
+			writerIterator.SetSample([]any{col.C, col.M, col.Y, col.K})
+		case color.YCbCrModel:
+			col := pixel.(color.YCbCr)
+			writerIterator.SetSample([]any{col.Y, col.Cb, col.Cr})
+		default:
 			panic("unsupported color model")
-		},
-	})
+		}
+	}
+
+	writerIterator.Done()
+	return writerIterator.Error()
 }
 
-func ImageToLayer(img image.Image, layerName string, separated bool, compression pixi.Compression, xTileSize int, yTileSize int) (*pixi.Layer, error) {
-	var fields pixi.FieldSet
+func ImageToLayer(img image.Image, layerName string, separated bool, compression Compression, xTileSize int, yTileSize int) (*Layer, error) {
+	var fields FieldSet
 	switch img.ColorModel() {
 	case color.NRGBAModel:
-		fields = pixi.FieldSet{
-			{Name: "r", Type: pixi.FieldUint8},
-			{Name: "g", Type: pixi.FieldUint8},
-			{Name: "b", Type: pixi.FieldUint8},
-			{Name: "a", Type: pixi.FieldUint8},
+		fields = FieldSet{
+			{Name: "r", Type: FieldUint8},
+			{Name: "g", Type: FieldUint8},
+			{Name: "b", Type: FieldUint8},
+			{Name: "a", Type: FieldUint8},
 		}
 	case color.NRGBA64Model:
-		fields = pixi.FieldSet{
-			{Name: "r", Type: pixi.FieldUint16},
-			{Name: "g", Type: pixi.FieldUint16},
-			{Name: "b", Type: pixi.FieldUint16},
-			{Name: "a", Type: pixi.FieldUint16},
+		fields = FieldSet{
+			{Name: "r", Type: FieldUint16},
+			{Name: "g", Type: FieldUint16},
+			{Name: "b", Type: FieldUint16},
+			{Name: "a", Type: FieldUint16},
 		}
 	case color.RGBAModel:
-		fields = pixi.FieldSet{
-			{Name: "r", Type: pixi.FieldUint8},
-			{Name: "g", Type: pixi.FieldUint8},
-			{Name: "b", Type: pixi.FieldUint8},
-			{Name: "a", Type: pixi.FieldUint8},
+		fields = FieldSet{
+			{Name: "r", Type: FieldUint8},
+			{Name: "g", Type: FieldUint8},
+			{Name: "b", Type: FieldUint8},
+			{Name: "a", Type: FieldUint8},
 		}
 	case color.RGBA64Model:
-		fields = pixi.FieldSet{
-			{Name: "r", Type: pixi.FieldUint16},
-			{Name: "g", Type: pixi.FieldUint16},
-			{Name: "b", Type: pixi.FieldUint16},
-			{Name: "a", Type: pixi.FieldUint16},
+		fields = FieldSet{
+			{Name: "r", Type: FieldUint16},
+			{Name: "g", Type: FieldUint16},
+			{Name: "b", Type: FieldUint16},
+			{Name: "a", Type: FieldUint16},
 		}
 	case color.CMYKModel:
-		fields = pixi.FieldSet{
-			{Name: "c", Type: pixi.FieldUint8},
-			{Name: "m", Type: pixi.FieldUint8},
-			{Name: "y", Type: pixi.FieldUint8},
-			{Name: "k", Type: pixi.FieldUint8},
+		fields = FieldSet{
+			{Name: "c", Type: FieldUint8},
+			{Name: "m", Type: FieldUint8},
+			{Name: "y", Type: FieldUint8},
+			{Name: "k", Type: FieldUint8},
 		}
 	case color.YCbCrModel:
-		fields = pixi.FieldSet{
-			{Name: "Y", Type: pixi.FieldUint8},
-			{Name: "Cb", Type: pixi.FieldUint8},
-			{Name: "Cr", Type: pixi.FieldUint8},
+		fields = FieldSet{
+			{Name: "Y", Type: FieldUint8},
+			{Name: "Cb", Type: FieldUint8},
+			{Name: "Cr", Type: FieldUint8},
 		}
 	default:
-		return nil, pixi.ErrUnsupported("color model of the image not yet supported for conversion to Pixi")
+		return nil, ErrUnsupported("color model of the image not yet supported for conversion to Pixi")
 	}
 
 	width := img.Bounds().Dx()
@@ -133,27 +159,27 @@ func ImageToLayer(img image.Image, layerName string, separated bool, compression
 	}
 	yTileSize = min(height, yTileSize)
 
-	return pixi.NewLayer(
+	return NewLayer(
 		layerName,
 		separated,
 		compression,
-		pixi.DimensionSet{
+		DimensionSet{
 			{Name: "x", Size: width, TileSize: xTileSize},
 			{Name: "y", Size: height, TileSize: yTileSize}},
 		fields), nil
 }
 
-func LayerAsImage(r io.ReadSeeker, pixImg *pixi.Pixi, layer *pixi.Layer) (image.Image, error) {
+func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, error) {
 	width := layer.Dimensions[0].Size
 	height := layer.Dimensions[1].Size
 
-	iterator := pixi.NewTileOrderReadIterator(r, pixImg.Header, layer)
+	iterator := NewTileOrderReadIterator(r, pixImg.Header, layer)
 	defer iterator.Done()
 
 	switch pixImg.Tags[0].Tags["color-model"] {
 	case "nrgba":
 		if len(layer.Fields) < 4 {
-			return nil, pixi.ErrUnsupported("layer does not have enough fields for NRGBA color model")
+			return nil, ErrUnsupported("layer does not have enough fields for NRGBA color model")
 		}
 		rIndex := layer.Fields.Index("r")
 		gIndex := layer.Fields.Index("g")
@@ -175,7 +201,7 @@ func LayerAsImage(r io.ReadSeeker, pixImg *pixi.Pixi, layer *pixi.Layer) (image.
 		return nrgbaImg, nil
 	case "nrgba64":
 		if len(layer.Fields) < 4 {
-			return nil, pixi.ErrUnsupported("layer does not have enough fields for NRGBA64 color model")
+			return nil, ErrUnsupported("layer does not have enough fields for NRGBA64 color model")
 		}
 		nrgba64Img := image.NewNRGBA64(image.Rect(0, 0, width, height))
 		rIndex := layer.Fields.Index("r")
@@ -197,7 +223,7 @@ func LayerAsImage(r io.ReadSeeker, pixImg *pixi.Pixi, layer *pixi.Layer) (image.
 		return nrgba64Img, nil
 	case "rgba":
 		if len(layer.Fields) < 4 {
-			return nil, pixi.ErrUnsupported("layer does not have enough fields for RGBA color model")
+			return nil, ErrUnsupported("layer does not have enough fields for RGBA color model")
 		}
 		rgbaImg := image.NewRGBA(image.Rect(0, 0, width, height))
 		rIndex := layer.Fields.Index("r")
@@ -219,7 +245,7 @@ func LayerAsImage(r io.ReadSeeker, pixImg *pixi.Pixi, layer *pixi.Layer) (image.
 		return rgbaImg, nil
 	case "rgba64":
 		if len(layer.Fields) < 4 {
-			return nil, pixi.ErrUnsupported("layer does not have enough fields for RGBA64 color model")
+			return nil, ErrUnsupported("layer does not have enough fields for RGBA64 color model")
 		}
 		rgba64Img := image.NewRGBA64(image.Rect(0, 0, width, height))
 		rIndex := layer.Fields.Index("r")
@@ -241,7 +267,7 @@ func LayerAsImage(r io.ReadSeeker, pixImg *pixi.Pixi, layer *pixi.Layer) (image.
 		return rgba64Img, nil
 	case "cmyk":
 		if len(layer.Fields) < 4 {
-			return nil, pixi.ErrUnsupported("layer does not have enough fields for CMYK color model")
+			return nil, ErrUnsupported("layer does not have enough fields for CMYK color model")
 		}
 		cmykImg := image.NewCMYK(image.Rect(0, 0, width, height))
 		cIndex := layer.Fields.Index("c")
@@ -263,7 +289,7 @@ func LayerAsImage(r io.ReadSeeker, pixImg *pixi.Pixi, layer *pixi.Layer) (image.
 		return cmykImg, nil
 	case "YCbCr":
 		if len(layer.Fields) < 3 {
-			return nil, pixi.ErrUnsupported("layer does not have enough fields for YCbCr color model")
+			return nil, ErrUnsupported("layer does not have enough fields for YCbCr color model")
 		}
 		ycbcrImg := image.NewYCbCr(image.Rect(0, 0, width, height), image.YCbCrSubsampleRatio420)
 		yIndex := layer.Fields.Index("Y")
@@ -286,6 +312,6 @@ func LayerAsImage(r io.ReadSeeker, pixImg *pixi.Pixi, layer *pixi.Layer) (image.
 		}
 		return ycbcrImg, nil
 	default:
-		return nil, pixi.ErrUnsupported("color model of the layer not yet supported for conversion to Pixi")
+		return nil, ErrUnsupported("color model of the layer not yet supported for conversion to Pixi")
 	}
 }

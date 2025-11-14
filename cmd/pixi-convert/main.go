@@ -13,7 +13,6 @@ import (
 	"strings"
 
 	"github.com/owlpinetech/pixi"
-	"github.com/owlpinetech/pixi/edit"
 )
 
 // This application converts images to Pixi files, or Pixi files of a compatible structure to images. It serves
@@ -93,7 +92,7 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int) error {
 	if comp == 1 {
 		compression = pixi.CompressionFlate
 	}
-	options := edit.FromImageOptions{
+	options := pixi.FromImageOptions{
 		Compression: compression,
 		ByteOrder:   binary.BigEndian,
 		XTileSize:   tileSize,
@@ -107,7 +106,7 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int) error {
 		if err != nil {
 			return err
 		}
-		return edit.PixiFromImage(pixiFile, img, options)
+		return pixi.PixiFromImage(pixiFile, img, options)
 
 	case ".jpg":
 		fallthrough
@@ -116,7 +115,7 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int) error {
 		if err != nil {
 			return err
 		}
-		return edit.PixiFromImage(pixiFile, img, options)
+		return pixi.PixiFromImage(pixiFile, img, options)
 	}
 
 	return pixi.ErrUnsupported("image format not yet supported for conversion to Pixi")
@@ -140,7 +139,7 @@ func pixiToOther(srcFile string, dstFile string) error {
 		return err
 	}
 
-	img, err := edit.LayerAsImage(pixiStream, pixiSum, pixiSum.Layers[0])
+	img, err := pixi.LayerAsImage(pixiStream, pixiSum, pixiSum.Layers[0])
 	if err != nil {
 		return err
 	}

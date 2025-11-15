@@ -36,6 +36,12 @@ func PixiFromImage(w io.WriteSeeker, img image.Image, options FromImageOptions) 
 		options.Tags["color-model"] = "cmyk"
 	case color.YCbCrModel:
 		options.Tags["color-model"] = "YCbCr"
+	case color.NYCbCrAModel:
+		options.Tags["color-model"] = "NYCbCrA"
+	case color.GrayModel:
+		options.Tags["color-model"] = "gray"
+	case color.Gray16Model:
+		options.Tags["color-model"] = "gray16"
 	}
 
 	// write out the tags, 0 for next start means no further sections
@@ -91,6 +97,15 @@ func PixiFromImage(w io.WriteSeeker, img image.Image, options FromImageOptions) 
 		case color.YCbCrModel:
 			col := pixel.(color.YCbCr)
 			writerIterator.SetSample([]any{col.Y, col.Cb, col.Cr})
+		case color.NYCbCrAModel:
+			col := pixel.(color.NYCbCrA)
+			writerIterator.SetSample([]any{col.Y, col.Cb, col.Cr, col.A})
+		case color.GrayModel:
+			col := pixel.(color.Gray)
+			writerIterator.SetSample([]any{col.Y})
+		case color.Gray16Model:
+			col := pixel.(color.Gray16)
+			writerIterator.SetSample([]any{col.Y})
 		default:
 			panic("unsupported color model")
 		}
@@ -143,6 +158,21 @@ func ImageToLayer(img image.Image, layerName string, separated bool, compression
 			{Name: "Y", Type: FieldUint8},
 			{Name: "Cb", Type: FieldUint8},
 			{Name: "Cr", Type: FieldUint8},
+		}
+	case color.NYCbCrAModel:
+		fields = FieldSet{
+			{Name: "Y", Type: FieldUint8},
+			{Name: "Cb", Type: FieldUint8},
+			{Name: "Cr", Type: FieldUint8},
+			{Name: "A", Type: FieldUint8},
+		}
+	case color.GrayModel:
+		fields = FieldSet{
+			{Name: "Y", Type: FieldUint8},
+		}
+	case color.Gray16Model:
+		fields = FieldSet{
+			{Name: "Y", Type: FieldUint16},
 		}
 	default:
 		return nil, ErrUnsupported("color model of the image not yet supported for conversion to Pixi")
@@ -311,6 +341,68 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			ycbcrImg.Cr[cOff] = sample[crIndex].(uint8)
 		}
 		return ycbcrImg, nil
+	case "NYCbCrA":
+		if len(layer.Fields) < 4 {
+			return nil, ErrUnsupported("layer does not have enough fields for NYCbCrA color model")
+		}
+		nycbcraImg := image.NewNYCbCrA(image.Rect(0, 0, width, height), image.YCbCrSubsampleRatio420)
+		yIndex := layer.Fields.Index("Y")
+		cbIndex := layer.Fields.Index("Cb")
+		crIndex := layer.Fields.Index("Cr")
+		aIndex := layer.Fields.Index("A")
+		if yIndex == -1 || cbIndex == -1 || crIndex == -1 || aIndex == -1 {
+			yIndex, cbIndex, crIndex, aIndex = 0, 1, 2, 3
+		}
+		for iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, iterator.Error()
+			}
+			coord := iterator.Coordinate()
+			sample := iterator.Sample()
+			yOff := nycbcraImg.YOffset(coord[0], coord[1])
+			cOff := nycbcraImg.COffset(coord[0], coord[1])
+			nycbcraImg.Y[yOff] = sample[yIndex].(uint8)
+			nycbcraImg.Cb[cOff] = sample[cbIndex].(uint8)
+			nycbcraImg.Cr[cOff] = sample[crIndex].(uint8)
+			nycbcraImg.A[yOff] = sample[aIndex].(uint8)
+		}
+		return nycbcraImg, nil
+	case "gray":
+		if len(layer.Fields) < 1 {
+			return nil, ErrUnsupported("layer does not have enough fields for Gray color model")
+		}
+		grayImg := image.NewGray(image.Rect(0, 0, width, height))
+		yIndex := layer.Fields.Index("Y")
+		if yIndex == -1 {
+			yIndex = 0
+		}
+		for iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, iterator.Error()
+			}
+			coord := iterator.Coordinate()
+			sample := iterator.Sample()
+			grayImg.Set(coord[0], coord[1], color.Gray{sample[yIndex].(uint8)})
+		}
+		return grayImg, nil
+	case "gray16":
+		if len(layer.Fields) < 1 {
+			return nil, ErrUnsupported("layer does not have enough fields for Gray16 color model")
+		}
+		gray16Img := image.NewGray16(image.Rect(0, 0, width, height))
+		yIndex := layer.Fields.Index("Y")
+		if yIndex == -1 {
+			yIndex = 0
+		}
+		for iterator.Next() {
+			if iterator.Error() != nil {
+				return nil, iterator.Error()
+			}
+			coord := iterator.Coordinate()
+			sample := iterator.Sample()
+			gray16Img.Set(coord[0], coord[1], color.Gray16{sample[yIndex].(uint16)})
+		}
+		return gray16Img, nil
 	default:
 		return nil, ErrUnsupported("color model of the layer not yet supported for conversion to Pixi")
 	}

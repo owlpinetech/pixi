@@ -1,6 +1,8 @@
 package pixi
 
 import (
+	"compress/flate"
+	"errors"
 	"math/rand/v2"
 	"reflect"
 	"slices"
@@ -211,6 +213,11 @@ func TestLayerTileWriteReadCorrupted(t *testing.T) {
 		err = layer.ReadTile(rdr, pheader, 0, rdChunk)
 		if err == nil {
 			t.Error("expected to have an error with a corrupted byte in the tile")
+		}
+		var integrityErr ErrDataIntegrity
+		var corruptFlate flate.CorruptInputError
+		if !errors.As(err, &integrityErr) && !errors.As(err, &corruptFlate) {
+			t.Errorf("expected error to be of type ErrDataIntegrity or flate.CorruptInputError, got %T", err)
 		}
 	}
 }

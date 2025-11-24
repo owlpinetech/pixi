@@ -1,6 +1,7 @@
 package pixi
 
 import (
+	"fmt"
 	"hash/crc32"
 	"io"
 )
@@ -219,7 +220,7 @@ func (d *Layer) ReadLayer(r io.Reader, h *PixiHeader) error {
 	var dimCount uint32
 	err = h.Read(r, &dimCount)
 	if err != nil {
-		return err
+		return ErrFormat(fmt.Sprintf("reading dimension count: %s", err))
 	}
 	if dimCount < 1 {
 		return ErrFormat("must have at least one dimension for a valid pixi file")
@@ -229,16 +230,16 @@ func (d *Layer) ReadLayer(r io.Reader, h *PixiHeader) error {
 		dim := &Dimension{}
 		err = dim.Read(r, h)
 		if err != nil {
-			return err
+			return ErrFormat(fmt.Sprintf("reading dimension %d: %s", dInd, err))
 		}
-		d.Dimensions[dInd] = dim
+		d.Dimensions[dInd] = *dim
 	}
 
 	// read field types
 	var fieldCount uint32
 	err = h.Read(r, &fieldCount)
 	if err != nil {
-		return err
+		return ErrFormat(fmt.Sprintf("reading field count: %s", err))
 	}
 	if fieldCount < 1 {
 		return ErrFormat("must have at least one field for a valid pixi file")
@@ -248,9 +249,9 @@ func (d *Layer) ReadLayer(r io.Reader, h *PixiHeader) error {
 		field := &Field{}
 		err = field.Read(r, h)
 		if err != nil {
-			return err
+			return ErrFormat(fmt.Sprintf("reading field %d: %s", fInd, err))
 		}
-		d.Fields[fInd] = field
+		d.Fields[fInd] = *field
 	}
 
 	// read tile bytes, offsets, and next layer start
@@ -307,7 +308,7 @@ func (l *Layer) WriteTile(w io.WriteSeeker, h *PixiHeader, tileIndex int, data [
 	}
 	l.TileOffsets[tileIndex] = streamOffset
 
-	writeAmt, err := l.Compression.WriteChunk(w, data)
+	writeAmt, err := l.Compression.writeChunk(w, l, tileIndex, data)
 	if err != nil {
 		return err
 	}
@@ -336,8 +337,11 @@ func (l *Layer) OverwriteTile(w io.WriteSeeker, h *PixiHeader, tileIndex int, da
 // tile data, and an error is returned (along with the data read into the chunk) if the checksum
 // check fails.
 func (l *Layer) ReadTile(r io.ReadSeeker, h *PixiHeader, tileIndex int, data []byte) error {
+	if tileIndex < 0 || tileIndex >= len(l.TileBytes) {
+		return ErrTileNotFound{TileIndex: tileIndex}
+	}
 	if l.TileBytes[tileIndex] == 0 {
-		panic("invalid tile byte count, likely tried to read a tile that hasn't been written yet")
+		return ErrTileNotFound{TileIndex: tileIndex}
 	}
 
 	_, err := r.Seek(l.TileOffsets[tileIndex], io.SeekStart)
@@ -345,7 +349,7 @@ func (l *Layer) ReadTile(r io.ReadSeeker, h *PixiHeader, tileIndex int, data []b
 		return err
 	}
 
-	_, err = l.Compression.ReadChunk(r, data)
+	_, err = l.Compression.readChunk(r, l, tileIndex, data)
 	if err != nil {
 		return err
 	}

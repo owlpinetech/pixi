@@ -43,9 +43,9 @@ func (coord SampleCoordinate) ToTileSelector(set DimensionSet) TileSelector {
 	inTileIndex := 0
 	tileMul := 1
 	inTileMul := 1
-	for dim := range coord {
-		tileIndex += (coord[dim] / set[dim].TileSize) * tileMul
-		inTileIndex += (coord[dim] % set[dim].TileSize) * inTileMul
+	for dim, dimCoord := range coord {
+		tileIndex += (dimCoord / set[dim].TileSize) * tileMul
+		inTileIndex += (dimCoord % set[dim].TileSize) * inTileMul
 		tileMul *= set[dim].Tiles()
 		inTileMul *= set[dim].TileSize
 	}

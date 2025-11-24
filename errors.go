@@ -30,3 +30,20 @@ type ErrFieldNotFound struct {
 func (e ErrFieldNotFound) Error() string {
 	return fmt.Sprintf("pixi: field not found - '%s'", e.FieldName)
 }
+
+type ErrTileNotFound struct {
+	TileIndex int
+}
+
+func (e ErrTileNotFound) Error() string {
+	return fmt.Sprintf("pixi: tile not found - index %d", e.TileIndex)
+}
+
+type ErrSampleCoordinateOutOfBounds struct {
+	Coordinate SampleCoordinate
+	Dimensions DimensionSet
+}
+
+func (e ErrSampleCoordinateOutOfBounds) Error() string {
+	return fmt.Sprintf("pixi: sample coordinate out of bounds - coordinate %v, dimensions %v", e.Coordinate, e.Dimensions)
+}

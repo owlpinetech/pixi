@@ -2,7 +2,6 @@ package pixi
 
 import (
 	"encoding/binary"
-	"log/slog"
 	"testing"
 
 	"github.com/owlpinetech/pixi/internal/buffer"
@@ -120,7 +119,6 @@ func TestTileOrderWriteIterator(t *testing.T) {
 		lastTileIndex = tileOrderIndex
 
 		sample := make(Sample, len(layer.Fields))
-		slog.Info("Setting sample", "sampleset", layer.Name, "coordinate", coord, "index", tileOrderIndex)
 		if coord[0] == 0 && coord[1] == 0 {
 			sample[0] = uint16(123)
 			sample[1] = uint32(456789)

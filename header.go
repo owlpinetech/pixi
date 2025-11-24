@@ -23,6 +23,11 @@ type PixiHeader struct {
 	FirstTagsOffset  int64
 }
 
+// Get the size in bytes of the full Pixi header (including first tag section and first layer offsets) as it is laid out and written to disk.
+func (s *PixiHeader) DiskSize() int {
+	return 4 + 2 + 1 + 1 + s.OffsetSize + s.OffsetSize
+}
+
 // Writes a fixed size value, or a slice of such values, using the byte order given in the header.
 func (s *PixiHeader) Write(w io.Writer, val any) error {
 	return binary.Write(w, s.ByteOrder, val)

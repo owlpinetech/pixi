@@ -24,6 +24,8 @@ func main() {
 		compression = pixi.CompressionLzwLsb
 	case "lzw_msb":
 		compression = pixi.CompressionLzwMsb
+	case "rle8":
+		compression = pixi.CompressionRle8
 	case "none":
 		compression = pixi.CompressionNone
 	default:

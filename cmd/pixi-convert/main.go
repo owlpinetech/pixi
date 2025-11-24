@@ -23,7 +23,7 @@ func main() {
 	toSrcFile := toPixiFlags.String("src", "", "file to convert to Pixi")
 	toDstFile := toPixiFlags.String("dst", "", "name of the resulting Pixi file")
 	toTileSize := toPixiFlags.Int("tileSize", 0, "the size of tiles to generate in the Pixi file, if zero (default) will be the same size as the image")
-	toComp := toPixiFlags.Int("compression", 0, "compression to be used for data in Pixi, 0 for none, 1 for flate")
+	toComp := toPixiFlags.Int("compression", 0, "compression to be used for data in Pixi (none, flate, lzw-lsb, lzw-msb, rle8) represented as 0, 1, 2, 3, 4 respectively")
 
 	fromPixiFlags := flag.NewFlagSet("fromPixi", flag.ExitOnError)
 	fromSrcFile := fromPixiFlags.String("src", "", "Pixi file to convert")
@@ -89,8 +89,17 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int) error {
 	defer pixiFile.Close()
 
 	compression := pixi.CompressionNone
-	if comp == 1 {
+	switch comp {
+	case 0:
+		compression = pixi.CompressionNone
+	case 1:
 		compression = pixi.CompressionFlate
+	case 2:
+		compression = pixi.CompressionLzwLsb
+	case 3:
+		compression = pixi.CompressionLzwMsb
+	case 4:
+		compression = pixi.CompressionRle8
 	}
 	options := pixi.FromImageOptions{
 		Compression: compression,

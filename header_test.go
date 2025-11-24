@@ -2,7 +2,6 @@ package pixi
 
 import (
 	"bytes"
-	"encoding/binary"
 	"math/rand/v2"
 	"testing"
 
@@ -10,12 +9,7 @@ import (
 )
 
 func TestWriteReadHeader(t *testing.T) {
-	baseCases := []PixiHeader{
-		{Version: Version, OffsetSize: 8, ByteOrder: binary.LittleEndian},
-		{Version: Version, OffsetSize: 4, ByteOrder: binary.LittleEndian},
-		{Version: Version, OffsetSize: 8, ByteOrder: binary.BigEndian},
-		{Version: Version, OffsetSize: 4, ByteOrder: binary.BigEndian},
-	}
+	baseCases := allHeaderVariants(Version)
 
 	for range 10 {
 		for _, header := range baseCases {
@@ -28,7 +22,7 @@ func TestWriteReadHeader(t *testing.T) {
 			}
 
 			buf := buffer.NewBuffer(10)
-			err := (&header).WriteHeader(buf)
+			err := header.WriteHeader(buf)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -40,7 +34,7 @@ func TestWriteReadHeader(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if header != *rdHeader {
+			if *header != *rdHeader {
 				t.Errorf("read header %v was different than written header %v", *rdHeader, header)
 			}
 
@@ -58,7 +52,7 @@ func TestWriteReadHeader(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if header != *rdHeader {
+			if *header != *rdHeader {
 				t.Errorf("read header %v was different than written header with new offsets %v", *rdHeader, header)
 			}
 		}

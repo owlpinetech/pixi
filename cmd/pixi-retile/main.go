@@ -76,7 +76,7 @@ func main() {
 
 	dstDims := make(pixi.DimensionSet, len(srcLayer.Dimensions))
 	for i, dim := range srcLayer.Dimensions {
-		dstDims[i] = &pixi.Dimension{
+		dstDims[i] = pixi.Dimension{
 			Name:     dim.Name,
 			Size:     dim.Size,
 			TileSize: tileSizes[i],

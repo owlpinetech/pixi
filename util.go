@@ -12,7 +12,7 @@ func newRandomValidDimensionSet(maxDims int, maxDimSize int, maxTileSize int) Di
 		if tileSize == 0 {
 			tileSize = size
 		}
-		dims[i] = &Dimension{Size: size, TileSize: tileSize}
+		dims[i] = Dimension{Size: size, TileSize: tileSize}
 	}
 	return DimensionSet(dims)
 }

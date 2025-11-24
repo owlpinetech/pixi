@@ -71,7 +71,10 @@ func PixiFromImage(w io.WriteSeeker, img image.Image, options FromImageOptions) 
 		return err
 	}
 
-	layer.WriteHeader(w, header)
+	err = layer.WriteHeader(w, header)
+	if err != nil {
+		return err
+	}
 
 	writerIterator := NewTileOrderWriteIterator(w, header, layer)
 
@@ -112,6 +115,12 @@ func PixiFromImage(w io.WriteSeeker, img image.Image, options FromImageOptions) 
 	}
 
 	writerIterator.Done()
+
+	err = layer.OverwriteHeader(w, header, firstlayerOffset)
+	if err != nil {
+		return err
+	}
+
 	return writerIterator.Error()
 }
 
@@ -206,7 +215,14 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 	iterator := NewTileOrderReadIterator(r, pixImg.Header, layer)
 	defer iterator.Done()
 
-	switch pixImg.Tags[0].Tags["color-model"] {
+	colorModel := "nrgba"
+	if len(pixImg.Tags) > 0 {
+		if model, ok := pixImg.Tags[0].Tags["color-model"]; ok {
+			colorModel = model
+		}
+	}
+
+	switch colorModel {
 	case "nrgba":
 		if len(layer.Fields) < 4 {
 			return nil, ErrUnsupported("layer does not have enough fields for NRGBA color model")
@@ -220,13 +236,13 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 		}
 		nrgbaImg := image.NewNRGBA(image.Rect(0, 0, width, height))
 		for iterator.Next() {
-			if iterator.Error() != nil {
-				return nil, iterator.Error()
-			}
 			coord := iterator.Coordinate()
 			sample := iterator.Sample()
 			nrgbaImg.Set(coord[0], coord[1],
 				color.NRGBA{sample[rIndex].(uint8), sample[gIndex].(uint8), sample[bIndex].(uint8), sample[aIndex].(uint8)})
+		}
+		if iterator.Error() != nil {
+			return nil, iterator.Error()
 		}
 		return nrgbaImg, nil
 	case "nrgba64":
@@ -242,13 +258,13 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			rIndex, gIndex, bIndex, aIndex = 0, 1, 2, 3
 		}
 		for iterator.Next() {
-			if iterator.Error() != nil {
-				return nil, iterator.Error()
-			}
 			coord := iterator.Coordinate()
 			sample := iterator.Sample()
 			nrgba64Img.Set(coord[0], coord[1],
 				color.NRGBA64{sample[rIndex].(uint16), sample[gIndex].(uint16), sample[bIndex].(uint16), sample[aIndex].(uint16)})
+		}
+		if iterator.Error() != nil {
+			return nil, iterator.Error()
 		}
 		return nrgba64Img, nil
 	case "rgba":
@@ -264,13 +280,13 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			rIndex, gIndex, bIndex, aIndex = 0, 1, 2, 3
 		}
 		for iterator.Next() {
-			if iterator.Error() != nil {
-				return nil, iterator.Error()
-			}
 			coord := iterator.Coordinate()
 			sample := iterator.Sample()
 			rgbaImg.Set(coord[0], coord[1],
 				color.RGBA{sample[0].(uint8), sample[1].(uint8), sample[2].(uint8), sample[3].(uint8)})
+		}
+		if iterator.Error() != nil {
+			return nil, iterator.Error()
 		}
 		return rgbaImg, nil
 	case "rgba64":
@@ -286,13 +302,13 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			rIndex, gIndex, bIndex, aIndex = 0, 1, 2, 3
 		}
 		for iterator.Next() {
-			if iterator.Error() != nil {
-				return nil, iterator.Error()
-			}
 			coord := iterator.Coordinate()
 			sample := iterator.Sample()
 			rgba64Img.Set(coord[0], coord[1],
 				color.NRGBA64{sample[rIndex].(uint16), sample[bIndex].(uint16), sample[gIndex].(uint16), sample[aIndex].(uint16)})
+		}
+		if iterator.Error() != nil {
+			return nil, iterator.Error()
 		}
 		return rgba64Img, nil
 	case "cmyk":
@@ -308,13 +324,13 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			cIndex, mIndex, yIndex, kIndex = 0, 1, 2, 3
 		}
 		for iterator.Next() {
-			if iterator.Error() != nil {
-				return nil, iterator.Error()
-			}
 			coord := iterator.Coordinate()
 			sample := iterator.Sample()
 			cmykImg.Set(coord[0], coord[1],
 				color.CMYK{sample[cIndex].(uint8), sample[mIndex].(uint8), sample[yIndex].(uint8), sample[kIndex].(uint8)})
+		}
+		if iterator.Error() != nil {
+			return nil, iterator.Error()
 		}
 		return cmykImg, nil
 	case "YCbCr":
@@ -329,9 +345,6 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			yIndex, cbIndex, crIndex = 0, 1, 2
 		}
 		for iterator.Next() {
-			if iterator.Error() != nil {
-				return nil, iterator.Error()
-			}
 			coord := iterator.Coordinate()
 			sample := iterator.Sample()
 			yOff := ycbcrImg.YOffset(coord[0], coord[1])
@@ -339,6 +352,9 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			ycbcrImg.Y[yOff] = sample[yIndex].(uint8)
 			ycbcrImg.Cb[cOff] = sample[cbIndex].(uint8)
 			ycbcrImg.Cr[cOff] = sample[crIndex].(uint8)
+		}
+		if iterator.Error() != nil {
+			return nil, iterator.Error()
 		}
 		return ycbcrImg, nil
 	case "NYCbCrA":
@@ -354,9 +370,6 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			yIndex, cbIndex, crIndex, aIndex = 0, 1, 2, 3
 		}
 		for iterator.Next() {
-			if iterator.Error() != nil {
-				return nil, iterator.Error()
-			}
 			coord := iterator.Coordinate()
 			sample := iterator.Sample()
 			yOff := nycbcraImg.YOffset(coord[0], coord[1])
@@ -365,6 +378,9 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			nycbcraImg.Cb[cOff] = sample[cbIndex].(uint8)
 			nycbcraImg.Cr[cOff] = sample[crIndex].(uint8)
 			nycbcraImg.A[yOff] = sample[aIndex].(uint8)
+		}
+		if iterator.Error() != nil {
+			return nil, iterator.Error()
 		}
 		return nycbcraImg, nil
 	case "gray":
@@ -377,12 +393,12 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			yIndex = 0
 		}
 		for iterator.Next() {
-			if iterator.Error() != nil {
-				return nil, iterator.Error()
-			}
 			coord := iterator.Coordinate()
 			sample := iterator.Sample()
 			grayImg.Set(coord[0], coord[1], color.Gray{sample[yIndex].(uint8)})
+		}
+		if iterator.Error() != nil {
+			return nil, iterator.Error()
 		}
 		return grayImg, nil
 	case "gray16":
@@ -395,12 +411,12 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			yIndex = 0
 		}
 		for iterator.Next() {
-			if iterator.Error() != nil {
-				return nil, iterator.Error()
-			}
 			coord := iterator.Coordinate()
 			sample := iterator.Sample()
 			gray16Img.Set(coord[0], coord[1], color.Gray16{sample[yIndex].(uint16)})
+		}
+		if iterator.Error() != nil {
+			return nil, iterator.Error()
 		}
 		return gray16Img, nil
 	default:

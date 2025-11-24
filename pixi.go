@@ -1,6 +1,7 @@
 package pixi
 
 import (
+	"fmt"
 	"io"
 	"maps"
 	"slices"
@@ -33,7 +34,7 @@ func ReadPixi(r io.ReadSeeker) (*Pixi, error) {
 	// read the header first, then the layers and tags.
 	err := pixi.Header.ReadHeader(r)
 	if err != nil {
-		return pixi, err
+		return pixi, ErrFormat(fmt.Sprintf("reading pixi header: %s", err))
 	}
 
 	layerOffset := pixi.Header.FirstLayerOffset
@@ -44,12 +45,12 @@ func ReadPixi(r io.ReadSeeker) (*Pixi, error) {
 		seenOffsets = append(seenOffsets, layerOffset)
 		_, err = r.Seek(layerOffset, io.SeekStart)
 		if err != nil {
-			return pixi, err
+			return pixi, ErrFormat(fmt.Sprintf("seeking to layer at offset %d: %s", layerOffset, err))
 		}
 		rdLayer := &Layer{}
 		err = rdLayer.ReadLayer(r, pixi.Header)
 		if err != nil {
-			return pixi, err
+			return pixi, ErrFormat(fmt.Sprintf("reading layer at offset %d: %s", layerOffset, err))
 		}
 		pixi.Layers = append(pixi.Layers, rdLayer)
 		layerOffset = rdLayer.NextLayerStart

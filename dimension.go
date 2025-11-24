@@ -2,6 +2,7 @@ package pixi
 
 import (
 	"io"
+	"strconv"
 )
 
 // Represents an axis along which tiled, gridded data is stored in a Pixi file. Data sets can have
@@ -14,14 +15,14 @@ type Dimension struct {
 }
 
 // Get the size in bytes of this dimension description as it is laid out and written to disk.
-func (d *Dimension) HeaderSize(h *PixiHeader) int {
+func (d Dimension) HeaderSize(h *PixiHeader) int {
 	return 2 + len([]byte(d.Name)) + h.OffsetSize + h.OffsetSize
 }
 
 // Returns the number of tiles in this dimension.
 // The number of tiles is calculated by dividing the size of the dimension by the tile size,
 // and then rounding up to the nearest whole number if there are any remaining bytes that do not fit into a full tile.
-func (d *Dimension) Tiles() int {
+func (d Dimension) Tiles() int {
 	tiles := d.Size / d.TileSize
 	if d.Size%d.TileSize != 0 {
 		tiles += 1
@@ -31,7 +32,7 @@ func (d *Dimension) Tiles() int {
 
 // Writes the binary description of the dimenson to the given stream, according to the specification
 // in the Pixi header h.
-func (d *Dimension) Write(w io.Writer, h *PixiHeader) error {
+func (d Dimension) Write(w io.Writer, h *PixiHeader) error {
 	if d.Size <= 0 || d.TileSize <= 0 {
 		return ErrFormat("dimension size and tile size must be greater than 0")
 	}
@@ -69,4 +70,8 @@ func (d *Dimension) Read(r io.Reader, h *PixiHeader) error {
 	d.Size = int(size)
 	d.TileSize = int(tileSize)
 	return nil
+}
+
+func (d Dimension) String() string {
+	return d.Name + "(" + strconv.Itoa(d.Size) + " / " + strconv.Itoa(d.TileSize) + ")"
 }

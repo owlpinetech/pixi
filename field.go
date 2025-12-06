@@ -11,6 +11,8 @@ import (
 type Field struct {
 	Name string    // A friendly name for this field, to help guide interpretation of the data.
 	Type FieldType // The type of data stored in each element of this field.
+	Max  any       // Maximum value in this field, mostly for data range visualization purposes. Optional.
+	Min  any       // Minimum value in this field, mostly for data range visualization purposes. Optional.
 }
 
 // Returns the size of a field in bytes.
@@ -35,18 +37,60 @@ func (f Field) ValueToBytes(val any, order binary.ByteOrder, raw []byte) {
 
 // Get the size in bytes of this dimension description as it is laid out and written to disk.
 func (d Field) HeaderSize(h *PixiHeader) int {
-	return 2 + len([]byte(d.Name)) + 4
+	size := 2 + len([]byte(d.Name)) + 4 // name length + name + field type
+	if d.Max != nil {
+		size += d.Type.Size() // add max value size
+	}
+	if d.Min != nil {
+		size += d.Type.Size() // add min value size
+	}
+	return size
 }
 
 // Writes the binary description of the field to the given stream, according to the specification
 // in the Pixi header h.
 func (d Field) Write(w io.Writer, h *PixiHeader) error {
-	// write the name, then size and tile size
+	// write the name
 	err := h.WriteFriendly(w, d.Name)
 	if err != nil {
 		return err
 	}
-	return h.Write(w, d.Type)
+
+	// encode field type with presence flags
+	fieldType := d.Type
+	if d.Max != nil {
+		fieldType |= fieldTypeHasMax
+	}
+	if d.Min != nil {
+		fieldType |= fieldTypeHasMin
+	}
+
+	err = h.Write(w, fieldType)
+	if err != nil {
+		return err
+	}
+
+	// write Max value if present
+	if d.Max != nil {
+		maxBytes := make([]byte, d.Type.Size())
+		d.Type.ValueToBytes(d.Max, h.ByteOrder, maxBytes)
+		err = h.Write(w, maxBytes)
+		if err != nil {
+			return err
+		}
+	}
+
+	// write Min value if present
+	if d.Min != nil {
+		minBytes := make([]byte, d.Type.Size())
+		d.Type.ValueToBytes(d.Min, h.ByteOrder, minBytes)
+		err = h.Write(w, minBytes)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Reads a description of the field from the given binary stream, according to the specification
@@ -57,7 +101,43 @@ func (d *Field) Read(r io.Reader, h *PixiHeader) error {
 		return err
 	}
 	d.Name = name
-	return h.Read(r, &d.Type)
+
+	var encodedFieldType FieldType
+	err = h.Read(r, &encodedFieldType)
+	if err != nil {
+		return err
+	}
+
+	// extract base type and presence flags
+	d.Type = encodedFieldType.baseType()
+	hasMax := encodedFieldType.hasMax()
+	hasMin := encodedFieldType.hasMin()
+
+	// read Max value if present
+	if hasMax {
+		maxBytes := make([]byte, d.Type.Size())
+		err = h.Read(r, maxBytes)
+		if err != nil {
+			return err
+		}
+		d.Max = d.Type.BytesToValue(maxBytes, h.ByteOrder)
+	} else {
+		d.Max = nil
+	}
+
+	// read Min value if present
+	if hasMin {
+		minBytes := make([]byte, d.Type.Size())
+		err = h.Read(r, minBytes)
+		if err != nil {
+			return err
+		}
+		d.Min = d.Type.BytesToValue(minBytes, h.ByteOrder)
+	} else {
+		d.Min = nil
+	}
+
+	return nil
 }
 
 // Describes the size and interpretation of a field.
@@ -75,11 +155,31 @@ const (
 	FieldUint64  FieldType = 8  // A 64-bit unsigned integer.
 	FieldFloat32 FieldType = 9  // A 32-bit floating point number.
 	FieldFloat64 FieldType = 10 // A 64-bit floating point number.
+
+	// Flag bits for encoding max/min presence in the field type
+	fieldTypeHasMax FieldType = 1 << 30    // Top bit indicates max value is present
+	fieldTypeHasMin FieldType = 1 << 31    // Second bit indicates min value is present
+	fieldTypeMask   FieldType = 0x3FFFFFFF // Mask to extract base field type
 )
+
+// This function returns the base field type without flag bits.
+func (f FieldType) baseType() FieldType {
+	return f & fieldTypeMask
+}
+
+// Returns whether this field type has a max value encoded.
+func (f FieldType) hasMax() bool {
+	return (f & fieldTypeHasMax) != 0
+}
+
+// Returns whether this field type has a min value encoded.
+func (f FieldType) hasMin() bool {
+	return (f & fieldTypeHasMin) != 0
+}
 
 // This function returns the size of each element in a field in bytes.
 func (f FieldType) Size() int {
-	switch f {
+	switch f.baseType() {
 	case FieldUnknown:
 		return 0
 	case FieldInt8:
@@ -108,7 +208,7 @@ func (f FieldType) Size() int {
 }
 
 func (f FieldType) String() string {
-	switch f {
+	switch f.baseType() {
 	case FieldUnknown:
 		return "unknown"
 	case FieldInt8:
@@ -141,7 +241,7 @@ func (f FieldType) String() string {
 // for reading values. This ensures that the correct data is read and converted into the
 // expected format.
 func (f FieldType) BytesToValue(raw []byte, o binary.ByteOrder) any {
-	switch f {
+	switch f.baseType() {
 	case FieldUnknown:
 		panic("pixi: tried to read field with unknown size")
 	case FieldInt8:
@@ -172,7 +272,7 @@ func (f FieldType) BytesToValue(raw []byte, o binary.ByteOrder) any {
 // Writes the given value, assumed to correspond to the FieldType, into it's raw representation
 // in bytes according to the byte order specified.
 func (f FieldType) ValueToBytes(val any, o binary.ByteOrder, bytes []byte) {
-	switch f {
+	switch f.baseType() {
 	case FieldUnknown:
 		panic("pixi: tried to write field with unknown size")
 	case FieldInt8:

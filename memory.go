@@ -37,14 +37,18 @@ func (s *MemoryLayer) SampleAt(coord SampleCoordinate) (Sample, error) {
 	if s.layer.Separated {
 		for fieldIndex, field := range s.layer.Fields {
 			fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
-			fieldOffset := tileSelector.InTile * field.Size()
 
 			tileData, err := s.loadTile(fieldTile)
 			if err != nil {
 				return nil, err
 			}
 
-			sample[fieldIndex] = field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder)
+			if field.Type == FieldBool {
+				sample[fieldIndex] = field.UnpackBool(tileData, tileSelector.InTile)
+			} else {
+				fieldOffset := tileSelector.InTile * field.Size()
+				sample[fieldIndex] = field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder)
+			}
 		}
 	} else {
 		fieldOffset := tileSelector.InTile * s.layer.Fields.Size()
@@ -68,21 +72,14 @@ func (s *MemoryLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, erro
 
 	if s.layer.Separated {
 		fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
-		
+
 		tileData, err := s.loadTile(fieldTile)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		if field.Type == FieldBool {
-			// Special handling for boolean bitfields in separated mode
-			boolIndex := tileSelector.InTile
-			byteIndex := boolIndex / 8
-			bitIndex := boolIndex % 8
-			if byteIndex >= len(tileData) {
-				return false, nil // Default to false if out of bounds
-			}
-			return (tileData[byteIndex]&(1<<bitIndex)) != 0, nil
+			return field.UnpackBool(tileData, tileSelector.InTile), nil
 		} else {
 			fieldOffset := tileSelector.InTile * field.Size()
 			return field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder), nil
@@ -116,13 +113,17 @@ func (s *MemoryLayer) SetSampleAt(coord SampleCoordinate, values Sample) error {
 	if s.layer.Separated {
 		for fieldIndex, field := range s.layer.Fields {
 			fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
-			fieldOffset := tileSelector.InTile * field.Size()
 
 			tileData, err := s.loadTile(fieldTile)
 			if err != nil {
 				return err
 			}
-			field.ValueToBytes(values[fieldIndex], s.header.ByteOrder, tileData[fieldOffset:])
+			if field.Type == FieldBool {
+				field.PackBool(values[fieldIndex].(bool), tileData, tileSelector.InTile)
+			} else {
+				fieldOffset := tileSelector.InTile * field.Size()
+				field.ValueToBytes(values[fieldIndex], s.header.ByteOrder, tileData[fieldOffset:])
+			}
 		}
 	} else {
 		fieldOffset := tileSelector.InTile * s.layer.Fields.Size()
@@ -153,25 +154,14 @@ func (s *MemoryLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, value a
 
 	if s.layer.Separated {
 		fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
-		
+
 		tileData, err := s.loadTile(fieldTile)
 		if err != nil {
 			return err
 		}
-		
+
 		if field.Type == FieldBool {
-			// Special handling for boolean bitfields in separated mode
-			boolIndex := tileSelector.InTile
-			byteIndex := boolIndex / 8
-			bitIndex := boolIndex % 8
-			if byteIndex >= len(tileData) {
-				return nil // Ignore writes out of bounds
-			}
-			if value.(bool) {
-				tileData[byteIndex] |= 1 << bitIndex
-			} else {
-				tileData[byteIndex] &= ^(1 << bitIndex)
-			}
+			field.PackBool(value.(bool), tileData, tileSelector.InTile)
 		} else {
 			fieldOffset := tileSelector.InTile * field.Size()
 			field.ValueToBytes(value, s.header.ByteOrder, tileData[fieldOffset:])

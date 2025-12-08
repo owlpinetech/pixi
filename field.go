@@ -26,11 +26,37 @@ func (f Field) BytesToValue(raw []byte, order binary.ByteOrder) any {
 	return f.Type.BytesToValue(raw, order)
 }
 
+// Unpacks a boolean value from a bit field byte array at the specified bit index. Used
+// for boolean fields in separated mode only.
+func (f Field) UnpackBool(raw []byte, bitIndex int) bool {
+	byteIndex := bitIndex / 8
+	bitPos := bitIndex % 8
+	if byteIndex >= len(raw) {
+		return false
+	}
+	return (raw[byteIndex] & (1 << bitPos)) != 0
+}
+
 // This function writes a value of any type into bytes according to the specified FieldType.
 // The written bytes are stored in the provided byte array. This function will panic if
 // the FieldType is unknown or if an unsupported field type is encountered.
 func (f Field) ValueToBytes(val any, order binary.ByteOrder, raw []byte) {
 	f.Type.ValueToBytes(val, order, raw)
+}
+
+// Packs a boolean value into a bit field byte array at the specified bit index. Used
+// for boolean fields in separated mode only.
+func (f Field) PackBool(value bool, raw []byte, bitIndex int) {
+	byteIndex := bitIndex / 8
+	bitPos := bitIndex % 8
+	if byteIndex >= len(raw) {
+		return
+	}
+	if value {
+		raw[byteIndex] |= 1 << bitPos
+	} else {
+		raw[byteIndex] &^= 1 << bitPos
+	}
 }
 
 // Get the size in bytes of this dimension description as it is laid out and written to disk.
@@ -108,43 +134,6 @@ func (f FieldType) Size() int {
 	default:
 		panic("pixi: unsupported field type")
 	}
-}
-
-// Packs an array of boolean values into a bit field byte array.
-// Used for boolean fields in separated mode.
-func PackBoolsToBitfield(bools []bool) []byte {
-	if len(bools) == 0 {
-		return []byte{}
-	}
-
-	byteCount := (len(bools) + 7) / 8
-	result := make([]byte, byteCount)
-
-	for i, b := range bools {
-		if b {
-			byteIndex := i / 8
-			bitIndex := i % 8
-			result[byteIndex] |= 1 << bitIndex
-		}
-	}
-
-	return result
-}
-
-// Unpacks a bit field byte array into an array of boolean values.
-// Used for boolean fields in separated mode.
-func UnpackBitfieldToBools(bitfield []byte, count int) []bool {
-	result := make([]bool, count)
-
-	for i := 0; i < count; i++ {
-		byteIndex := i / 8
-		bitIndex := i % 8
-		if byteIndex < len(bitfield) {
-			result[i] = (bitfield[byteIndex] & (1 << bitIndex)) != 0
-		}
-	}
-
-	return result
 }
 
 func (f FieldType) String() string {

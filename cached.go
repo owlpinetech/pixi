@@ -204,14 +204,18 @@ func (s *ReadCachedLayer) SampleAt(coord SampleCoordinate) (Sample, error) {
 	if s.Layer().Separated {
 		for fieldIndex, field := range s.Layer().Fields {
 			fieldTile := tileSelector.Tile + s.Layer().Dimensions.Tiles()*fieldIndex
-			fieldOffset := tileSelector.InTile * field.Size()
 
 			tileData, err := s.cache.Get(fieldTile)
 			if err != nil {
 				return nil, err
 			}
 
-			sample[fieldIndex] = field.BytesToValue(tileData[fieldOffset:], s.cache.Header().ByteOrder)
+			if field.Type == FieldBool {
+				sample[fieldIndex] = field.UnpackBool(tileData, tileSelector.InTile)
+			} else {
+				fieldOffset := tileSelector.InTile * field.Size()
+				sample[fieldIndex] = field.BytesToValue(tileData[fieldOffset:], s.cache.Header().ByteOrder)
+			}
 		}
 	} else {
 		fieldOffset := tileSelector.InTile * s.Layer().Fields.Size()
@@ -235,21 +239,14 @@ func (s *ReadCachedLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, 
 
 	if s.Layer().Separated {
 		fieldTile := tileSelector.Tile + s.Layer().Dimensions.Tiles()*fieldIndex
-		
+
 		tileData, err := s.cache.Get(fieldTile)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		if field.Type == FieldBool {
-			// Special handling for boolean bitfields in separated mode
-			boolIndex := tileSelector.InTile
-			byteIndex := boolIndex / 8
-			bitIndex := boolIndex % 8
-			if byteIndex >= len(tileData) {
-				return false, nil // Default to false if out of bounds
-			}
-			return (tileData[byteIndex]&(1<<bitIndex)) != 0, nil
+			return field.UnpackBool(tileData, tileSelector.InTile), nil
 		} else {
 			fieldOffset := tileSelector.InTile * field.Size()
 			return field.BytesToValue(tileData[fieldOffset:], s.cache.Header().ByteOrder), nil
@@ -276,27 +273,37 @@ func (s *WriteCachedLayer) SetSampleAt(coord SampleCoordinate, values Sample) er
 	}
 
 	tileSelector := coord.ToTileSelector(s.Layer().Dimensions)
-	raw := make([]byte, s.Layer().Fields.Size())
-	fieldOffset := 0
-	for i, field := range s.Layer().Fields {
-		field.ValueToBytes(values[i], s.cache.Header().ByteOrder, raw[fieldOffset:])
-		fieldOffset += field.Size()
-	}
 
 	if s.Layer().Separated {
-		writeFieldOffset := 0
 		for fieldIndex, field := range s.Layer().Fields {
 			separatedTileIndex := tileSelector.Tile + s.Layer().Dimensions.Tiles()*fieldIndex
-			fieldInTileOffset := tileSelector.InTile * field.Size()
 
-			err := s.cache.SetFragment(separatedTileIndex, fieldInTileOffset, raw[writeFieldOffset:writeFieldOffset+field.Size()])
-			if err != nil {
-				return err
+			if field.Type == FieldBool {
+				// Get current tile data to modify the bit
+				tileData, err := s.cache.Get(separatedTileIndex)
+				if err != nil {
+					return err
+				}
+				field.PackBool(values[fieldIndex].(bool), tileData, tileSelector.InTile)
+				// Don't need to call SetFragment since we modified in place
+			} else {
+				fieldInTileOffset := tileSelector.InTile * field.Size()
+				raw := make([]byte, field.Size())
+				field.ValueToBytes(values[fieldIndex], s.cache.Header().ByteOrder, raw)
+				err := s.cache.SetFragment(separatedTileIndex, fieldInTileOffset, raw)
+				if err != nil {
+					return err
+				}
 			}
-			writeFieldOffset += field.Size()
 		}
 	} else {
 		fieldInTileOffset := tileSelector.InTile * s.Layer().Fields.Size()
+		raw := make([]byte, s.Layer().Fields.Size())
+		fieldOffset := 0
+		for i, field := range s.Layer().Fields {
+			field.ValueToBytes(values[i], s.cache.Header().ByteOrder, raw[fieldOffset:])
+			fieldOffset += field.Size()
+		}
 		err := s.cache.SetFragment(tileSelector.Tile, fieldInTileOffset, raw)
 		if err != nil {
 			return err
@@ -317,37 +324,22 @@ func (s *WriteCachedLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, va
 	tileSelector := coord.ToTileSelector(s.Layer().Dimensions)
 	field := s.Layer().Fields[fieldIndex]
 
-	raw := make([]byte, field.Size())
-	field.ValueToBytes(value, s.cache.Header().ByteOrder, raw)
-
 	if s.Layer().Separated {
 		separatedTileIndex := tileSelector.Tile + s.Layer().Dimensions.Tiles()*fieldIndex
-		
+
 		if field.Type == FieldBool {
-			// Special handling for boolean bitfields in separated mode
-			boolIndex := tileSelector.InTile
-			byteIndex := boolIndex / 8
-			bitIndex := boolIndex % 8
-			
-			// Read the current tile data
+			// Get current tile data to modify the bit
 			tileData, err := s.cache.Get(separatedTileIndex)
 			if err != nil {
 				return err
 			}
-			
-			if byteIndex < len(tileData) {
-				if value.(bool) {
-					tileData[byteIndex] |= 1 << bitIndex
-				} else {
-					tileData[byteIndex] &= ^(1 << bitIndex)
-				}
-				
-				// Write the modified byte back
-				return s.cache.SetFragment(separatedTileIndex, byteIndex, []byte{tileData[byteIndex]})
-			}
+			field.PackBool(value.(bool), tileData, tileSelector.InTile)
+			// Don't need to call SetFragment since we modified in place
 			return nil
 		} else {
 			fieldInTileOffset := tileSelector.InTile * field.Size()
+			raw := make([]byte, field.Size())
+			field.ValueToBytes(value, s.cache.Header().ByteOrder, raw)
 			return s.cache.SetFragment(separatedTileIndex, fieldInTileOffset, raw)
 		}
 	} else {
@@ -355,8 +347,12 @@ func (s *WriteCachedLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, va
 		for _, field := range s.Layer().Fields[:fieldIndex] {
 			fieldTileOffset += field.Size()
 		}
-		s.cache.SetFragment(tileSelector.Tile, fieldTileOffset, raw)
+		raw := make([]byte, field.Size())
+		field.ValueToBytes(value, s.cache.Header().ByteOrder, raw)
+		return s.cache.SetFragment(tileSelector.Tile, fieldTileOffset, raw)
 	}
+}
 
-	return nil
+func (s *WriteCachedLayer) Flush() error {
+	return s.cache.Flush()
 }

@@ -75,6 +75,7 @@ const (
 	FieldUint64  FieldType = 8  // A 64-bit unsigned integer.
 	FieldFloat32 FieldType = 9  // A 32-bit floating point number.
 	FieldFloat64 FieldType = 10 // A 64-bit floating point number.
+	FieldBool    FieldType = 11 // A boolean value.
 )
 
 // This function returns the size of each element in a field in bytes.
@@ -102,9 +103,48 @@ func (f FieldType) Size() int {
 		return 4
 	case FieldFloat64:
 		return 8
+	case FieldBool:
+		return 1
 	default:
 		panic("pixi: unsupported field type")
 	}
+}
+
+// Packs an array of boolean values into a bit field byte array.
+// Used for boolean fields in separated mode.
+func PackBoolsToBitfield(bools []bool) []byte {
+	if len(bools) == 0 {
+		return []byte{}
+	}
+
+	byteCount := (len(bools) + 7) / 8
+	result := make([]byte, byteCount)
+
+	for i, b := range bools {
+		if b {
+			byteIndex := i / 8
+			bitIndex := i % 8
+			result[byteIndex] |= 1 << bitIndex
+		}
+	}
+
+	return result
+}
+
+// Unpacks a bit field byte array into an array of boolean values.
+// Used for boolean fields in separated mode.
+func UnpackBitfieldToBools(bitfield []byte, count int) []bool {
+	result := make([]bool, count)
+
+	for i := 0; i < count; i++ {
+		byteIndex := i / 8
+		bitIndex := i % 8
+		if byteIndex < len(bitfield) {
+			result[i] = (bitfield[byteIndex] & (1 << bitIndex)) != 0
+		}
+	}
+
+	return result
 }
 
 func (f FieldType) String() string {
@@ -131,6 +171,8 @@ func (f FieldType) String() string {
 		return "float32"
 	case FieldFloat64:
 		return "float64"
+	case FieldBool:
+		return "bool"
 	default:
 		panic("pixi: unsupported field type")
 	}
@@ -164,6 +206,8 @@ func (f FieldType) BytesToValue(raw []byte, o binary.ByteOrder) any {
 		return math.Float32frombits(o.Uint32(raw))
 	case FieldFloat64:
 		return math.Float64frombits(o.Uint64(raw))
+	case FieldBool:
+		return raw[0] != 0
 	default:
 		panic("pixi: tried to read unsupported field type")
 	}
@@ -195,6 +239,12 @@ func (f FieldType) ValueToBytes(val any, o binary.ByteOrder, bytes []byte) {
 		o.PutUint32(bytes, math.Float32bits(val.(float32)))
 	case FieldFloat64:
 		o.PutUint64(bytes, math.Float64bits(val.(float64)))
+	case FieldBool:
+		if val.(bool) {
+			bytes[0] = 1
+		} else {
+			bytes[0] = 0
+		}
 	default:
 		panic("pixi: tried to write unsupported field type")
 	}

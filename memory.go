@@ -68,13 +68,25 @@ func (s *MemoryLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, erro
 
 	if s.layer.Separated {
 		fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
-		fieldOffset := tileSelector.InTile * field.Size()
-
+		
 		tileData, err := s.loadTile(fieldTile)
 		if err != nil {
 			return nil, err
 		}
-		return field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder), nil
+		
+		if field.Type == FieldBool {
+			// Special handling for boolean bitfields in separated mode
+			boolIndex := tileSelector.InTile
+			byteIndex := boolIndex / 8
+			bitIndex := boolIndex % 8
+			if byteIndex >= len(tileData) {
+				return false, nil // Default to false if out of bounds
+			}
+			return (tileData[byteIndex]&(1<<bitIndex)) != 0, nil
+		} else {
+			fieldOffset := tileSelector.InTile * field.Size()
+			return field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder), nil
+		}
 	} else {
 		tileData, err := s.loadTile(tileSelector.Tile)
 		if err != nil {
@@ -141,13 +153,29 @@ func (s *MemoryLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, value a
 
 	if s.layer.Separated {
 		fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
-		fieldOffset := tileSelector.InTile * field.Size()
-
+		
 		tileData, err := s.loadTile(fieldTile)
 		if err != nil {
 			return err
 		}
-		field.ValueToBytes(value, s.header.ByteOrder, tileData[fieldOffset:])
+		
+		if field.Type == FieldBool {
+			// Special handling for boolean bitfields in separated mode
+			boolIndex := tileSelector.InTile
+			byteIndex := boolIndex / 8
+			bitIndex := boolIndex % 8
+			if byteIndex >= len(tileData) {
+				return nil // Ignore writes out of bounds
+			}
+			if value.(bool) {
+				tileData[byteIndex] |= 1 << bitIndex
+			} else {
+				tileData[byteIndex] &= ^(1 << bitIndex)
+			}
+		} else {
+			fieldOffset := tileSelector.InTile * field.Size()
+			field.ValueToBytes(value, s.header.ByteOrder, tileData[fieldOffset:])
+		}
 	} else {
 		tileData, err := s.loadTile(tileSelector.Tile)
 		if err != nil {

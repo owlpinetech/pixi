@@ -235,13 +235,25 @@ func (s *ReadCachedLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, 
 
 	if s.Layer().Separated {
 		fieldTile := tileSelector.Tile + s.Layer().Dimensions.Tiles()*fieldIndex
-		fieldOffset := tileSelector.InTile * field.Size()
-
+		
 		tileData, err := s.cache.Get(fieldTile)
 		if err != nil {
 			return nil, err
 		}
-		return field.BytesToValue(tileData[fieldOffset:], s.cache.Header().ByteOrder), nil
+		
+		if field.Type == FieldBool {
+			// Special handling for boolean bitfields in separated mode
+			boolIndex := tileSelector.InTile
+			byteIndex := boolIndex / 8
+			bitIndex := boolIndex % 8
+			if byteIndex >= len(tileData) {
+				return false, nil // Default to false if out of bounds
+			}
+			return (tileData[byteIndex]&(1<<bitIndex)) != 0, nil
+		} else {
+			fieldOffset := tileSelector.InTile * field.Size()
+			return field.BytesToValue(tileData[fieldOffset:], s.cache.Header().ByteOrder), nil
+		}
 	} else {
 		tileData, err := s.cache.Get(tileSelector.Tile)
 		if err != nil {
@@ -310,10 +322,33 @@ func (s *WriteCachedLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, va
 
 	if s.Layer().Separated {
 		separatedTileIndex := tileSelector.Tile + s.Layer().Dimensions.Tiles()*fieldIndex
-		fieldInTileOffset := tileSelector.InTile * field.Size()
-		err := s.cache.SetFragment(separatedTileIndex, fieldInTileOffset, raw)
-		if err != nil {
-			return err
+		
+		if field.Type == FieldBool {
+			// Special handling for boolean bitfields in separated mode
+			boolIndex := tileSelector.InTile
+			byteIndex := boolIndex / 8
+			bitIndex := boolIndex % 8
+			
+			// Read the current tile data
+			tileData, err := s.cache.Get(separatedTileIndex)
+			if err != nil {
+				return err
+			}
+			
+			if byteIndex < len(tileData) {
+				if value.(bool) {
+					tileData[byteIndex] |= 1 << bitIndex
+				} else {
+					tileData[byteIndex] &= ^(1 << bitIndex)
+				}
+				
+				// Write the modified byte back
+				return s.cache.SetFragment(separatedTileIndex, byteIndex, []byte{tileData[byteIndex]})
+			}
+			return nil
+		} else {
+			fieldInTileOffset := tileSelector.InTile * field.Size()
+			return s.cache.SetFragment(separatedTileIndex, fieldInTileOffset, raw)
 		}
 	} else {
 		fieldTileOffset := tileSelector.InTile * s.Layer().Fields.Size()

@@ -77,6 +77,12 @@ func (d *Layer) DiskTileSize(tileIndex int) int {
 	}
 	if d.Separated {
 		field := tileIndex / d.Dimensions.Tiles()
+		fieldType := d.Fields[field].Type
+		if fieldType == FieldBool {
+			// For boolean fields in separated mode, use bit packing
+			samples := d.Dimensions.TileSamples()
+			return (samples + 7) / 8 // Round up to nearest byte
+		}
 		return d.Dimensions.TileSamples() * d.Fields[field].Size()
 	} else {
 		return d.Dimensions.TileSamples() * d.Fields.Size()

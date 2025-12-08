@@ -15,6 +15,7 @@ type CachedLayerReadCache interface {
 type CachedLayerCache interface {
 	CachedLayerReadCache
 	SetFragment(tile int, tileOffset int, data []byte) error
+	SetBit(tile int, bitIndex int, value bool) error
 	Flush() error
 }
 
@@ -121,29 +122,58 @@ func (c *LayerFifoCache) SetFragment(tile int, tileOffset int, data []byte) erro
 		}
 		copy(tileData[tileOffset:], data)
 
-		if len(c.cache) >= c.maxSize {
-			var oldestTile int
-			var oldestTime time.Time
-			for t, entry := range c.cache {
-				if oldestTime.IsZero() || entry.age.Before(oldestTime) {
-					oldestTime = entry.age
-					oldestTile = t
-				}
-			}
-
-			oldest := c.cache[oldestTile]
-			err := c.layer.OverwriteTile(c.backing, c.header, oldestTile, oldest.data)
-			if err != nil {
-				return err
-			}
-			delete(c.cache, oldestTile)
-		}
-		c.cache[tile] = LayerFifoCacheTile{
-			age:  time.Now(),
-			data: tileData,
-		}
+		return c.evictAndAdd(tile, tileData)
 	}
 
+	return nil
+}
+
+func (c *LayerFifoCache) SetBit(tile int, bitIndex int, value bool) error {
+	c.cacheLock.Lock()
+	defer c.cacheLock.Unlock()
+	cached, found := c.cache[tile]
+	if found {
+		PackBool(value, cached.data, bitIndex)
+		c.cache[tile] = LayerFifoCacheTile{
+			age:  time.Now(),
+			data: cached.data,
+		}
+	} else {
+		tileData := make([]byte, c.layer.DiskTileSize(tile))
+		err := c.layer.ReadTile(c.backing, c.header, tile, tileData)
+		if err != nil {
+			return err
+		}
+		PackBool(value, tileData, bitIndex)
+
+		return c.evictAndAdd(tile, tileData)
+	}
+
+	return nil
+}
+
+func (c *LayerFifoCache) evictAndAdd(tile int, data []byte) error {
+	if len(c.cache) >= c.maxSize {
+		var oldestTile int
+		var oldestTime time.Time
+		for t, entry := range c.cache {
+			if oldestTime.IsZero() || entry.age.Before(oldestTime) {
+				oldestTime = entry.age
+				oldestTile = t
+			}
+		}
+
+		oldest := c.cache[oldestTile]
+		err := c.layer.OverwriteTile(c.backing, c.header, oldestTile, oldest.data)
+		if err != nil {
+			return err
+		}
+		delete(c.cache, oldestTile)
+	}
+	c.cache[tile] = LayerFifoCacheTile{
+		age:  time.Now(),
+		data: data,
+	}
 	return nil
 }
 
@@ -211,7 +241,7 @@ func (s *ReadCachedLayer) SampleAt(coord SampleCoordinate) (Sample, error) {
 			}
 
 			if field.Type == FieldBool {
-				sample[fieldIndex] = field.UnpackBool(tileData, tileSelector.InTile)
+				sample[fieldIndex] = UnpackBool(tileData, tileSelector.InTile)
 			} else {
 				fieldOffset := tileSelector.InTile * field.Size()
 				sample[fieldIndex] = field.BytesToValue(tileData[fieldOffset:], s.cache.Header().ByteOrder)
@@ -246,7 +276,7 @@ func (s *ReadCachedLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, 
 		}
 
 		if field.Type == FieldBool {
-			return field.UnpackBool(tileData, tileSelector.InTile), nil
+			return UnpackBool(tileData, tileSelector.InTile), nil
 		} else {
 			fieldOffset := tileSelector.InTile * field.Size()
 			return field.BytesToValue(tileData[fieldOffset:], s.cache.Header().ByteOrder), nil
@@ -279,13 +309,10 @@ func (s *WriteCachedLayer) SetSampleAt(coord SampleCoordinate, values Sample) er
 			separatedTileIndex := tileSelector.Tile + s.Layer().Dimensions.Tiles()*fieldIndex
 
 			if field.Type == FieldBool {
-				// Get current tile data to modify the bit
-				tileData, err := s.cache.Get(separatedTileIndex)
+				err := s.cache.SetBit(separatedTileIndex, tileSelector.InTile, values[fieldIndex].(bool))
 				if err != nil {
 					return err
 				}
-				field.PackBool(values[fieldIndex].(bool), tileData, tileSelector.InTile)
-				// Don't need to call SetFragment since we modified in place
 			} else {
 				fieldInTileOffset := tileSelector.InTile * field.Size()
 				raw := make([]byte, field.Size())
@@ -304,10 +331,7 @@ func (s *WriteCachedLayer) SetSampleAt(coord SampleCoordinate, values Sample) er
 			field.ValueToBytes(values[i], s.cache.Header().ByteOrder, raw[fieldOffset:])
 			fieldOffset += field.Size()
 		}
-		err := s.cache.SetFragment(tileSelector.Tile, fieldInTileOffset, raw)
-		if err != nil {
-			return err
-		}
+		return s.cache.SetFragment(tileSelector.Tile, fieldInTileOffset, raw)
 	}
 
 	return nil
@@ -328,14 +352,7 @@ func (s *WriteCachedLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, va
 		separatedTileIndex := tileSelector.Tile + s.Layer().Dimensions.Tiles()*fieldIndex
 
 		if field.Type == FieldBool {
-			// Get current tile data to modify the bit
-			tileData, err := s.cache.Get(separatedTileIndex)
-			if err != nil {
-				return err
-			}
-			field.PackBool(value.(bool), tileData, tileSelector.InTile)
-			// Don't need to call SetFragment since we modified in place
-			return nil
+			return s.cache.SetBit(separatedTileIndex, tileSelector.InTile, value.(bool))
 		} else {
 			fieldInTileOffset := tileSelector.InTile * field.Size()
 			raw := make([]byte, field.Size())

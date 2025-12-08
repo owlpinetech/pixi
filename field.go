@@ -26,37 +26,11 @@ func (f Field) BytesToValue(raw []byte, order binary.ByteOrder) any {
 	return f.Type.BytesToValue(raw, order)
 }
 
-// Unpacks a boolean value from a bit field byte array at the specified bit index. Used
-// for boolean fields in separated mode only.
-func (f Field) UnpackBool(raw []byte, bitIndex int) bool {
-	byteIndex := bitIndex / 8
-	bitPos := bitIndex % 8
-	if byteIndex >= len(raw) {
-		return false
-	}
-	return (raw[byteIndex] & (1 << bitPos)) != 0
-}
-
 // This function writes a value of any type into bytes according to the specified FieldType.
 // The written bytes are stored in the provided byte array. This function will panic if
 // the FieldType is unknown or if an unsupported field type is encountered.
 func (f Field) ValueToBytes(val any, order binary.ByteOrder, raw []byte) {
 	f.Type.ValueToBytes(val, order, raw)
-}
-
-// Packs a boolean value into a bit field byte array at the specified bit index. Used
-// for boolean fields in separated mode only.
-func (f Field) PackBool(value bool, raw []byte, bitIndex int) {
-	byteIndex := bitIndex / 8
-	bitPos := bitIndex % 8
-	if byteIndex >= len(raw) {
-		return
-	}
-	if value {
-		raw[byteIndex] |= 1 << bitPos
-	} else {
-		raw[byteIndex] &^= 1 << bitPos
-	}
 }
 
 // Get the size in bytes of this dimension description as it is laid out and written to disk.

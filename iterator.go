@@ -99,7 +99,7 @@ func (t *TileOrderReadIterator) Field(fieldIndex int) any {
 	if t.layer.Separated {
 		tileData := t.tiles[fieldIndex]
 		if t.layer.Fields[fieldIndex].Type == FieldBool {
-			return t.layer.Fields[fieldIndex].UnpackBool(tileData, t.sampleInTile)
+			return UnpackBool(tileData, t.sampleInTile)
 		} else {
 			inTileOffset := t.sampleInTile * t.layer.Fields[fieldIndex].Size()
 			return t.layer.Fields[fieldIndex].BytesToValue(tileData[inTileOffset:], t.header.ByteOrder)
@@ -122,7 +122,7 @@ func (t *TileOrderReadIterator) Sample() Sample {
 		for fieldIndex, field := range t.layer.Fields {
 			tileData := t.tiles[fieldIndex]
 			if field.Type == FieldBool {
-				sample[fieldIndex] = field.UnpackBool(tileData, t.sampleInTile)
+				sample[fieldIndex] = UnpackBool(tileData, t.sampleInTile)
 			} else {
 				inTileOffset := t.sampleInTile * field.Size()
 				sample[fieldIndex] = field.BytesToValue(tileData[inTileOffset:], t.header.ByteOrder)
@@ -287,7 +287,7 @@ func (t *TileOrderWriteIterator) SetField(fieldIndex int, value any) {
 	if t.layer.Separated {
 		tileData := t.tiles[fieldIndex]
 		if t.layer.Fields[fieldIndex].Type == FieldBool {
-			t.layer.Fields[fieldIndex].PackBool(value.(bool), tileData, t.sampleInTile)
+			PackBool(value.(bool), tileData, t.sampleInTile)
 		} else {
 			inTileOffset := t.sampleInTile * t.layer.Fields[fieldIndex].Size()
 			t.layer.Fields[fieldIndex].ValueToBytes(value, t.header.ByteOrder, tileData[inTileOffset:])
@@ -309,7 +309,7 @@ func (t *TileOrderWriteIterator) SetSample(value Sample) {
 		for fieldIndex, field := range t.layer.Fields {
 			tileData := t.tiles[fieldIndex]
 			if field.Type == FieldBool {
-				field.PackBool(value[fieldIndex].(bool), tileData, t.sampleInTile)
+				PackBool(value[fieldIndex].(bool), tileData, t.sampleInTile)
 			} else {
 				inTileOffset := t.sampleInTile * field.Size()
 				field.ValueToBytes(value[fieldIndex], t.header.ByteOrder, tileData[inTileOffset:])

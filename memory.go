@@ -44,7 +44,7 @@ func (s *MemoryLayer) SampleAt(coord SampleCoordinate) (Sample, error) {
 			}
 
 			if field.Type == FieldBool {
-				sample[fieldIndex] = field.UnpackBool(tileData, tileSelector.InTile)
+				sample[fieldIndex] = UnpackBool(tileData, tileSelector.InTile)
 			} else {
 				fieldOffset := tileSelector.InTile * field.Size()
 				sample[fieldIndex] = field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder)
@@ -79,7 +79,7 @@ func (s *MemoryLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, erro
 		}
 
 		if field.Type == FieldBool {
-			return field.UnpackBool(tileData, tileSelector.InTile), nil
+			return UnpackBool(tileData, tileSelector.InTile), nil
 		} else {
 			fieldOffset := tileSelector.InTile * field.Size()
 			return field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder), nil
@@ -119,7 +119,7 @@ func (s *MemoryLayer) SetSampleAt(coord SampleCoordinate, values Sample) error {
 				return err
 			}
 			if field.Type == FieldBool {
-				field.PackBool(values[fieldIndex].(bool), tileData, tileSelector.InTile)
+				PackBool(values[fieldIndex].(bool), tileData, tileSelector.InTile)
 			} else {
 				fieldOffset := tileSelector.InTile * field.Size()
 				field.ValueToBytes(values[fieldIndex], s.header.ByteOrder, tileData[fieldOffset:])
@@ -161,7 +161,7 @@ func (s *MemoryLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, value a
 		}
 
 		if field.Type == FieldBool {
-			field.PackBool(value.(bool), tileData, tileSelector.InTile)
+			PackBool(value.(bool), tileData, tileSelector.InTile)
 		} else {
 			fieldOffset := tileSelector.InTile * field.Size()
 			field.ValueToBytes(value, s.header.ByteOrder, tileData[fieldOffset:])

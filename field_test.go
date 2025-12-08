@@ -25,6 +25,8 @@ func TestFieldType_ValueFromBytes(t *testing.T) {
 		{"Uint64", FieldUint64, uint64(18446744073709551615)},
 		{"Float32", FieldFloat32, float32(1.2345)},
 		{"Float64", FieldFloat64, float64(3.14159)},
+		{"Bool_true", FieldBool, true},
+		{"Bool_false", FieldBool, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -70,6 +72,12 @@ func TestFieldType_ValueFromBytes(t *testing.T) {
 				buf := bytes.NewBuffer(nil)
 				binary.Write(buf, binary.BigEndian, tt.value.(float64))
 				raw = buf.Bytes()
+			case FieldBool:
+				if tt.value.(bool) {
+					raw = []byte{1}
+				} else {
+					raw = []byte{0}
+				}
 			}
 			val := tt.fieldType.BytesToValue(raw, binary.BigEndian)
 			if !reflect.DeepEqual(val, tt.value) {
@@ -95,6 +103,8 @@ func TestFieldType_WriteValue(t *testing.T) {
 		{FieldUint64, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, uint64(18446744073709551615)},
 		{FieldFloat32, []byte{0xbf, 0x80, 0x00, 0x00}, float32(-1.0)},
 		{FieldFloat64, []byte{0xbf, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, float64(-1.0)},
+		{FieldBool, []byte{0x01}, true},
+		{FieldBool, []byte{0x00}, false},
 	}
 
 	for i, test := range tests {
@@ -117,6 +127,7 @@ func TestFieldWriteRead(t *testing.T) {
 		{Name: "nameone", Type: FieldInt8},
 		{Name: "", Type: FieldFloat64},
 		{Name: "amuchlongernamethanusualwithlotsofcharacters", Type: FieldInt16},
+		{Name: "bool_field", Type: FieldBool},
 	}
 
 	for _, c := range cases {

@@ -221,3 +221,152 @@ func TestLayerTileWriteReadCorrupted(t *testing.T) {
 		}
 	}
 }
+
+func TestLayerDiskTileSize(t *testing.T) {
+	tests := []struct {
+		name         string
+		layer        *Layer
+		tileIndex    int
+		expectedSize int
+	}{
+		{
+			name: "Empty layer",
+			layer: &Layer{
+				Separated:  false,
+				Dimensions: DimensionSet{},
+				Fields:     FieldSet{{Name: "test", Type: FieldInt32}},
+			},
+			tileIndex:    0,
+			expectedSize: 0,
+		},
+		{
+			name: "Contiguous mode, single field",
+			layer: &Layer{
+				Separated:  false,
+				Dimensions: DimensionSet{{Size: 10, TileSize: 4}},
+				Fields:     FieldSet{{Name: "data", Type: FieldInt32}},
+			},
+			tileIndex:    0,
+			expectedSize: 4 * 4, // 4 samples * 4 bytes per int32
+		},
+		{
+			name: "Contiguous mode, multiple fields",
+			layer: &Layer{
+				Separated:  false,
+				Dimensions: DimensionSet{{Size: 8, TileSize: 4}},
+				Fields:     FieldSet{{Name: "a", Type: FieldInt16}, {Name: "b", Type: FieldFloat32}},
+			},
+			tileIndex:    0,
+			expectedSize: 4 * (2 + 4), // 4 samples * (2 bytes + 4 bytes)
+		},
+		{
+			name: "Contiguous mode, with boolean field",
+			layer: &Layer{
+				Separated:  false,
+				Dimensions: DimensionSet{{Size: 6, TileSize: 3}},
+				Fields:     FieldSet{{Name: "flag", Type: FieldBool}, {Name: "value", Type: FieldInt32}},
+			},
+			tileIndex:    0,
+			expectedSize: 3 * (1 + 4), // 3 samples * (1 byte + 4 bytes)
+		},
+		{
+			name: "Separated mode, non-boolean field, first field tile",
+			layer: &Layer{
+				Separated:  true,
+				Dimensions: DimensionSet{{Size: 12, TileSize: 4}},
+				Fields:     FieldSet{{Name: "a", Type: FieldInt32}, {Name: "b", Type: FieldFloat64}},
+			},
+			tileIndex:    0,     // First field (int32), first tile
+			expectedSize: 4 * 4, // 4 samples * 4 bytes per int32
+		},
+		{
+			name: "Separated mode, non-boolean field, second field tile",
+			layer: &Layer{
+				Separated:  true,
+				Dimensions: DimensionSet{{Size: 12, TileSize: 4}},
+				Fields:     FieldSet{{Name: "a", Type: FieldInt32}, {Name: "b", Type: FieldFloat64}},
+			},
+			tileIndex:    3,     // Second field (float64), first tile (tiles per dimension = 3, so tile 3 is second field)
+			expectedSize: 4 * 8, // 4 samples * 8 bytes per float64
+		},
+		{
+			name: "Separated mode, boolean field, exact byte boundary",
+			layer: &Layer{
+				Separated:  true,
+				Dimensions: DimensionSet{{Size: 16, TileSize: 8}},
+				Fields:     FieldSet{{Name: "flags", Type: FieldBool}, {Name: "data", Type: FieldInt32}},
+			},
+			tileIndex:    0, // Boolean field, first tile
+			expectedSize: 1, // 8 booleans = 1 byte exactly
+		},
+		{
+			name: "Separated mode, boolean field, partial byte",
+			layer: &Layer{
+				Separated:  true,
+				Dimensions: DimensionSet{{Size: 20, TileSize: 5}},
+				Fields:     FieldSet{{Name: "flags", Type: FieldBool}, {Name: "data", Type: FieldInt32}},
+			},
+			tileIndex:    0, // Boolean field, first tile
+			expectedSize: 1, // 5 booleans = 1 byte (rounded up)
+		},
+		{
+			name: "Separated mode, boolean field, multiple bytes",
+			layer: &Layer{
+				Separated:  true,
+				Dimensions: DimensionSet{{Size: 30, TileSize: 17}},
+				Fields:     FieldSet{{Name: "flags", Type: FieldBool}, {Name: "data", Type: FieldInt32}},
+			},
+			tileIndex:    0, // Boolean field, first tile
+			expectedSize: 3, // 17 booleans = 3 bytes (17 + 7) / 8 = 24 / 8 = 3
+		},
+		{
+			name: "Separated mode, mixed fields, boolean tile",
+			layer: &Layer{
+				Separated:  true,
+				Dimensions: DimensionSet{{Size: 20, TileSize: 10}},
+				Fields:     FieldSet{{Name: "flags", Type: FieldBool}, {Name: "count", Type: FieldInt32}, {Name: "value", Type: FieldFloat32}},
+			},
+			tileIndex:    0, // Boolean field tile
+			expectedSize: 2, // 10 booleans = 2 bytes (10 + 7) / 8 = 17 / 8 = 2
+		},
+		{
+			name: "Separated mode, mixed fields, int32 tile",
+			layer: &Layer{
+				Separated:  true,
+				Dimensions: DimensionSet{{Size: 20, TileSize: 10}},
+				Fields:     FieldSet{{Name: "flags", Type: FieldBool}, {Name: "count", Type: FieldInt32}, {Name: "value", Type: FieldFloat32}},
+			},
+			tileIndex:    2,      // Int32 field tile (tiles per dimension = 2, so tile 2 is second field)
+			expectedSize: 10 * 4, // 10 samples * 4 bytes per int32
+		},
+		{
+			name: "Separated mode, mixed fields, float32 tile",
+			layer: &Layer{
+				Separated:  true,
+				Dimensions: DimensionSet{{Size: 20, TileSize: 10}},
+				Fields:     FieldSet{{Name: "flags", Type: FieldBool}, {Name: "count", Type: FieldInt32}, {Name: "value", Type: FieldFloat32}},
+			},
+			tileIndex:    4,      // Float32 field tile (tiles per dimension = 2, so tile 4 is third field)
+			expectedSize: 10 * 4, // 10 samples * 4 bytes per float32
+		},
+		{
+			name: "Separated mode, multiple dimensions with boolean",
+			layer: &Layer{
+				Separated:  true,
+				Dimensions: DimensionSet{{Size: 8, TileSize: 4}, {Size: 6, TileSize: 3}},
+				Fields:     FieldSet{{Name: "active", Type: FieldBool}},
+			},
+			tileIndex:    0, // Boolean field, first tile (4 * 3 = 12 samples)
+			expectedSize: 2, // 12 booleans = 2 bytes (12 + 7) / 8 = 19 / 8 = 2
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actualSize := tt.layer.DiskTileSize(tt.tileIndex)
+			if actualSize != tt.expectedSize {
+				t.Errorf("DiskTileSize(%d) = %d, want %d", tt.tileIndex, actualSize, tt.expectedSize)
+			}
+		})
+	}
+}

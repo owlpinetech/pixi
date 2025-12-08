@@ -326,3 +326,311 @@ func TestBooleanFieldBitPacking(t *testing.T) {
 		}
 	}
 }
+
+func TestTileOrderReadIteratorBooleanFields(t *testing.T) {
+	header := &PixiHeader{
+		Version:    Version,
+		ByteOrder:  binary.BigEndian,
+		OffsetSize: 8,
+	}
+
+	// Test both separated and contiguous modes
+	modes := []struct {
+		name      string
+		separated bool
+	}{
+		{"contiguous", false},
+		{"separated", true},
+	}
+
+	for _, mode := range modes {
+		t.Run(mode.name, func(t *testing.T) {
+			// Create layer with boolean and other fields
+			fields := FieldSet{
+				{Name: "enabled", Type: FieldBool},
+				{Name: "score", Type: FieldInt32},
+				{Name: "active", Type: FieldBool},
+			}
+			dimensions := DimensionSet{{Name: "x", Size: 12, TileSize: 4}}
+
+			// Create test data
+			testData := []struct {
+				enabled bool
+				score   int32
+				active  bool
+			}{
+				{true, 100, false},
+				{false, 200, true},
+				{true, 300, true},
+				{false, 400, false},
+				{true, 500, true},
+				{false, 600, false},
+				{true, 700, true},
+				{false, 800, false},
+				{true, 900, true},
+				{false, 1000, false},
+				{true, 1100, true},
+				{false, 1200, false},
+			}
+
+			// Create blank uncompressed layer
+			wrtBuf := buffer.NewBuffer(100)
+			layer, err := NewBlankUncompressedLayer(
+				wrtBuf,
+				header,
+				"tile-order-read-iterator-boolean-test",
+				mode.separated,
+				dimensions,
+				fields,
+			)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// Create memory layer and set test data
+			memLayer := NewMemoryLayer(wrtBuf, header, layer)
+
+			for i, data := range testData {
+				coord := SampleCoordinate{i}
+				sample := Sample{data.enabled, data.score, data.active}
+				err := memLayer.SetSampleAt(coord, sample)
+				if err != nil {
+					t.Fatalf("SetSampleAt failed at coord %v: %v", coord, err)
+				}
+			}
+			memLayer.Flush()
+
+			// Create iterator and verify data
+			rdBuf := buffer.NewBufferFrom(wrtBuf.Bytes())
+			iterator := NewTileOrderReadIterator(rdBuf, header, layer)
+			defer iterator.Done()
+
+			sampleIndex := 0
+			for iterator.Next() {
+				if sampleIndex >= len(testData) {
+					t.Errorf("Iterator returned more samples than expected")
+					break
+				}
+
+				coord := iterator.Coordinate()
+				sample := iterator.Sample()
+				expectedData := testData[sampleIndex]
+
+				// Test Sample() method
+				if sample[0].(bool) != expectedData.enabled {
+					t.Errorf("Sample() enabled field mismatch at coord %v: expected %v, got %v", coord, expectedData.enabled, sample[0])
+				}
+				if sample[1].(int32) != expectedData.score {
+					t.Errorf("Sample() score field mismatch at coord %v: expected %v, got %v", coord, expectedData.score, sample[1])
+				}
+				if sample[2].(bool) != expectedData.active {
+					t.Errorf("Sample() active field mismatch at coord %v: expected %v, got %v", coord, expectedData.active, sample[2])
+				}
+
+				// Test Field() method
+				enabledVal := iterator.Field(0)
+				scoreVal := iterator.Field(1)
+				activeVal := iterator.Field(2)
+
+				if enabledVal.(bool) != expectedData.enabled {
+					t.Errorf("Field(0) enabled field mismatch at coord %v: expected %v, got %v", coord, expectedData.enabled, enabledVal)
+				}
+				if scoreVal.(int32) != expectedData.score {
+					t.Errorf("Field(1) score field mismatch at coord %v: expected %v, got %v", coord, expectedData.score, scoreVal)
+				}
+				if activeVal.(bool) != expectedData.active {
+					t.Errorf("Field(2) active field mismatch at coord %v: expected %v, got %v", coord, expectedData.active, activeVal)
+				}
+
+				sampleIndex++
+			}
+
+			if iterator.Error() != nil {
+				t.Fatalf("Iterator encountered error: %v", iterator.Error())
+			}
+
+			if sampleIndex != len(testData) {
+				t.Errorf("Iterator did not return all expected samples: got %d, expected %d", sampleIndex, len(testData))
+			}
+		})
+	}
+}
+
+func TestTileOrderWriteIteratorBooleanFields(t *testing.T) {
+	header := &PixiHeader{
+		Version:    Version,
+		ByteOrder:  binary.BigEndian,
+		OffsetSize: 8,
+	}
+
+	// Test both separated and contiguous modes
+	modes := []struct {
+		name      string
+		separated bool
+	}{
+		{"contiguous", false},
+		{"separated", true},
+	}
+
+	for _, mode := range modes {
+		t.Run(mode.name, func(t *testing.T) {
+			// Create layer with boolean and other fields
+			fields := FieldSet{
+				{Name: "visible", Type: FieldBool},
+				{Name: "weight", Type: FieldFloat32},
+				{Name: "locked", Type: FieldBool},
+			}
+			dimensions := DimensionSet{{Name: "x", Size: 8, TileSize: 4}}
+
+			layer := NewLayer("test", mode.separated, CompressionNone, dimensions, fields)
+
+			// Create test data
+			testData := []struct {
+				visible bool
+				weight  float32
+				locked  bool
+			}{
+				{true, 1.5, false},
+				{false, 2.7, true},
+				{true, 3.14, true},
+				{false, 4.0, false},
+				{true, 5.25, true},
+				{false, 6.8, false},
+				{true, 7.99, true},
+				{false, 8.1, false},
+			}
+
+			// Create write iterator and write test data
+			wrtBuf := buffer.NewBuffer(100)
+			iterator := NewTileOrderWriteIterator(wrtBuf, header, layer)
+
+			sampleIndex := 0
+			for iterator.Next() {
+				if sampleIndex >= len(testData) {
+					t.Errorf("Iterator requested more samples than expected")
+					break
+				}
+
+				coord := iterator.Coordinate()
+				expectedData := testData[sampleIndex]
+
+				// Test SetSample() method
+				sample := Sample{expectedData.visible, expectedData.weight, expectedData.locked}
+				iterator.SetSample(sample)
+
+				if coord[0] != sampleIndex {
+					t.Errorf("Unexpected coordinate at sample %d: got %v, expected {%d}", sampleIndex, coord, sampleIndex)
+				}
+
+				sampleIndex++
+			}
+
+			iterator.Done()
+
+			if iterator.Error() != nil {
+				t.Fatalf("Write iterator encountered error: %v", iterator.Error())
+			}
+
+			if sampleIndex != len(testData) {
+				t.Errorf("Write iterator did not process all expected samples: got %d, expected %d", sampleIndex, len(testData))
+			}
+
+			// Verify written data using memory layer
+			rdBuf := buffer.NewBufferFrom(wrtBuf.Bytes())
+			memLayer := NewMemoryLayer(rdBuf, header, layer)
+
+			for i, expectedData := range testData {
+				coord := SampleCoordinate{i}
+				sample, err := memLayer.SampleAt(coord)
+				if err != nil {
+					t.Fatalf("SampleAt failed at coord %v: %v", coord, err)
+				}
+
+				if sample[0].(bool) != expectedData.visible {
+					t.Errorf("Visible field mismatch at coord %v: expected %v, got %v", coord, expectedData.visible, sample[0])
+				}
+				if sample[1].(float32) != expectedData.weight {
+					t.Errorf("Weight field mismatch at coord %v: expected %v, got %v", coord, expectedData.weight, sample[1])
+				}
+				if sample[2].(bool) != expectedData.locked {
+					t.Errorf("Locked field mismatch at coord %v: expected %v, got %v", coord, expectedData.locked, sample[2])
+				}
+			}
+		})
+	}
+
+	// Test SetField() method specifically
+	t.Run("SetField", func(t *testing.T) {
+		fields := FieldSet{
+			{Name: "flag1", Type: FieldBool},
+			{Name: "value", Type: FieldInt16},
+			{Name: "flag2", Type: FieldBool},
+		}
+		dimensions := DimensionSet{{Name: "x", Size: 4, TileSize: 4}}
+
+		layer := NewLayer("test", true, CompressionNone, dimensions, fields) // separated mode
+
+		wrtBuf := buffer.NewBuffer(100)
+		iterator := NewTileOrderWriteIterator(wrtBuf, header, layer)
+
+		testData := []struct {
+			flag1 bool
+			value int16
+			flag2 bool
+		}{
+			{true, 100, false},
+			{false, 200, true},
+			{true, 300, true},
+			{false, 400, false},
+		}
+
+		sampleIndex := 0
+		for iterator.Next() {
+			expectedData := testData[sampleIndex]
+
+			// Use SetField() for each field
+			iterator.SetField(0, expectedData.flag1)
+			iterator.SetField(1, expectedData.value)
+			iterator.SetField(2, expectedData.flag2)
+
+			sampleIndex++
+		}
+
+		iterator.Done()
+
+		if iterator.Error() != nil {
+			t.Fatalf("Write iterator encountered error: %v", iterator.Error())
+		}
+
+		// Verify written data
+		rdBuf := buffer.NewBufferFrom(wrtBuf.Bytes())
+		memLayer := NewMemoryLayer(rdBuf, header, layer)
+
+		for i, expectedData := range testData {
+			coord := SampleCoordinate{i}
+
+			flag1Val, err := memLayer.FieldAt(coord, 0)
+			if err != nil {
+				t.Fatalf("FieldAt(0) failed at coord %v: %v", coord, err)
+			}
+			valueVal, err := memLayer.FieldAt(coord, 1)
+			if err != nil {
+				t.Fatalf("FieldAt(1) failed at coord %v: %v", coord, err)
+			}
+			flag2Val, err := memLayer.FieldAt(coord, 2)
+			if err != nil {
+				t.Fatalf("FieldAt(2) failed at coord %v: %v", coord, err)
+			}
+
+			if flag1Val.(bool) != expectedData.flag1 {
+				t.Errorf("Flag1 field mismatch at coord %v: expected %v, got %v", coord, expectedData.flag1, flag1Val)
+			}
+			if valueVal.(int16) != expectedData.value {
+				t.Errorf("Value field mismatch at coord %v: expected %v, got %v", coord, expectedData.value, valueVal)
+			}
+			if flag2Val.(bool) != expectedData.flag2 {
+				t.Errorf("Flag2 field mismatch at coord %v: expected %v, got %v", coord, expectedData.flag2, flag2Val)
+			}
+		}
+	})
+}

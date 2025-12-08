@@ -329,7 +329,7 @@ func (t *TileOrderWriteIterator) writeTiles(tiles map[int][]byte, tileIndex int)
 	if t.layer.Separated {
 		for fieldIndex := range t.layer.Fields {
 			fieldTile := tileIndex + t.layer.Dimensions.Tiles()*fieldIndex
-			err := t.layer.WriteTile(t.backing, t.header, fieldTile, tiles[fieldTile])
+			err := t.layer.WriteTile(t.backing, t.header, fieldTile, tiles[fieldIndex])
 			if err != nil {
 				return err
 			}

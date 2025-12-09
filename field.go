@@ -4,6 +4,9 @@ import (
 	"encoding/binary"
 	"io"
 	"math"
+
+	"github.com/kshard/float8"
+	"github.com/x448/float16"
 )
 
 // Describes a set of values in a data set with a common shape. Similar to a field of a record
@@ -73,8 +76,11 @@ const (
 	FieldUint32  FieldType = 6  // A 32-bit unsigned integer.
 	FieldInt64   FieldType = 7  // A 64-bit signed integer.
 	FieldUint64  FieldType = 8  // A 64-bit unsigned integer.
-	FieldFloat32 FieldType = 9  // A 32-bit floating point number.
-	FieldFloat64 FieldType = 10 // A 64-bit floating point number.
+	FieldFloat8  FieldType = 9  // An 8-bit floating point number.
+	FieldFloat16 FieldType = 10 // A 16-bit floating point number.
+	FieldFloat32 FieldType = 11 // A 32-bit floating point number.
+	FieldFloat64 FieldType = 12 // A 64-bit floating point number.
+	FieldBool    FieldType = 13 // A boolean value.
 )
 
 // This function returns the size of each element in a field in bytes.
@@ -98,10 +104,16 @@ func (f FieldType) Size() int {
 		return 4
 	case FieldUint64:
 		return 8
+	case FieldFloat8:
+		return 1
+	case FieldFloat16:
+		return 2
 	case FieldFloat32:
 		return 4
 	case FieldFloat64:
 		return 8
+	case FieldBool:
+		return 1
 	default:
 		panic("pixi: unsupported field type")
 	}
@@ -127,10 +139,16 @@ func (f FieldType) String() string {
 		return "uint32"
 	case FieldUint64:
 		return "uint64"
+	case FieldFloat8:
+		return "float8"
+	case FieldFloat16:
+		return "float16"
 	case FieldFloat32:
 		return "float32"
 	case FieldFloat64:
 		return "float64"
+	case FieldBool:
+		return "bool"
 	default:
 		panic("pixi: unsupported field type")
 	}
@@ -160,10 +178,16 @@ func (f FieldType) BytesToValue(raw []byte, o binary.ByteOrder) any {
 		return int64(o.Uint64(raw))
 	case FieldUint64:
 		return o.Uint64(raw)
+	case FieldFloat8:
+		return float8.Float8(uint8(raw[0]))
+	case FieldFloat16:
+		return float16.Frombits(o.Uint16(raw))
 	case FieldFloat32:
 		return math.Float32frombits(o.Uint32(raw))
 	case FieldFloat64:
 		return math.Float64frombits(o.Uint64(raw))
+	case FieldBool:
+		return raw[0] != 0
 	default:
 		panic("pixi: tried to read unsupported field type")
 	}
@@ -191,10 +215,20 @@ func (f FieldType) ValueToBytes(val any, o binary.ByteOrder, bytes []byte) {
 		o.PutUint64(bytes, uint64(val.(int64)))
 	case FieldUint64:
 		o.PutUint64(bytes, val.(uint64))
+	case FieldFloat8:
+		bytes[0] = byte(val.(float8.Float8))
+	case FieldFloat16:
+		o.PutUint16(bytes, val.(float16.Float16).Bits())
 	case FieldFloat32:
 		o.PutUint32(bytes, math.Float32bits(val.(float32)))
 	case FieldFloat64:
 		o.PutUint64(bytes, math.Float64bits(val.(float64)))
+	case FieldBool:
+		if val.(bool) {
+			bytes[0] = 1
+		} else {
+			bytes[0] = 0
+		}
 	default:
 		panic("pixi: tried to write unsupported field type")
 	}

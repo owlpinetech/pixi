@@ -6,8 +6,11 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/chenxingqiang/go-floatx"
 	"github.com/kshard/float8"
 	"github.com/owlpinetech/pixi/internal/buffer"
+	"github.com/shogo82148/float128"
+	"github.com/shogo82148/int128"
 	"github.com/x448/float16"
 )
 
@@ -31,6 +34,10 @@ func TestFieldType_ValueFromBytes(t *testing.T) {
 		{"Float64", FieldFloat64, float64(3.14159)},
 		{"Bool_true", FieldBool, true},
 		{"Bool_false", FieldBool, false},
+		{"Int128", FieldInt128, int128.Int128{H: -1, L: ^uint64(123456789012345-1)}},
+		{"Uint128", FieldUint128, int128.Uint128{H: 0, L: 123456789012345}},
+		{"Float128", FieldFloat128, float128.FromFloat64(-123.456)},
+		{"BFloat16", FieldBFloat16, floatx.BF16Fromfloat32(1.5)},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -90,6 +97,29 @@ func TestFieldType_ValueFromBytes(t *testing.T) {
 				} else {
 					raw = []byte{0}
 				}
+			case FieldInt128, FieldUint128:
+				if tt.fieldType == FieldInt128 {
+					val128 := tt.value.(int128.Int128)
+					raw = make([]byte, 16)
+					binary.BigEndian.PutUint64(raw[0:8], uint64(val128.H))
+					binary.BigEndian.PutUint64(raw[8:16], val128.L)
+				} else {
+					val128 := tt.value.(int128.Uint128)
+					raw = make([]byte, 16)
+					binary.BigEndian.PutUint64(raw[0:8], val128.H)
+					binary.BigEndian.PutUint64(raw[8:16], val128.L)
+				}
+			case FieldFloat128:
+				val128 := tt.value.(float128.Float128)
+				h, l := val128.Bits()
+				raw = make([]byte, 16)
+				binary.BigEndian.PutUint64(raw[0:8], h)
+				binary.BigEndian.PutUint64(raw[8:16], l)
+			case FieldBFloat16:
+				bf16 := tt.value.(floatx.BFloat16)
+				buf := bytes.NewBuffer(nil)
+				binary.Write(buf, binary.BigEndian, uint16(bf16))
+				raw = buf.Bytes()
 			}
 			val := tt.fieldType.BytesToValue(raw, binary.BigEndian)
 			if !reflect.DeepEqual(val, tt.value) {
@@ -119,6 +149,10 @@ func TestFieldType_WriteValue(t *testing.T) {
 		{FieldFloat64, []byte{0xbf, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, float64(-1.0)},
 		{FieldBool, []byte{0x01}, true},
 		{FieldBool, []byte{0x00}, false},
+		{FieldInt128, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfb, 0x2e}, int128.Int128{H: -1, L: ^uint64(1234-1)}},
+		{FieldUint128, []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xd2}, int128.Uint128{H: 0, L: 1234}},
+		{FieldFloat128, []byte{0x40, 0x09, 0x34, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, float128.FromFloat64(1234.0)},
+		{FieldBFloat16, []byte{0x3e, 0x00}, floatx.BF16Fromfloat32(1.5)},
 	}
 
 	for i, test := range tests {
@@ -142,6 +176,10 @@ func TestFieldWriteRead(t *testing.T) {
 		{Name: "", Type: FieldFloat64},
 		{Name: "amuchlongernamethanusualwithlotsofcharacters", Type: FieldInt16},
 		{Name: "bool_field", Type: FieldBool},
+		{Name: "int128_field", Type: FieldInt128},
+		{Name: "uint128_field", Type: FieldUint128},
+		{Name: "float128_field", Type: FieldFloat128},
+		{Name: "bfloat16_field", Type: FieldBFloat16},
 	}
 
 	for _, c := range cases {
@@ -180,6 +218,10 @@ func TestFieldWithMinMaxWriteRead(t *testing.T) {
 		{Name: "bool_with_both", Type: FieldBool, Min: false, Max: true},
 		{Name: "int64_with_min", Type: FieldInt64, Min: int64(-9223372036854775808), Max: nil},
 		{Name: "float64_with_max", Type: FieldFloat64, Min: nil, Max: float64(3.141592653589793)},
+		{Name: "int128_with_both", Type: FieldInt128, Min: int128.Int128{H: -1, L: ^uint64(999999-1)}, Max: int128.Int128{H: 0, L: 999999}},
+		{Name: "uint128_with_max", Type: FieldUint128, Min: nil, Max: int128.Uint128{H: 0, L: 999999}},
+		{Name: "float128_with_min", Type: FieldFloat128, Min: float128.FromFloat64(-123.456), Max: nil},
+		{Name: "bfloat16_with_both", Type: FieldBFloat16, Min: floatx.BF16Fromfloat32(-1.0), Max: floatx.BF16Fromfloat32(1.0)},
 	}
 
 	for _, c := range cases {

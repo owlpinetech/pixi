@@ -91,6 +91,12 @@ func main() {
 			dstIterator.SetSample(pixel)
 		}
 
+		dstIterator.Done()
+		if dstIterator.Error() != nil {
+			fmt.Println("Failed during tile writing iteration.")
+			return
+		}
+
 		firstlayerOffset, err := dstFile.Seek(0, io.SeekCurrent)
 		if err != nil {
 			fmt.Println("Failed to seek in destination Pixi file.")
@@ -107,12 +113,6 @@ func main() {
 		err = dstLayer.WriteHeader(dstFile, dstPixi)
 		if err != nil {
 			fmt.Println("Failed to write layer header to destination Pixi file.")
-			return
-		}
-
-		dstIterator.Done()
-		if dstIterator.Error() != nil {
-			fmt.Println("Failed during tile writing iteration.")
 			return
 		}
 	}

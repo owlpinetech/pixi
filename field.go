@@ -1,6 +1,7 @@
 package pixi
 
 import (
+	"cmp"
 	"encoding/binary"
 	"io"
 	"math"
@@ -236,40 +237,14 @@ func (field *Field) CompareValues(a, b any) int {
 		return 0
 	case FieldFloat8:
 		va, vb := float64(a.(float8.Float8)), float64(b.(float8.Float8))
-		if va < vb {
-			return -1
-		}
-		if va > vb {
-			return 1
-		}
-		return 0
+		return cmp.Compare(va, vb)
 	case FieldFloat16:
 		va, vb := a.(float16.Float16).Float32(), b.(float16.Float16).Float32()
-		if va < vb {
-			return -1
-		}
-		if va > vb {
-			return 1
-		}
-		return 0
+		return cmp.Compare(va, vb)
 	case FieldFloat32:
-		va, vb := a.(float32), b.(float32)
-		if va < vb {
-			return -1
-		}
-		if va > vb {
-			return 1
-		}
-		return 0
+		return cmp.Compare(a.(float32), b.(float32))
 	case FieldFloat64:
-		va, vb := a.(float64), b.(float64)
-		if va < vb {
-			return -1
-		}
-		if va > vb {
-			return 1
-		}
-		return 0
+		return cmp.Compare(a.(float64), b.(float64))
 	case FieldBool:
 		va, vb := a.(bool), b.(bool)
 		if !va && vb {

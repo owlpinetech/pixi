@@ -177,6 +177,10 @@ func main() {
 		}
 
 		dstLayerWriter.Done()
+		if dstLayerWriter.Error() != nil {
+			fmt.Println("Failed to finalize layer writing to destination Pixi file.")
+			return
+		}
 
 		offset, err := dstFile.Seek(0, io.SeekCurrent)
 		if err != nil {
@@ -194,11 +198,6 @@ func main() {
 		err = mergedLayer.WriteHeader(dstFile, dstPixi)
 		if err != nil {
 			fmt.Println("Failed to write layer header to destination Pixi file.")
-			return
-		}
-
-		if dstLayerWriter.Error() != nil {
-			fmt.Println("Failed to finalize layer writing to destination Pixi file.")
 			return
 		}
 	}

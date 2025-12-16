@@ -102,6 +102,11 @@ func (s *MemoryLayer) SetSampleAt(coord SampleCoordinate, values Sample) error {
 		panic("pixi: values length does not match field count")
 	}
 
+	// Update Min/Max for all fields
+	for fieldIndex, value := range values {
+		s.layer.Fields[fieldIndex].UpdateMinMax(value)
+	}
+
 	tileSelector := coord.ToTileSelector(s.layer.Dimensions)
 	raw := make([]byte, s.layer.Fields.Size())
 	fieldOffset := 0
@@ -145,6 +150,9 @@ func (s *MemoryLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, value a
 	if fieldIndex < 0 || fieldIndex >= len(s.layer.Fields) {
 		panic("pixi: field index out of range")
 	}
+
+	// Update Min/Max for the field
+	s.layer.Fields[fieldIndex].UpdateMinMax(value)
 
 	tileSelector := coord.ToTileSelector(s.layer.Dimensions)
 	field := s.layer.Fields[fieldIndex]

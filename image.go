@@ -55,27 +55,12 @@ func PixiFromImage(w io.WriteSeeker, img image.Image, options FromImageOptions) 
 		return err
 	}
 
-	firstlayerOffset, err := w.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return err
-	}
-
-	// update offsets to different sections
-	err = header.OverwriteOffsets(w, firstlayerOffset, tagsOffset)
-	if err != nil {
-		return err
-	}
-
 	layer, err := ImageToLayer(img, "image", false, options.Compression, options.XTileSize, options.YTileSize)
 	if err != nil {
 		return err
 	}
 
-	err = layer.WriteHeader(w, header)
-	if err != nil {
-		return err
-	}
-
+	// write out all the tile data
 	writerIterator := NewTileOrderWriteIterator(w, header, layer)
 
 	for writerIterator.Next() {
@@ -116,7 +101,19 @@ func PixiFromImage(w io.WriteSeeker, img image.Image, options FromImageOptions) 
 
 	writerIterator.Done()
 
-	err = layer.OverwriteHeader(w, header, firstlayerOffset)
+	// write layer header after data so we have proper size of header (including max & min)
+	err = layer.WriteHeader(w, header)
+	if err != nil {
+		return err
+	}
+
+	firstlayerOffset, err := w.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return err
+	}
+
+	// update offsets to different sections
+	err = header.OverwriteOffsets(w, firstlayerOffset, tagsOffset)
 	if err != nil {
 		return err
 	}

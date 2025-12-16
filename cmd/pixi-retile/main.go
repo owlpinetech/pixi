@@ -103,20 +103,6 @@ func main() {
 		return
 	}
 
-	firstlayerOffset, err := dstFile.Seek(0, io.SeekCurrent)
-	if err != nil {
-		fmt.Println("Failed to seek in destination Pixi file.")
-		return
-	}
-
-	// update offsets to different sections
-	err = dstPixi.OverwriteOffsets(dstFile, firstlayerOffset, tagsOffset)
-	if err != nil {
-		fmt.Println("Failed to overwrite offsets in destination Pixi file.")
-		return
-	}
-
-	dstLayer.WriteHeader(dstFile, dstPixi)
 	dstIterator := pixi.NewTileOrderWriteIterator(dstFile, dstPixi, dstLayer)
 
 	for dstIterator.Next() {
@@ -132,6 +118,25 @@ func main() {
 	dstIterator.Done()
 	if dstIterator.Error() != nil {
 		fmt.Println("Failed to write destination Pixi file.")
+		return
+	}
+
+	firstlayerOffset, err := dstFile.Seek(0, io.SeekCurrent)
+	if err != nil {
+		fmt.Println("Failed to seek in destination Pixi file.")
+		return
+	}
+
+	// update offsets to different sections
+	err = dstPixi.OverwriteOffsets(dstFile, firstlayerOffset, tagsOffset)
+	if err != nil {
+		fmt.Println("Failed to overwrite offsets in destination Pixi file.")
+		return
+	}
+
+	err = dstLayer.WriteHeader(dstFile, dstPixi)
+	if err != nil {
+		fmt.Println("Failed to write layer header to destination Pixi file.")
 		return
 	}
 }

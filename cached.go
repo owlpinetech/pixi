@@ -302,6 +302,11 @@ func (s *WriteCachedLayer) SetSampleAt(coord SampleCoordinate, values Sample) er
 		panic("pixi: values length does not match field count")
 	}
 
+	// Update Min/Max for all fields
+	for fieldIndex, value := range values {
+		s.Layer().Fields[fieldIndex].UpdateMinMax(value)
+	}
+
 	tileSelector := coord.ToTileSelector(s.Layer().Dimensions)
 
 	if s.Layer().Separated {
@@ -344,6 +349,9 @@ func (s *WriteCachedLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, va
 	if fieldIndex < 0 || fieldIndex >= len(s.Layer().Fields) {
 		panic("pixi: field index out of range")
 	}
+
+	// Update Min/Max for the field
+	s.Layer().Fields[fieldIndex].UpdateMinMax(value)
 
 	tileSelector := coord.ToTileSelector(s.Layer().Dimensions)
 	field := s.Layer().Fields[fieldIndex]

@@ -14,6 +14,8 @@ import (
 type Field struct {
 	Name string    // A friendly name for this field, to help guide interpretation of the data.
 	Type FieldType // The type of data stored in each element of this field.
+	Min  any       // Optional minimum value for the range of data in this field. Must match Type if present.
+	Max  any       // Optional maximum value for the range of data in this field. Must match Type if present.
 }
 
 // Returns the size of a field in bytes.
@@ -38,18 +40,59 @@ func (f Field) ValueToBytes(val any, order binary.ByteOrder, raw []byte) {
 
 // Get the size in bytes of this dimension description as it is laid out and written to disk.
 func (d Field) HeaderSize(h *PixiHeader) int {
-	return 2 + len([]byte(d.Name)) + 4
+	size := 2 + len([]byte(d.Name)) + 4 // base size: name + field type
+
+	// Add size for optional Min value
+	if d.Min != nil {
+		size += d.Type.Base().Size()
+	}
+
+	// Add size for optional Max value
+	if d.Max != nil {
+		size += d.Type.Base().Size()
+	}
+
+	return size
 }
 
 // Writes the binary description of the field to the given stream, according to the specification
 // in the Pixi header h.
 func (d Field) Write(w io.Writer, h *PixiHeader) error {
-	// write the name, then size and tile size
+	// Set flags based on presence of Min/Max values
+	encodedType := d.Type.WithMin(d.Min != nil).WithMax(d.Max != nil)
+
+	// write the name, then the field type with flags
 	err := h.WriteFriendly(w, d.Name)
 	if err != nil {
 		return err
 	}
-	return h.Write(w, d.Type)
+
+	err = h.Write(w, encodedType)
+	if err != nil {
+		return err
+	}
+
+	// Write optional Min value
+	if d.Min != nil {
+		minBytes := make([]byte, d.Type.Base().Size())
+		d.Type.Base().ValueToBytes(d.Min, h.ByteOrder, minBytes)
+		_, err = w.Write(minBytes)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Write optional Max value
+	if d.Max != nil {
+		maxBytes := make([]byte, d.Type.Base().Size())
+		d.Type.Base().ValueToBytes(d.Max, h.ByteOrder, maxBytes)
+		_, err = w.Write(maxBytes)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Reads a description of the field from the given binary stream, according to the specification
@@ -60,11 +103,195 @@ func (d *Field) Read(r io.Reader, h *PixiHeader) error {
 		return err
 	}
 	d.Name = name
-	return h.Read(r, &d.Type)
+
+	var encodedType FieldType
+	err = h.Read(r, &encodedType)
+	if err != nil {
+		return err
+	}
+
+	// Extract base type and flags
+	d.Type = encodedType.Base()
+
+	// Read optional Min value
+	if encodedType.HasMin() {
+		minBytes := make([]byte, d.Type.Size())
+		_, err = r.Read(minBytes)
+		if err != nil {
+			return err
+		}
+		d.Min = d.Type.BytesToValue(minBytes, h.ByteOrder)
+	} else {
+		d.Min = nil
+	}
+
+	// Read optional Max value
+	if encodedType.HasMax() {
+		maxBytes := make([]byte, d.Type.Size())
+		_, err = r.Read(maxBytes)
+		if err != nil {
+			return err
+		}
+		d.Max = d.Type.BytesToValue(maxBytes, h.ByteOrder)
+	} else {
+		d.Max = nil
+	}
+
+	return nil
+}
+
+// Updates the field's Min and Max values based on a new value. Returns true if the field was modified.
+func (field *Field) UpdateMinMax(value any) bool {
+	changed := false
+
+	// Update Min if needed
+	if field.Min == nil || field.CompareValues(value, field.Min) < 0 {
+		field.Min = value
+		changed = true
+	}
+
+	// Update Max if needed
+	if field.Max == nil || field.CompareValues(value, field.Max) > 0 {
+		field.Max = value
+		changed = true
+	}
+
+	return changed
+}
+
+// Compares two values based on the field type. Returns -1 if a < b, 0 if a == b, 1 if a > b.
+func (field *Field) CompareValues(a, b any) int {
+	switch field.Type.Base() {
+	case FieldInt8:
+		va, vb := a.(int8), b.(int8)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldUint8:
+		va, vb := a.(uint8), b.(uint8)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldInt16:
+		va, vb := a.(int16), b.(int16)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldUint16:
+		va, vb := a.(uint16), b.(uint16)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldInt32:
+		va, vb := a.(int32), b.(int32)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldUint32:
+		va, vb := a.(uint32), b.(uint32)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldInt64:
+		va, vb := a.(int64), b.(int64)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldUint64:
+		va, vb := a.(uint64), b.(uint64)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldFloat8:
+		va, vb := float64(a.(float8.Float8)), float64(b.(float8.Float8))
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldFloat16:
+		va, vb := a.(float16.Float16).Float32(), b.(float16.Float16).Float32()
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldFloat32:
+		va, vb := a.(float32), b.(float32)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldFloat64:
+		va, vb := a.(float64), b.(float64)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldBool:
+		va, vb := a.(bool), b.(bool)
+		if !va && vb {
+			return -1
+		}
+		if va && !vb {
+			return 1
+		}
+		return 0
+	default:
+		return 0
+	}
 }
 
 // Describes the size and interpretation of a field.
 type FieldType uint32
+
+const (
+	fieldTypeBaseMask FieldType = 0x3FFFFFFF // Mask for the base field type (lower 30 bits)
+	fieldTypeMinFlag  FieldType = 0x40000000 // Flag for Min value presence (bit 30)
+	fieldTypeMaxFlag  FieldType = 0x80000000 // Flag for Max value presence (bit 31)
+)
 
 const (
 	FieldUnknown FieldType = 0  // Generally indicates an error.
@@ -83,9 +310,40 @@ const (
 	FieldBool    FieldType = 13 // A boolean value.
 )
 
+// Returns the base field type without the optional flags.
+func (f FieldType) Base() FieldType {
+	return f & fieldTypeBaseMask
+}
+
+// Returns whether the Min value flag is set.
+func (f FieldType) HasMin() bool {
+	return f&fieldTypeMinFlag != 0
+}
+
+// Returns whether the Max value flag is set.
+func (f FieldType) HasMax() bool {
+	return f&fieldTypeMaxFlag != 0
+}
+
+// Returns a new FieldType with the Min flag set or cleared.
+func (f FieldType) WithMin(hasMin bool) FieldType {
+	if hasMin {
+		return f | fieldTypeMinFlag
+	}
+	return f & ^fieldTypeMinFlag
+}
+
+// Returns a new FieldType with the Max flag set or cleared.
+func (f FieldType) WithMax(hasMax bool) FieldType {
+	if hasMax {
+		return f | fieldTypeMaxFlag
+	}
+	return f & ^fieldTypeMaxFlag
+}
+
 // This function returns the size of each element in a field in bytes.
 func (f FieldType) Size() int {
-	switch f {
+	switch f.Base() {
 	case FieldUnknown:
 		return 0
 	case FieldInt8:
@@ -120,7 +378,7 @@ func (f FieldType) Size() int {
 }
 
 func (f FieldType) String() string {
-	switch f {
+	switch f.Base() {
 	case FieldUnknown:
 		return "unknown"
 	case FieldInt8:
@@ -159,7 +417,7 @@ func (f FieldType) String() string {
 // for reading values. This ensures that the correct data is read and converted into the
 // expected format.
 func (f FieldType) BytesToValue(raw []byte, o binary.ByteOrder) any {
-	switch f {
+	switch f.Base() {
 	case FieldUnknown:
 		panic("pixi: tried to read field with unknown size")
 	case FieldInt8:
@@ -196,7 +454,7 @@ func (f FieldType) BytesToValue(raw []byte, o binary.ByteOrder) any {
 // Writes the given value, assumed to correspond to the FieldType, into it's raw representation
 // in bytes according to the byte order specified.
 func (f FieldType) ValueToBytes(val any, o binary.ByteOrder, bytes []byte) {
-	switch f {
+	switch f.Base() {
 	case FieldUnknown:
 		panic("pixi: tried to write field with unknown size")
 	case FieldInt8:

@@ -284,6 +284,9 @@ func (t *TileOrderWriteIterator) SetField(fieldIndex int, value any) {
 		return
 	}
 
+	// Update Min/Max for the field
+	t.layer.Fields[fieldIndex].UpdateMinMax(value)
+
 	if t.layer.Separated {
 		tileData := t.tiles[fieldIndex]
 		if t.layer.Fields[fieldIndex].Type == FieldBool {
@@ -303,6 +306,11 @@ func (t *TileOrderWriteIterator) SetField(fieldIndex int, value any) {
 func (t *TileOrderWriteIterator) SetSample(value Sample) {
 	if t.Error() != nil {
 		return
+	}
+
+	// Update Min/Max for all fields in the sample
+	for fieldIndex, fieldValue := range value {
+		t.layer.Fields[fieldIndex].UpdateMinMax(fieldValue)
 	}
 
 	if t.layer.Separated {

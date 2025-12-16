@@ -141,19 +141,6 @@ func main() {
 	previousOffset := dstPixi.FirstLayerOffset
 	var previousLayer *pixi.Layer
 	for layerIndex, layerReaders := range srcReaders {
-		offset, err := dstFile.Seek(0, io.SeekCurrent)
-		if err != nil {
-			fmt.Println("Failed to seek in destination Pixi file.")
-			return
-		}
-		if previousLayer != nil {
-			previousLayer.NextLayerStart = offset
-			previousLayer.OverwriteHeader(dstFile, dstPixi, previousOffset)
-		} else {
-			dstPixi.OverwriteOffsets(dstFile, offset, int64(dstPixi.DiskSize()))
-		}
-		previousOffset = offset
-
 		mergedLayer := pixi.NewLayer(
 			strings.Join(layerNames[layerIndex], "+"),
 			targetSeparated[layerIndex],
@@ -163,7 +150,6 @@ func main() {
 		)
 		previousLayer = mergedLayer
 
-		mergedLayer.WriteHeader(dstFile, dstPixi)
 		dstLayerWriter := pixi.NewTileOrderWriteIterator(dstFile, dstPixi, mergedLayer)
 
 		for dstLayerWriter.Next() {
@@ -192,9 +178,22 @@ func main() {
 
 		dstLayerWriter.Done()
 
-		err = mergedLayer.OverwriteHeader(dstFile, dstPixi, offset)
+		offset, err := dstFile.Seek(0, io.SeekCurrent)
 		if err != nil {
-			fmt.Println("Failed to finalize layer header in destination Pixi file.")
+			fmt.Println("Failed to seek in destination Pixi file.")
+			return
+		}
+		if previousLayer != nil {
+			previousLayer.NextLayerStart = offset
+			previousLayer.OverwriteHeader(dstFile, dstPixi, previousOffset)
+		} else {
+			dstPixi.OverwriteOffsets(dstFile, offset, int64(dstPixi.DiskSize()))
+		}
+		previousOffset = offset
+
+		err = mergedLayer.WriteHeader(dstFile, dstPixi)
+		if err != nil {
+			fmt.Println("Failed to write layer header to destination Pixi file.")
 			return
 		}
 

@@ -79,6 +79,18 @@ func main() {
 			return
 		}
 
+		dstIterator := pixi.NewTileOrderWriteIterator(dstFile, dstPixi, dstLayer)
+
+		for dstIterator.Next() {
+			coord := dstIterator.Coordinate()
+			pixel, err := srcData.SampleAt(coord)
+			if err != nil {
+				fmt.Println("Failed to read sample from source Pixi file.")
+				return
+			}
+			dstIterator.SetSample(pixel)
+		}
+
 		firstlayerOffset, err := dstFile.Seek(0, io.SeekCurrent)
 		if err != nil {
 			fmt.Println("Failed to seek in destination Pixi file.")
@@ -92,17 +104,10 @@ func main() {
 			return
 		}
 
-		dstLayer.WriteHeader(dstFile, dstPixi)
-		dstIterator := pixi.NewTileOrderWriteIterator(dstFile, dstPixi, dstLayer)
-
-		for dstIterator.Next() {
-			coord := dstIterator.Coordinate()
-			pixel, err := srcData.SampleAt(coord)
-			if err != nil {
-				fmt.Println("Failed to read sample from source Pixi file.")
-				return
-			}
-			dstIterator.SetSample(pixel)
+		err = dstLayer.WriteHeader(dstFile, dstPixi)
+		if err != nil {
+			fmt.Println("Failed to write layer header to destination Pixi file.")
+			return
 		}
 
 		dstIterator.Done()

@@ -6,7 +6,10 @@ import (
 	"io"
 	"math"
 
+	"github.com/chenxingqiang/go-floatx"
 	"github.com/kshard/float8"
+	"github.com/shogo82148/float128"
+	"github.com/shogo82148/int128"
 	"github.com/x448/float16"
 )
 
@@ -254,6 +257,19 @@ func (field *Field) CompareValues(a, b any) int {
 			return 1
 		}
 		return 0
+	case FieldInt128:
+		va, vb := a.(int128.Int128), b.(int128.Int128)
+		return va.Cmp(vb)
+	case FieldUint128:
+		va, vb := a.(int128.Uint128), b.(int128.Uint128)
+		return va.Cmp(vb)
+	case FieldFloat128:
+		va, vb := a.(float128.Float128), b.(float128.Float128)
+		return va.Compare(vb)
+	case FieldBFloat16:
+		va, vb := a.(floatx.BFloat16), b.(floatx.BFloat16)
+		vaf, vbf := va.Float32(), vb.Float32()
+		return cmp.Compare(vaf, vbf)
 	default:
 		return 0
 	}
@@ -269,20 +285,24 @@ const (
 )
 
 const (
-	FieldUnknown FieldType = 0  // Generally indicates an error.
-	FieldInt8    FieldType = 1  // An 8-bit signed integer.
-	FieldUint8   FieldType = 2  // An 8-bit unsigned integer.
-	FieldInt16   FieldType = 3  // A 16-bit signed integer.
-	FieldUint16  FieldType = 4  // A 16-bit unsigned integer.
-	FieldInt32   FieldType = 5  // A 32-bit signed integer.
-	FieldUint32  FieldType = 6  // A 32-bit unsigned integer.
-	FieldInt64   FieldType = 7  // A 64-bit signed integer.
-	FieldUint64  FieldType = 8  // A 64-bit unsigned integer.
-	FieldFloat8  FieldType = 9  // An 8-bit floating point number.
-	FieldFloat16 FieldType = 10 // A 16-bit floating point number.
-	FieldFloat32 FieldType = 11 // A 32-bit floating point number.
-	FieldFloat64 FieldType = 12 // A 64-bit floating point number.
-	FieldBool    FieldType = 13 // A boolean value.
+	FieldUnknown  FieldType = 0  // Generally indicates an error.
+	FieldInt8     FieldType = 1  // An 8-bit signed integer.
+	FieldUint8    FieldType = 2  // An 8-bit unsigned integer.
+	FieldInt16    FieldType = 3  // A 16-bit signed integer.
+	FieldUint16   FieldType = 4  // A 16-bit unsigned integer.
+	FieldInt32    FieldType = 5  // A 32-bit signed integer.
+	FieldUint32   FieldType = 6  // A 32-bit unsigned integer.
+	FieldInt64    FieldType = 7  // A 64-bit signed integer.
+	FieldUint64   FieldType = 8  // A 64-bit unsigned integer.
+	FieldFloat8   FieldType = 9  // An 8-bit floating point number.
+	FieldFloat16  FieldType = 10 // A 16-bit floating point number.
+	FieldFloat32  FieldType = 11 // A 32-bit floating point number.
+	FieldFloat64  FieldType = 12 // A 64-bit floating point number.
+	FieldBool     FieldType = 13 // A boolean value.
+	FieldInt128   FieldType = 14 // A 128-bit signed integer using github.com/shogo82148/int128.
+	FieldUint128  FieldType = 15 // A 128-bit unsigned integer using github.com/shogo82148/int128.
+	FieldFloat128 FieldType = 16 // A 128-bit floating point number using github.com/shogo82148/float128.
+	FieldBFloat16 FieldType = 17 // A 16-bit brain floating point number.
 )
 
 // Returns the base field type without the optional flags.
@@ -347,6 +367,14 @@ func (f FieldType) Size() int {
 		return 8
 	case FieldBool:
 		return 1
+	case FieldInt128:
+		return 16
+	case FieldUint128:
+		return 16
+	case FieldFloat128:
+		return 16
+	case FieldBFloat16:
+		return 2
 	default:
 		panic("pixi: unsupported field type")
 	}
@@ -382,6 +410,14 @@ func (f FieldType) String() string {
 		return "float64"
 	case FieldBool:
 		return "bool"
+	case FieldInt128:
+		return "int128"
+	case FieldUint128:
+		return "uint128"
+	case FieldFloat128:
+		return "float128"
+	case FieldBFloat16:
+		return "bfloat16"
 	default:
 		panic("pixi: unsupported field type")
 	}
@@ -421,6 +457,46 @@ func (f FieldType) BytesToValue(raw []byte, o binary.ByteOrder) any {
 		return math.Float64frombits(o.Uint64(raw))
 	case FieldBool:
 		return raw[0] != 0
+	case FieldInt128:
+		// Read 128-bit signed integer from bytes
+		var h int64
+		var l uint64
+		if o == binary.BigEndian {
+			h = int64(o.Uint64(raw[0:8]))
+			l = o.Uint64(raw[8:16])
+		} else {
+			l = o.Uint64(raw[0:8])
+			h = int64(o.Uint64(raw[8:16]))
+		}
+		return int128.Int128{H: h, L: l}
+	case FieldUint128:
+		// Read 128-bit unsigned integer from bytes
+		var h uint64
+		var l uint64
+		if o == binary.BigEndian {
+			h = o.Uint64(raw[0:8])
+			l = o.Uint64(raw[8:16])
+		} else {
+			l = o.Uint64(raw[0:8])
+			h = o.Uint64(raw[8:16])
+		}
+		return int128.Uint128{H: h, L: l}
+	case FieldFloat128:
+		// Read 128-bit floating point from bytes using float128 library
+		var h uint64
+		var l uint64
+		if o == binary.BigEndian {
+			h = o.Uint64(raw[0:8])
+			l = o.Uint64(raw[8:16])
+		} else {
+			l = o.Uint64(raw[0:8])
+			h = o.Uint64(raw[8:16])
+		}
+		return float128.FromBits(h, l)
+	case FieldBFloat16:
+		// Read BFloat16 from bytes
+		bits := o.Uint16(raw)
+		return floatx.BF16Frombits(bits)
 	default:
 		panic("pixi: tried to read unsupported field type")
 	}
@@ -462,6 +538,41 @@ func (f FieldType) ValueToBytes(val any, o binary.ByteOrder, bytes []byte) {
 		} else {
 			bytes[0] = 0
 		}
+	case FieldInt128:
+		// Write 128-bit signed integer to bytes
+		val128 := val.(int128.Int128)
+		if o == binary.BigEndian {
+			o.PutUint64(bytes[0:8], uint64(val128.H))
+			o.PutUint64(bytes[8:16], val128.L)
+		} else {
+			o.PutUint64(bytes[0:8], val128.L)
+			o.PutUint64(bytes[8:16], uint64(val128.H))
+		}
+	case FieldUint128:
+		// Write 128-bit unsigned integer to bytes
+		val128 := val.(int128.Uint128)
+		if o == binary.BigEndian {
+			o.PutUint64(bytes[0:8], val128.H)
+			o.PutUint64(bytes[8:16], val128.L)
+		} else {
+			o.PutUint64(bytes[0:8], val128.L)
+			o.PutUint64(bytes[8:16], val128.H)
+		}
+	case FieldFloat128:
+		// Write 128-bit floating point to bytes
+		val128 := val.(float128.Float128)
+		h, l := val128.Bits()
+		if o == binary.BigEndian {
+			o.PutUint64(bytes[0:8], h)
+			o.PutUint64(bytes[8:16], l)
+		} else {
+			o.PutUint64(bytes[0:8], l)
+			o.PutUint64(bytes[8:16], h)
+		}
+	case FieldBFloat16:
+		// Write BFloat16 to bytes
+		bf16 := val.(floatx.BFloat16)
+		o.PutUint16(bytes, uint16(bf16))
 	default:
 		panic("pixi: tried to write unsupported field type")
 	}

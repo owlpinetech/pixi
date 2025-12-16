@@ -299,9 +299,9 @@ const (
 	FieldFloat32  FieldType = 11 // A 32-bit floating point number.
 	FieldFloat64  FieldType = 12 // A 64-bit floating point number.
 	FieldBool     FieldType = 13 // A boolean value.
-	FieldInt128   FieldType = 14 // A 128-bit signed integer using math/big.
-	FieldUint128  FieldType = 15 // A 128-bit unsigned integer using math/big.
-	FieldFloat128 FieldType = 16 // A 128-bit floating point number using math/big.
+	FieldInt128   FieldType = 14 // A 128-bit signed integer using github.com/shogo82148/int128.
+	FieldUint128  FieldType = 15 // A 128-bit unsigned integer using github.com/shogo82148/int128.
+	FieldFloat128 FieldType = 16 // A 128-bit floating point number using github.com/shogo82148/float128.
 	FieldBFloat16 FieldType = 17 // A 16-bit brain floating point number.
 )
 

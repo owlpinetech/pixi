@@ -5,6 +5,8 @@ import (
 	"image"
 	"image/color"
 	"io"
+
+	"github.com/gracefulearth/go-colorext"
 )
 
 type FromImageOptions struct {
@@ -42,6 +44,8 @@ func PixiFromImage(w io.WriteSeeker, img image.Image, options FromImageOptions) 
 		options.Tags["color-model"] = "gray"
 	case color.Gray16Model:
 		options.Tags["color-model"] = "gray16"
+	case colorext.GrayS16Model:
+		options.Tags["color-model"] = "grays16"
 	}
 
 	// write out the tags, 0 for next start means no further sections
@@ -94,18 +98,15 @@ func PixiFromImage(w io.WriteSeeker, img image.Image, options FromImageOptions) 
 		case color.Gray16Model:
 			col := pixel.(color.Gray16)
 			writerIterator.SetSample([]any{col.Y})
+		case colorext.GrayS16Model:
+			col := pixel.(colorext.GrayS16)
+			writerIterator.SetSample([]any{col.Y})
 		default:
 			panic("unsupported color model")
 		}
 	}
 
 	writerIterator.Done()
-
-	// write layer header after data so we have proper size of header (including max & min)
-	err = layer.WriteHeader(w, header)
-	if err != nil {
-		return err
-	}
 
 	firstlayerOffset, err := w.Seek(0, io.SeekCurrent)
 	if err != nil {
@@ -114,6 +115,12 @@ func PixiFromImage(w io.WriteSeeker, img image.Image, options FromImageOptions) 
 
 	// update offsets to different sections
 	err = header.OverwriteOffsets(w, firstlayerOffset, tagsOffset)
+	if err != nil {
+		return err
+	}
+
+	// write layer header after data so we have proper size of header (including max & min)
+	err = layer.WriteHeader(w, header)
 	if err != nil {
 		return err
 	}
@@ -180,6 +187,10 @@ func ImageToLayer(img image.Image, layerName string, separated bool, compression
 		fields = FieldSet{
 			{Name: "Y", Type: FieldUint16},
 		}
+	case colorext.GrayS16Model:
+		fields = FieldSet{
+			{Name: "Y", Type: FieldInt16},
+		}
 	default:
 		return nil, ErrUnsupported("color model of the image not yet supported for conversion to Pixi")
 	}
@@ -234,6 +245,9 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 		nrgbaImg := image.NewNRGBA(image.Rect(0, 0, width, height))
 		for iterator.Next() {
 			coord := iterator.Coordinate()
+			if !layer.Dimensions.ContainsCoordinate(coord) {
+				continue
+			}
 			sample := iterator.Sample()
 			nrgbaImg.Set(coord[0], coord[1],
 				color.NRGBA{sample[rIndex].(uint8), sample[gIndex].(uint8), sample[bIndex].(uint8), sample[aIndex].(uint8)})
@@ -256,6 +270,9 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 		}
 		for iterator.Next() {
 			coord := iterator.Coordinate()
+			if !layer.Dimensions.ContainsCoordinate(coord) {
+				continue
+			}
 			sample := iterator.Sample()
 			nrgba64Img.Set(coord[0], coord[1],
 				color.NRGBA64{sample[rIndex].(uint16), sample[gIndex].(uint16), sample[bIndex].(uint16), sample[aIndex].(uint16)})
@@ -278,6 +295,9 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 		}
 		for iterator.Next() {
 			coord := iterator.Coordinate()
+			if !layer.Dimensions.ContainsCoordinate(coord) {
+				continue
+			}
 			sample := iterator.Sample()
 			rgbaImg.Set(coord[0], coord[1],
 				color.RGBA{sample[0].(uint8), sample[1].(uint8), sample[2].(uint8), sample[3].(uint8)})
@@ -300,6 +320,9 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 		}
 		for iterator.Next() {
 			coord := iterator.Coordinate()
+			if !layer.Dimensions.ContainsCoordinate(coord) {
+				continue
+			}
 			sample := iterator.Sample()
 			rgba64Img.Set(coord[0], coord[1],
 				color.NRGBA64{sample[rIndex].(uint16), sample[bIndex].(uint16), sample[gIndex].(uint16), sample[aIndex].(uint16)})
@@ -322,6 +345,9 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 		}
 		for iterator.Next() {
 			coord := iterator.Coordinate()
+			if !layer.Dimensions.ContainsCoordinate(coord) {
+				continue
+			}
 			sample := iterator.Sample()
 			cmykImg.Set(coord[0], coord[1],
 				color.CMYK{sample[cIndex].(uint8), sample[mIndex].(uint8), sample[yIndex].(uint8), sample[kIndex].(uint8)})
@@ -343,6 +369,9 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 		}
 		for iterator.Next() {
 			coord := iterator.Coordinate()
+			if !layer.Dimensions.ContainsCoordinate(coord) {
+				continue
+			}
 			sample := iterator.Sample()
 			yOff := ycbcrImg.YOffset(coord[0], coord[1])
 			cOff := ycbcrImg.COffset(coord[0], coord[1])
@@ -368,6 +397,9 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 		}
 		for iterator.Next() {
 			coord := iterator.Coordinate()
+			if !layer.Dimensions.ContainsCoordinate(coord) {
+				continue
+			}
 			sample := iterator.Sample()
 			yOff := nycbcraImg.YOffset(coord[0], coord[1])
 			cOff := nycbcraImg.COffset(coord[0], coord[1])
@@ -391,6 +423,9 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 		}
 		for iterator.Next() {
 			coord := iterator.Coordinate()
+			if !layer.Dimensions.ContainsCoordinate(coord) {
+				continue
+			}
 			sample := iterator.Sample()
 			grayImg.Set(coord[0], coord[1], color.Gray{sample[yIndex].(uint8)})
 		}
@@ -409,6 +444,9 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 		}
 		for iterator.Next() {
 			coord := iterator.Coordinate()
+			if !layer.Dimensions.ContainsCoordinate(coord) {
+				continue
+			}
 			sample := iterator.Sample()
 			gray16Img.Set(coord[0], coord[1], color.Gray16{sample[yIndex].(uint16)})
 		}
@@ -416,6 +454,27 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			return nil, iterator.Error()
 		}
 		return gray16Img, nil
+	case "grays16":
+		if len(layer.Fields) < 1 {
+			return nil, ErrUnsupported("layer does not have enough fields for GrayS16 color model")
+		}
+		grayS16Img := colorext.NewGrayS16Image(image.Rect(0, 0, width, height))
+		yIndex := layer.Fields.Index("Y")
+		if yIndex == -1 {
+			yIndex = 0
+		}
+		for iterator.Next() {
+			coord := iterator.Coordinate()
+			if !layer.Dimensions.ContainsCoordinate(coord) {
+				continue
+			}
+			sample := iterator.Sample()
+			grayS16Img.Set(coord[0], coord[1], colorext.GrayS16{Y: sample[yIndex].(int16)})
+		}
+		if iterator.Error() != nil {
+			return nil, iterator.Error()
+		}
+		return grayS16Img, nil
 	default:
 		return nil, ErrUnsupported("color model of the layer not yet supported for conversion to Pixi")
 	}

@@ -12,6 +12,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/gracefulearth/image/bmp"
+	"github.com/gracefulearth/image/tiff"
 	"github.com/owlpinetech/pixi"
 )
 
@@ -110,6 +112,13 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int) error {
 	}
 
 	switch strings.ToLower(path.Ext(srcFile)) {
+	case ".bmp":
+		img, err := bmp.Decode(srcStream)
+		if err != nil {
+			return err
+		}
+		return pixi.PixiFromImage(pixiFile, img, options)
+
 	case ".png":
 		img, err := png.Decode(srcStream)
 		if err != nil {
@@ -121,6 +130,15 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int) error {
 		fallthrough
 	case ".jpeg":
 		img, err := jpeg.Decode(srcStream)
+		if err != nil {
+			return err
+		}
+		return pixi.PixiFromImage(pixiFile, img, options)
+
+	case ".tif":
+		fallthrough
+	case ".tiff":
+		img, err := tiff.Decode(srcStream)
 		if err != nil {
 			return err
 		}
@@ -154,6 +172,11 @@ func pixiToOther(srcFile string, dstFile string) error {
 	}
 
 	switch strings.ToLower(path.Ext(dstFile)) {
+	case ".bmp":
+		err = bmp.Encode(imgFile, img)
+		if err != nil {
+			return err
+		}
 	case ".png":
 		err = png.Encode(imgFile, img)
 		if err != nil {
@@ -163,6 +186,13 @@ func pixiToOther(srcFile string, dstFile string) error {
 		fallthrough
 	case ".jpeg":
 		err = jpeg.Encode(imgFile, img, nil)
+		if err != nil {
+			return err
+		}
+	case ".tif":
+		fallthrough
+	case ".tiff":
+		err = tiff.Encode(imgFile, img, nil)
 		if err != nil {
 			return err
 		}

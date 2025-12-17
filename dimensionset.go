@@ -109,6 +109,18 @@ func (set DimensionSet) TileCoordinates() iter.Seq[TileCoordinate] {
 	}
 }
 
+func (set DimensionSet) ContainsCoordinate(coord SampleCoordinate) bool {
+	if len(coord) != len(set) {
+		return false
+	}
+	for i, dimCoord := range coord {
+		if dimCoord < 0 || dimCoord >= set[i].Size {
+			return false
+		}
+	}
+	return true
+}
+
 func (set DimensionSet) String() string {
 	str := "DimensionSet{"
 	for i, dim := range set {

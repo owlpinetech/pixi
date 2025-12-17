@@ -2,6 +2,12 @@ github.com/chenxingqiang/go-floatx v0.0.0-20240103165049-2f5e300cb3c3 h1:2m11dpw
 github.com/chenxingqiang/go-floatx v0.0.0-20240103165049-2f5e300cb3c3/go.mod h1:7v935pWqAb/hfUDQyVXq8eXUoXWa7Mub1xEuRbtTFWE=
 github.com/chewxy/math32 v1.10.1 h1:LFpeY0SLJXeaiej/eIp2L40VYfscTvKh/FSEZ68uMkU=
 github.com/chewxy/math32 v1.10.1/go.mod h1:dOB2rcuFrCn6UHrze36WSLVPKtzPMRAQvBvUwkSsLqs=
+github.com/gracefulearth/go-colorext v0.0.0-20251216211757-b64b7ec8ef8e h1:vs7D1wdEde5F4iQBXAx5DRm2sHA3g1ko3ZtBYm8PK7E=
+github.com/gracefulearth/go-colorext v0.0.0-20251216211757-b64b7ec8ef8e/go.mod h1:VI2YVW3vtjOqpvV1yr0d3vPD/G5u41M8PCczW4uPQ94=
+github.com/gracefulearth/image v0.0.0-20251216201806-fdd4c143d421 h1:tlb25J7scJYdLfqHjIlTGEHh6R7HvKjvPc2r4hn0kvA=
+github.com/gracefulearth/image v0.0.0-20251216201806-fdd4c143d421/go.mod h1:PcowmjLOQDj3RpKArZlQc3wbGmrtsmNA9q5ZlRUJBH8=
+github.com/gracefulearth/image v0.0.0-20251216234636-b99e27345f8c h1:Fx/Km/p6ULngnOnESitJ5lbI/eN2SeCyE7/6QfpTSN0=
+github.com/gracefulearth/image v0.0.0-20251216234636-b99e27345f8c/go.mod h1:NxHn3k2UVCCIlW+ifk6gQV+O/SW1upuPui7POx5Nt64=
 github.com/kshard/float8 v0.0.3 h1:wMmj/dbbwA8aKo+gZ8SS6MhjuXS9+yXYMlaJZfm77l0=
 github.com/kshard/float8 v0.0.3/go.mod h1:PnQWQ36EkMym5ulAnfCcpgOzbMeyyq90xsCcosTHJ5E=
 github.com/shogo82148/float128 v0.3.0 h1:uo4rzg648u/HOg33qw09JMdoB0i0uE1UogVwaFNLKI4=

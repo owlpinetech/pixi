@@ -47,7 +47,7 @@ func TestMemorySampleFieldConcurrent(t *testing.T) {
 		testIndex := SampleIndex(rand.IntN(layer.Dimensions.Samples()))
 		testTile := testIndex.ToSampleCoordinate(layer.Dimensions).ToTileSelector(layer.Dimensions)
 		testCoords[i] = testIndex.ToSampleCoordinate(layer.Dimensions)
-		testExpect[i] = layer.Fields[1].BytesToValue(rawTiles[testTile.Tile][testTile.InTile*layer.Fields.Size()+layer.Fields[0].Size():], header.ByteOrder)
+		testExpect[i] = layer.Fields[1].Value(rawTiles[testTile.Tile][testTile.InTile*layer.Fields.Size()+layer.Fields[0].Size():], header.ByteOrder)
 	}
 
 	var wg sync.WaitGroup

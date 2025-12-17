@@ -14,7 +14,7 @@ import (
 	"github.com/x448/float16"
 )
 
-func TestFieldType_ValueFromBytes(t *testing.T) {
+func TestFieldType_Value(t *testing.T) {
 	tests := []struct {
 		name      string
 		fieldType FieldType
@@ -34,7 +34,7 @@ func TestFieldType_ValueFromBytes(t *testing.T) {
 		{"Float64", FieldFloat64, float64(3.14159)},
 		{"Bool_true", FieldBool, true},
 		{"Bool_false", FieldBool, false},
-		{"Int128", FieldInt128, int128.Int128{H: -1, L: ^uint64(123456789012345-1)}},
+		{"Int128", FieldInt128, int128.Int128{H: -1, L: ^uint64(123456789012345 - 1)}},
 		{"Uint128", FieldUint128, int128.Uint128{H: 0, L: 123456789012345}},
 		{"Float128", FieldFloat128, float128.FromFloat64(-123.456)},
 		{"BFloat16", FieldBFloat16, floatx.BF16Fromfloat32(1.5)},
@@ -121,7 +121,7 @@ func TestFieldType_ValueFromBytes(t *testing.T) {
 				binary.Write(buf, binary.BigEndian, uint16(bf16))
 				raw = buf.Bytes()
 			}
-			val := tt.fieldType.BytesToValue(raw, binary.BigEndian)
+			val := tt.fieldType.Value(raw, binary.BigEndian)
 			if !reflect.DeepEqual(val, tt.value) {
 				t.Errorf("Read() = %+v, want %+v", val, tt.value)
 			}
@@ -129,7 +129,7 @@ func TestFieldType_ValueFromBytes(t *testing.T) {
 	}
 }
 
-func TestFieldType_WriteValue(t *testing.T) {
+func TestFieldType_PutValue(t *testing.T) {
 	tests := []struct {
 		fieldType    FieldType
 		writeData    []byte
@@ -149,7 +149,7 @@ func TestFieldType_WriteValue(t *testing.T) {
 		{FieldFloat64, []byte{0xbf, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, float64(-1.0)},
 		{FieldBool, []byte{0x01}, true},
 		{FieldBool, []byte{0x00}, false},
-		{FieldInt128, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfb, 0x2e}, int128.Int128{H: -1, L: ^uint64(1234-1)}},
+		{FieldInt128, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfb, 0x2e}, int128.Int128{H: -1, L: ^uint64(1234 - 1)}},
 		{FieldUint128, []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xd2}, int128.Uint128{H: 0, L: 1234}},
 		{FieldFloat128, []byte{0x40, 0x09, 0x34, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, float128.FromFloat64(1234.0)},
 		{FieldBFloat16, []byte{0x3e, 0x00}, floatx.BF16Fromfloat32(1.5)},
@@ -157,7 +157,42 @@ func TestFieldType_WriteValue(t *testing.T) {
 
 	for i, test := range tests {
 		buf := make([]byte, test.fieldType.Size())
-		test.fieldType.ValueToBytes(test.readExpected, binary.BigEndian, buf)
+		test.fieldType.PutValue(test.readExpected, binary.BigEndian, buf)
+
+		written := buf
+		for b := range test.writeData {
+			if test.writeData[b] != written[b] {
+				t.Errorf("Test %d: unexpected write byte %d, expected %v, got %v", i+1, b, test.writeData[b], written[b])
+			}
+		}
+	}
+}
+
+func TestFieldType_AppendValue(t *testing.T) {
+	tests := []struct {
+		fieldType    FieldType
+		writeData    []byte
+		readExpected any
+	}{
+		{FieldInt8, []byte{0x7f}, int8(127)},
+		{FieldUint8, []byte{0xff}, uint8(255)},
+		{FieldInt16, []byte{0x7f, 0xff}, int16(32767)},
+		{FieldUint16, []byte{0xff, 0xff}, uint16(65535)},
+		{FieldInt32, []byte{0x7f, 0xff, 0xff, 0xff}, int32(2147483647)},
+		{FieldUint32, []byte{0xff, 0xff, 0xff, 0xff}, uint32(4294967295)},
+		{FieldInt64, []byte{0x7f, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, int64(9223372036854775807)},
+		{FieldUint64, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, uint64(18446744073709551615)},
+		{FieldFloat8, []byte{0x6f}, float8.ToFloat8(float32(127.0))},
+		{FieldFloat16, []byte{0x7b, 0xff}, float16.Fromfloat32(float32(65504.0))},
+		{FieldFloat32, []byte{0x7f, 0x7f, 0xff, 0xff}, float32(3.4028235e+38)},
+		{FieldFloat64, []byte{0x7f, 0xef, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, float64(1.7976931348623157e+308)},
+		{FieldBool, []byte{0x01}, true},
+		{FieldBool, []byte{0x00}, false},
+	}
+
+	for i, test := range tests {
+		buf := make([]byte, 0)
+		buf = test.fieldType.AppendValue(test.readExpected, binary.BigEndian, buf)
 
 		written := buf
 		for b := range test.writeData {
@@ -218,7 +253,7 @@ func TestFieldWithMinMaxWriteRead(t *testing.T) {
 		{Name: "bool_with_both", Type: FieldBool, Min: false, Max: true},
 		{Name: "int64_with_min", Type: FieldInt64, Min: int64(-9223372036854775808), Max: nil},
 		{Name: "float64_with_max", Type: FieldFloat64, Min: nil, Max: float64(3.141592653589793)},
-		{Name: "int128_with_both", Type: FieldInt128, Min: int128.Int128{H: -1, L: ^uint64(999999-1)}, Max: int128.Int128{H: 0, L: 999999}},
+		{Name: "int128_with_both", Type: FieldInt128, Min: int128.Int128{H: -1, L: ^uint64(999999 - 1)}, Max: int128.Int128{H: 0, L: 999999}},
 		{Name: "uint128_with_max", Type: FieldUint128, Min: nil, Max: int128.Uint128{H: 0, L: 999999}},
 		{Name: "float128_with_min", Type: FieldFloat128, Min: float128.FromFloat64(-123.456), Max: nil},
 		{Name: "bfloat16_with_both", Type: FieldBFloat16, Min: floatx.BF16Fromfloat32(-1.0), Max: floatx.BF16Fromfloat32(1.0)},

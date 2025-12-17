@@ -47,7 +47,7 @@ func (s *MemoryLayer) SampleAt(coord SampleCoordinate) (Sample, error) {
 				sample[fieldIndex] = UnpackBool(tileData, tileSelector.InTile)
 			} else {
 				fieldOffset := tileSelector.InTile * field.Size()
-				sample[fieldIndex] = field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder)
+				sample[fieldIndex] = field.Value(tileData[fieldOffset:], s.header.ByteOrder)
 			}
 		}
 	} else {
@@ -58,7 +58,7 @@ func (s *MemoryLayer) SampleAt(coord SampleCoordinate) (Sample, error) {
 			return nil, err
 		}
 		for i, field := range s.layer.Fields {
-			sample[i] = field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder)
+			sample[i] = field.Value(tileData[fieldOffset:], s.header.ByteOrder)
 			fieldOffset += field.Size()
 		}
 	}
@@ -82,7 +82,7 @@ func (s *MemoryLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, erro
 			return UnpackBool(tileData, tileSelector.InTile), nil
 		} else {
 			fieldOffset := tileSelector.InTile * field.Size()
-			return field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder), nil
+			return field.Value(tileData[fieldOffset:], s.header.ByteOrder), nil
 		}
 	} else {
 		tileData, err := s.loadTile(tileSelector.Tile)
@@ -93,7 +93,7 @@ func (s *MemoryLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, erro
 		for _, field := range s.layer.Fields[:fieldIndex] {
 			fieldOffset += field.Size()
 		}
-		return field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder), nil
+		return field.Value(tileData[fieldOffset:], s.header.ByteOrder), nil
 	}
 }
 
@@ -111,7 +111,7 @@ func (s *MemoryLayer) SetSampleAt(coord SampleCoordinate, values Sample) error {
 	raw := make([]byte, s.layer.Fields.Size())
 	fieldOffset := 0
 	for i, field := range s.layer.Fields {
-		field.ValueToBytes(values[i], s.header.ByteOrder, raw[fieldOffset:])
+		field.PutValue(values[i], s.header.ByteOrder, raw[fieldOffset:])
 		fieldOffset += field.Size()
 	}
 
@@ -127,7 +127,7 @@ func (s *MemoryLayer) SetSampleAt(coord SampleCoordinate, values Sample) error {
 				PackBool(values[fieldIndex].(bool), tileData, tileSelector.InTile)
 			} else {
 				fieldOffset := tileSelector.InTile * field.Size()
-				field.ValueToBytes(values[fieldIndex], s.header.ByteOrder, tileData[fieldOffset:])
+				field.PutValue(values[fieldIndex], s.header.ByteOrder, tileData[fieldOffset:])
 			}
 		}
 	} else {
@@ -138,7 +138,7 @@ func (s *MemoryLayer) SetSampleAt(coord SampleCoordinate, values Sample) error {
 			return err
 		}
 		for i, field := range s.layer.Fields {
-			field.ValueToBytes(values[i], s.header.ByteOrder, tileData[fieldOffset:])
+			field.PutValue(values[i], s.header.ByteOrder, tileData[fieldOffset:])
 			fieldOffset += field.Size()
 		}
 	}
@@ -158,7 +158,7 @@ func (s *MemoryLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, value a
 	field := s.layer.Fields[fieldIndex]
 
 	raw := make([]byte, field.Size())
-	field.ValueToBytes(value, s.header.ByteOrder, raw)
+	field.PutValue(value, s.header.ByteOrder, raw)
 
 	if s.layer.Separated {
 		fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
@@ -172,7 +172,7 @@ func (s *MemoryLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, value a
 			PackBool(value.(bool), tileData, tileSelector.InTile)
 		} else {
 			fieldOffset := tileSelector.InTile * field.Size()
-			field.ValueToBytes(value, s.header.ByteOrder, tileData[fieldOffset:])
+			field.PutValue(value, s.header.ByteOrder, tileData[fieldOffset:])
 		}
 	} else {
 		tileData, err := s.loadTile(tileSelector.Tile)
@@ -183,7 +183,7 @@ func (s *MemoryLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, value a
 		for _, field := range s.layer.Fields[:fieldIndex] {
 			fieldOffset += field.Size()
 		}
-		field.ValueToBytes(value, s.header.ByteOrder, tileData[fieldOffset:])
+		field.PutValue(value, s.header.ByteOrder, tileData[fieldOffset:])
 	}
 	return nil
 }

@@ -244,7 +244,7 @@ func (s *ReadCachedLayer) SampleAt(coord SampleCoordinate) (Sample, error) {
 				sample[fieldIndex] = UnpackBool(tileData, tileSelector.InTile)
 			} else {
 				fieldOffset := tileSelector.InTile * field.Size()
-				sample[fieldIndex] = field.BytesToValue(tileData[fieldOffset:], s.cache.Header().ByteOrder)
+				sample[fieldIndex] = field.Value(tileData[fieldOffset:], s.cache.Header().ByteOrder)
 			}
 		}
 	} else {
@@ -255,7 +255,7 @@ func (s *ReadCachedLayer) SampleAt(coord SampleCoordinate) (Sample, error) {
 			return nil, err
 		}
 		for i, field := range s.Layer().Fields {
-			sample[i] = field.BytesToValue(tileData[fieldOffset:], s.cache.Header().ByteOrder)
+			sample[i] = field.Value(tileData[fieldOffset:], s.cache.Header().ByteOrder)
 			fieldOffset += field.Size()
 		}
 	}
@@ -279,7 +279,7 @@ func (s *ReadCachedLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, 
 			return UnpackBool(tileData, tileSelector.InTile), nil
 		} else {
 			fieldOffset := tileSelector.InTile * field.Size()
-			return field.BytesToValue(tileData[fieldOffset:], s.cache.Header().ByteOrder), nil
+			return field.Value(tileData[fieldOffset:], s.cache.Header().ByteOrder), nil
 		}
 	} else {
 		tileData, err := s.cache.Get(tileSelector.Tile)
@@ -290,7 +290,7 @@ func (s *ReadCachedLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, 
 		for _, field := range s.Layer().Fields[:fieldIndex] {
 			fieldOffset += field.Size()
 		}
-		return field.BytesToValue(tileData[fieldOffset:], s.cache.Header().ByteOrder), nil
+		return field.Value(tileData[fieldOffset:], s.cache.Header().ByteOrder), nil
 	}
 }
 
@@ -321,7 +321,7 @@ func (s *WriteCachedLayer) SetSampleAt(coord SampleCoordinate, values Sample) er
 			} else {
 				fieldInTileOffset := tileSelector.InTile * field.Size()
 				raw := make([]byte, field.Size())
-				field.ValueToBytes(values[fieldIndex], s.cache.Header().ByteOrder, raw)
+				field.PutValue(values[fieldIndex], s.cache.Header().ByteOrder, raw)
 				err := s.cache.SetFragment(separatedTileIndex, fieldInTileOffset, raw)
 				if err != nil {
 					return err
@@ -333,7 +333,7 @@ func (s *WriteCachedLayer) SetSampleAt(coord SampleCoordinate, values Sample) er
 		raw := make([]byte, s.Layer().Fields.Size())
 		fieldOffset := 0
 		for i, field := range s.Layer().Fields {
-			field.ValueToBytes(values[i], s.cache.Header().ByteOrder, raw[fieldOffset:])
+			field.PutValue(values[i], s.cache.Header().ByteOrder, raw[fieldOffset:])
 			fieldOffset += field.Size()
 		}
 		return s.cache.SetFragment(tileSelector.Tile, fieldInTileOffset, raw)
@@ -364,7 +364,7 @@ func (s *WriteCachedLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, va
 		} else {
 			fieldInTileOffset := tileSelector.InTile * field.Size()
 			raw := make([]byte, field.Size())
-			field.ValueToBytes(value, s.cache.Header().ByteOrder, raw)
+			field.PutValue(value, s.cache.Header().ByteOrder, raw)
 			return s.cache.SetFragment(separatedTileIndex, fieldInTileOffset, raw)
 		}
 	} else {
@@ -373,7 +373,7 @@ func (s *WriteCachedLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, va
 			fieldTileOffset += field.Size()
 		}
 		raw := make([]byte, field.Size())
-		field.ValueToBytes(value, s.cache.Header().ByteOrder, raw)
+		field.PutValue(value, s.cache.Header().ByteOrder, raw)
 		return s.cache.SetFragment(tileSelector.Tile, fieldTileOffset, raw)
 	}
 }

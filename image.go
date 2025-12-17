@@ -300,7 +300,7 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			}
 			sample := iterator.Sample()
 			rgbaImg.Set(coord[0], coord[1],
-				color.RGBA{sample[0].(uint8), sample[1].(uint8), sample[2].(uint8), sample[3].(uint8)})
+				color.RGBA{sample[rIndex].(uint8), sample[gIndex].(uint8), sample[bIndex].(uint8), sample[aIndex].(uint8)})
 		}
 		if iterator.Error() != nil {
 			return nil, iterator.Error()
@@ -325,7 +325,7 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			}
 			sample := iterator.Sample()
 			rgba64Img.Set(coord[0], coord[1],
-				color.NRGBA64{sample[rIndex].(uint16), sample[bIndex].(uint16), sample[gIndex].(uint16), sample[aIndex].(uint16)})
+				color.RGBA64{sample[rIndex].(uint16), sample[gIndex].(uint16), sample[bIndex].(uint16), sample[aIndex].(uint16)})
 		}
 		if iterator.Error() != nil {
 			return nil, iterator.Error()

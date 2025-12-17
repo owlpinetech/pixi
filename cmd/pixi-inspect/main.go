@@ -50,10 +50,8 @@ func main() {
 			if field.Max != nil {
 				if field.Min != nil {
 					fmt.Printf("\t\t\tField %d (%s) : %s [min: %v, max: %v]\n", fieldInd, field.Name, field.Type, field.Min, field.Max)
-					continue
 				} else {
 					fmt.Printf("\t\t\tField %d (%s) : %s [max: %v]\n", fieldInd, field.Name, field.Type, field.Max)
-					continue
 				}
 			} else if field.Min != nil {
 				fmt.Printf("\t\t\tField %d (%s) : %s [min: %v]\n", fieldInd, field.Name, field.Type, field.Min)

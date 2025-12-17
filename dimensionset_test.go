@@ -37,3 +37,29 @@ func TestDimensionSetIndicesTileOrder(t *testing.T) {
 		tileInd++
 	}
 }
+
+func TestDimensionSetContainsCoordinate(t *testing.T) {
+	dims := DimensionSet{{"", 10, 5}, {"", 20, 10}}
+
+	tests := []struct {
+		coord    SampleCoordinate
+		expected bool
+	}{
+		{SampleCoordinate{0, 0}, true},
+		{SampleCoordinate{5, 10}, true},
+		{SampleCoordinate{9, 19}, true},
+		{SampleCoordinate{10, 0}, false},
+		{SampleCoordinate{0, 20}, false},
+		{SampleCoordinate{-1, 0}, false},
+		{SampleCoordinate{0, -1}, false},
+		{SampleCoordinate{5}, false},
+		{SampleCoordinate{5, 10, 15}, false},
+	}
+
+	for _, test := range tests {
+		result := dims.ContainsCoordinate(test.coord)
+		if result != test.expected {
+			t.Errorf("ContainsCoordinate(%v) = %v; expected %v", test.coord, result, test.expected)
+		}
+	}
+}

@@ -47,7 +47,17 @@ func main() {
 		}
 		fmt.Printf("\t\tFields: %d\n", len(layer.Fields))
 		for fieldInd, field := range layer.Fields {
-			fmt.Printf("\t\t\tField %d (%s) : %s\n", fieldInd, field.Name, field.Type)
+			if field.Max != nil {
+				if field.Min != nil {
+					fmt.Printf("\t\t\tField %d (%s) : %s [min: %v, max: %v]\n", fieldInd, field.Name, field.Type, field.Min, field.Max)
+				} else {
+					fmt.Printf("\t\t\tField %d (%s) : %s [max: %v]\n", fieldInd, field.Name, field.Type, field.Max)
+				}
+			} else if field.Min != nil {
+				fmt.Printf("\t\t\tField %d (%s) : %s [min: %v]\n", fieldInd, field.Name, field.Type, field.Min)
+			} else {
+				fmt.Printf("\t\t\tField %d (%s) : %s\n", fieldInd, field.Name, field.Type)
+			}
 		}
 	}
 

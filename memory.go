@@ -13,6 +13,9 @@ type MemoryLayer struct {
 	tiles   map[int][]byte
 }
 
+var _ TileAccessLayer = (*MemoryLayer)(nil)
+var _ TileModifierLayer = (*MemoryLayer)(nil)
+
 func NewMemoryLayer(backing io.ReadWriteSeeker, header *PixiHeader, layer *Layer) *MemoryLayer {
 	return &MemoryLayer{
 		header:  header,
@@ -30,165 +33,15 @@ func (s *MemoryLayer) Header() *PixiHeader {
 	return s.header
 }
 
-func (s *MemoryLayer) SampleAt(coord SampleCoordinate) (Sample, error) {
-	tileSelector := coord.ToTileSelector(s.layer.Dimensions)
-	sample := make([]any, len(s.layer.Fields))
-
-	if s.layer.Separated {
-		for fieldIndex, field := range s.layer.Fields {
-			fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
-
-			tileData, err := s.loadTile(fieldTile)
-			if err != nil {
-				return nil, err
-			}
-
-			if field.Type == FieldBool {
-				sample[fieldIndex] = UnpackBool(tileData, tileSelector.InTile)
-			} else {
-				fieldOffset := tileSelector.InTile * field.Size()
-				sample[fieldIndex] = field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder)
-			}
-		}
-	} else {
-		fieldOffset := tileSelector.InTile * s.layer.Fields.Size()
-
-		tileData, err := s.loadTile(tileSelector.Tile)
-		if err != nil {
-			return nil, err
-		}
-		for i, field := range s.layer.Fields {
-			sample[i] = field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder)
-			fieldOffset += field.Size()
-		}
-	}
-
-	return sample, nil
+func (s *MemoryLayer) Tile(tile int) ([]byte, error) {
+	return s.loadTile(tile)
 }
 
-func (s *MemoryLayer) FieldAt(coord SampleCoordinate, fieldIndex int) (any, error) {
-	tileSelector := coord.ToTileSelector(s.layer.Dimensions)
-	field := s.layer.Fields[fieldIndex]
-
-	if s.layer.Separated {
-		fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
-
-		tileData, err := s.loadTile(fieldTile)
-		if err != nil {
-			return nil, err
-		}
-
-		if field.Type == FieldBool {
-			return UnpackBool(tileData, tileSelector.InTile), nil
-		} else {
-			fieldOffset := tileSelector.InTile * field.Size()
-			return field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder), nil
-		}
-	} else {
-		tileData, err := s.loadTile(tileSelector.Tile)
-		if err != nil {
-			return nil, err
-		}
-		fieldOffset := tileSelector.InTile * s.layer.Fields.Size()
-		for _, field := range s.layer.Fields[:fieldIndex] {
-			fieldOffset += field.Size()
-		}
-		return field.BytesToValue(tileData[fieldOffset:], s.header.ByteOrder), nil
-	}
+func (s *MemoryLayer) SetDirty(tile int) {
+	// no-op for memory layer
 }
 
-func (s *MemoryLayer) SetSampleAt(coord SampleCoordinate, values Sample) error {
-	if len(values) != len(s.layer.Fields) {
-		panic("pixi: values length does not match field count")
-	}
-
-	// Update Min/Max for all fields
-	for fieldIndex, value := range values {
-		s.layer.Fields[fieldIndex].UpdateMinMax(value)
-	}
-
-	tileSelector := coord.ToTileSelector(s.layer.Dimensions)
-	raw := make([]byte, s.layer.Fields.Size())
-	fieldOffset := 0
-	for i, field := range s.layer.Fields {
-		field.ValueToBytes(values[i], s.header.ByteOrder, raw[fieldOffset:])
-		fieldOffset += field.Size()
-	}
-
-	if s.layer.Separated {
-		for fieldIndex, field := range s.layer.Fields {
-			fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
-
-			tileData, err := s.loadTile(fieldTile)
-			if err != nil {
-				return err
-			}
-			if field.Type == FieldBool {
-				PackBool(values[fieldIndex].(bool), tileData, tileSelector.InTile)
-			} else {
-				fieldOffset := tileSelector.InTile * field.Size()
-				field.ValueToBytes(values[fieldIndex], s.header.ByteOrder, tileData[fieldOffset:])
-			}
-		}
-	} else {
-		fieldOffset := tileSelector.InTile * s.layer.Fields.Size()
-
-		tileData, err := s.loadTile(tileSelector.Tile)
-		if err != nil {
-			return err
-		}
-		for i, field := range s.layer.Fields {
-			field.ValueToBytes(values[i], s.header.ByteOrder, tileData[fieldOffset:])
-			fieldOffset += field.Size()
-		}
-	}
-
-	return nil
-}
-
-func (s *MemoryLayer) SetFieldAt(coord SampleCoordinate, fieldIndex int, value any) error {
-	if fieldIndex < 0 || fieldIndex >= len(s.layer.Fields) {
-		panic("pixi: field index out of range")
-	}
-
-	// Update Min/Max for the field
-	s.layer.Fields[fieldIndex].UpdateMinMax(value)
-
-	tileSelector := coord.ToTileSelector(s.layer.Dimensions)
-	field := s.layer.Fields[fieldIndex]
-
-	raw := make([]byte, field.Size())
-	field.ValueToBytes(value, s.header.ByteOrder, raw)
-
-	if s.layer.Separated {
-		fieldTile := tileSelector.Tile + s.layer.Dimensions.Tiles()*fieldIndex
-
-		tileData, err := s.loadTile(fieldTile)
-		if err != nil {
-			return err
-		}
-
-		if field.Type == FieldBool {
-			PackBool(value.(bool), tileData, tileSelector.InTile)
-		} else {
-			fieldOffset := tileSelector.InTile * field.Size()
-			field.ValueToBytes(value, s.header.ByteOrder, tileData[fieldOffset:])
-		}
-	} else {
-		tileData, err := s.loadTile(tileSelector.Tile)
-		if err != nil {
-			return err
-		}
-		fieldOffset := tileSelector.InTile * s.layer.Fields.Size()
-		for _, field := range s.layer.Fields[:fieldIndex] {
-			fieldOffset += field.Size()
-		}
-		field.ValueToBytes(value, s.header.ByteOrder, tileData[fieldOffset:])
-	}
-	return nil
-}
-
-func (s *MemoryLayer) Flush() error {
+func (s *MemoryLayer) Commit() error {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 

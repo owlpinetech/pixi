@@ -11,6 +11,7 @@ import (
 
 type FromImageOptions struct {
 	Compression Compression
+	OffsetSize  OffsetSize
 	ByteOrder   binary.ByteOrder
 	XTileSize   int
 	YTileSize   int
@@ -18,7 +19,7 @@ type FromImageOptions struct {
 }
 
 func PixiFromImage(w io.WriteSeeker, img image.Image, options FromImageOptions) error {
-	header := &PixiHeader{Version: Version, OffsetSize: 4, ByteOrder: options.ByteOrder}
+	header := &PixiHeader{Version: Version, OffsetSize: options.OffsetSize, ByteOrder: options.ByteOrder}
 	// write the header first
 	err := header.WriteHeader(w)
 	if err != nil {

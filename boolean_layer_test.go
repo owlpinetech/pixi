@@ -66,13 +66,13 @@ func TestMemoryLayerBooleanFields(t *testing.T) {
 					sample := Sample{data.active, data.count, data.enabled}
 
 					// Set the sample
-					err := memLayer.SetSampleAt(coord, sample)
+					err := SetSampleAt(memLayer, coord, sample)
 					if err != nil {
 						t.Fatalf("SetSampleAt failed at coord %v: %v", coord, err)
 					}
 
 					// Read it back
-					readSample, err := memLayer.SampleAt(coord)
+					readSample, err := SampleAt(memLayer, coord)
 					if err != nil {
 						t.Fatalf("SampleAt failed at coord %v: %v", coord, err)
 					}
@@ -96,29 +96,29 @@ func TestMemoryLayerBooleanFields(t *testing.T) {
 					coord := SampleCoordinate{i}
 
 					// Set individual fields
-					err := memLayer.SetFieldAt(coord, 0, data.active)
+					err := SetFieldAt(memLayer, coord, 0, data.active)
 					if err != nil {
 						t.Fatalf("SetFieldAt(active) failed at coord %v: %v", coord, err)
 					}
-					err = memLayer.SetFieldAt(coord, 1, data.count)
+					err = SetFieldAt(memLayer, coord, 1, data.count)
 					if err != nil {
 						t.Fatalf("SetFieldAt(count) failed at coord %v: %v", coord, err)
 					}
-					err = memLayer.SetFieldAt(coord, 2, data.enabled)
+					err = SetFieldAt(memLayer, coord, 2, data.enabled)
 					if err != nil {
 						t.Fatalf("SetFieldAt(enabled) failed at coord %v: %v", coord, err)
 					}
 
 					// Read individual fields
-					activeVal, err := memLayer.FieldAt(coord, 0)
+					activeVal, err := FieldAt(memLayer, coord, 0)
 					if err != nil {
 						t.Fatalf("FieldAt(active) failed at coord %v: %v", coord, err)
 					}
-					countVal, err := memLayer.FieldAt(coord, 1)
+					countVal, err := FieldAt(memLayer, coord, 1)
 					if err != nil {
 						t.Fatalf("FieldAt(count) failed at coord %v: %v", coord, err)
 					}
-					enabledVal, err := memLayer.FieldAt(coord, 2)
+					enabledVal, err := FieldAt(memLayer, coord, 2)
 					if err != nil {
 						t.Fatalf("FieldAt(enabled) failed at coord %v: %v", coord, err)
 					}
@@ -188,7 +188,7 @@ func TestCachedLayerBooleanFields(t *testing.T) {
 
 			// Create cached layer
 			rdBuf := buffer.NewBufferFrom(wrtBuf.Bytes())
-			cache := NewCachedLayer(NewLayerFifoCache(rdBuf, header, layer, 100))
+			cache := NewFifoCacheLayer(rdBuf, header, layer, 100)
 
 			// Test SampleAt and SetSampleAt
 			t.Run("SampleAt_SetSampleAt", func(t *testing.T) {
@@ -197,13 +197,13 @@ func TestCachedLayerBooleanFields(t *testing.T) {
 					sample := Sample{data.visible, data.priority, data.active}
 
 					// Set the sample
-					err := cache.SetSampleAt(coord, sample)
+					err := SetSampleAt(cache, coord, sample)
 					if err != nil {
 						t.Fatalf("SetSampleAt failed at coord %v: %v", coord, err)
 					}
 
 					// Read it back
-					readSample, err := cache.SampleAt(coord)
+					readSample, err := SampleAt(cache, coord)
 					if err != nil {
 						t.Fatalf("SampleAt failed at coord %v: %v", coord, err)
 					}
@@ -227,29 +227,29 @@ func TestCachedLayerBooleanFields(t *testing.T) {
 					coord := SampleCoordinate{i}
 
 					// Set individual fields
-					err := cache.SetFieldAt(coord, 0, data.visible)
+					err := SetFieldAt(cache, coord, 0, data.visible)
 					if err != nil {
 						t.Fatalf("SetFieldAt(visible) failed at coord %v: %v", coord, err)
 					}
-					err = cache.SetFieldAt(coord, 1, data.priority)
+					err = SetFieldAt(cache, coord, 1, data.priority)
 					if err != nil {
 						t.Fatalf("SetFieldAt(priority) failed at coord %v: %v", coord, err)
 					}
-					err = cache.SetFieldAt(coord, 2, data.active)
+					err = SetFieldAt(cache, coord, 2, data.active)
 					if err != nil {
 						t.Fatalf("SetFieldAt(active) failed at coord %v: %v", coord, err)
 					}
 
 					// Read individual fields
-					visibleVal, err := cache.FieldAt(coord, 0)
+					visibleVal, err := FieldAt(cache, coord, 0)
 					if err != nil {
 						t.Fatalf("FieldAt(visible) failed at coord %v: %v", coord, err)
 					}
-					priorityVal, err := cache.FieldAt(coord, 1)
+					priorityVal, err := FieldAt(cache, coord, 1)
 					if err != nil {
 						t.Fatalf("FieldAt(priority) failed at coord %v: %v", coord, err)
 					}
-					activeVal, err := cache.FieldAt(coord, 2)
+					activeVal, err := FieldAt(cache, coord, 2)
 					if err != nil {
 						t.Fatalf("FieldAt(active) failed at coord %v: %v", coord, err)
 					}
@@ -308,7 +308,7 @@ func TestBooleanFieldBitPacking(t *testing.T) {
 	// Set the pattern
 	for i, value := range testPattern {
 		coord := SampleCoordinate{i}
-		err := memLayer.SetFieldAt(coord, 0, value)
+		err := SetFieldAt(memLayer, coord, 0, value)
 		if err != nil {
 			t.Fatalf("SetFieldAt failed at coord %d: %v", i, err)
 		}
@@ -317,7 +317,7 @@ func TestBooleanFieldBitPacking(t *testing.T) {
 	// Read back and verify
 	for i, expected := range testPattern {
 		coord := SampleCoordinate{i}
-		value, err := memLayer.FieldAt(coord, 0)
+		value, err := FieldAt(memLayer, coord, 0)
 		if err != nil {
 			t.Fatalf("FieldAt failed at coord %d: %v", i, err)
 		}
@@ -393,12 +393,12 @@ func TestTileOrderReadIteratorBooleanFields(t *testing.T) {
 			for i, data := range testData {
 				coord := SampleCoordinate{i}
 				sample := Sample{data.enabled, data.score, data.active}
-				err := memLayer.SetSampleAt(coord, sample)
+				err := SetSampleAt(memLayer, coord, sample)
 				if err != nil {
 					t.Fatalf("SetSampleAt failed at coord %v: %v", coord, err)
 				}
 			}
-			memLayer.Flush()
+			memLayer.Commit()
 
 			// Create iterator and verify data
 			rdBuf := buffer.NewBufferFrom(wrtBuf.Bytes())
@@ -541,7 +541,7 @@ func TestTileOrderWriteIteratorBooleanFields(t *testing.T) {
 
 			for i, expectedData := range testData {
 				coord := SampleCoordinate{i}
-				sample, err := memLayer.SampleAt(coord)
+				sample, err := SampleAt(memLayer, coord)
 				if err != nil {
 					t.Fatalf("SampleAt failed at coord %v: %v", coord, err)
 				}
@@ -609,15 +609,15 @@ func TestTileOrderWriteIteratorBooleanFields(t *testing.T) {
 		for i, expectedData := range testData {
 			coord := SampleCoordinate{i}
 
-			flag1Val, err := memLayer.FieldAt(coord, 0)
+			flag1Val, err := FieldAt(memLayer, coord, 0)
 			if err != nil {
 				t.Fatalf("FieldAt(0) failed at coord %v: %v", coord, err)
 			}
-			valueVal, err := memLayer.FieldAt(coord, 1)
+			valueVal, err := FieldAt(memLayer, coord, 1)
 			if err != nil {
 				t.Fatalf("FieldAt(1) failed at coord %v: %v", coord, err)
 			}
-			flag2Val, err := memLayer.FieldAt(coord, 2)
+			flag2Val, err := FieldAt(memLayer, coord, 2)
 			if err != nil {
 				t.Fatalf("FieldAt(2) failed at coord %v: %v", coord, err)
 			}

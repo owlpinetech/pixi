@@ -9,9 +9,9 @@ import (
 	"github.com/owlpinetech/pixi/internal/buffer"
 )
 
-func testSampleAtSameAsRaw(t *testing.T, wg *sync.WaitGroup, layer DirectAccessLayerReader, coord SampleCoordinate, expect any) {
+func testSampleAtSameAsRaw(t *testing.T, wg *sync.WaitGroup, layer TileAccessLayer, coord SampleCoordinate, expect any) {
 	defer wg.Done()
-	at, err := layer.FieldAt(coord, 1)
+	at, err := FieldAt(layer, coord, 1)
 	if err != nil {
 		t.Error(err)
 	} else if at != expect {
@@ -47,7 +47,7 @@ func TestCachedSampleFieldConcurrent(t *testing.T) {
 
 	// create a cache
 	rdBuffer := buffer.NewBufferFrom(wrtBuf.Bytes())
-	cache := NewCachedLayer(NewLayerFifoCache(rdBuffer, header, layer, 4))
+	cache := NewFifoCacheLayer(rdBuffer, header, layer, 4)
 
 	// we're only going to look at the second field for this test
 	testSampleCount := layer.Dimensions.Samples() / 4
@@ -57,7 +57,7 @@ func TestCachedSampleFieldConcurrent(t *testing.T) {
 		testIndex := SampleIndex(rand.IntN(layer.Dimensions.Samples()))
 		testTile := testIndex.ToSampleCoordinate(layer.Dimensions).ToTileSelector(layer.Dimensions)
 		testCoords[i] = testIndex.ToSampleCoordinate(layer.Dimensions)
-		testExpect[i] = layer.Fields[1].BytesToValue(rawTiles[testTile.Tile][testTile.InTile*layer.Fields.Size()+layer.Fields[0].Size():], header.ByteOrder)
+		testExpect[i] = layer.Fields[1].Value(rawTiles[testTile.Tile][testTile.InTile*layer.Fields.Size()+layer.Fields[0].Size():], header.ByteOrder)
 	}
 
 	var wg sync.WaitGroup
@@ -89,9 +89,9 @@ func TestCachedSetSampleAt(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cached := NewCachedLayer(NewLayerFifoCache(wrtBuf, header, layer, 4))
+	cached := NewFifoCacheLayer(wrtBuf, header, layer, 4)
 
-	sample0, err := cached.SampleAt(SampleCoordinate{25, 25})
+	sample0, err := SampleAt(cached, SampleCoordinate{25, 25})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,12 +99,12 @@ func TestCachedSetSampleAt(t *testing.T) {
 		t.Fatalf("expected initial sample to be all zero, got %v", sample0)
 	}
 
-	err = cached.SetSampleAt(SampleCoordinate{25, 25}, []any{uint16(42), uint32(4242)})
+	err = SetSampleAt(cached, SampleCoordinate{25, 25}, []any{uint16(42), uint32(4242)})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	sample1, err := cached.SampleAt(SampleCoordinate{25, 25})
+	sample1, err := SampleAt(cached, SampleCoordinate{25, 25})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -29,13 +29,13 @@ func TestTileOrderReadIterator(t *testing.T) {
 	}
 
 	stored := NewMemoryLayer(wrtBuf, header, layer)
-	stored.SetFieldAt(SampleCoordinate{0, 0}, 0, uint16(123))
-	stored.SetFieldAt(SampleCoordinate{0, 0}, 1, uint32(456789))
-	stored.SetFieldAt(SampleCoordinate{49, 49}, 0, uint16(321))
-	stored.SetFieldAt(SampleCoordinate{49, 49}, 1, uint32(987654))
-	stored.SetFieldAt(SampleCoordinate{25, 25}, 0, uint16(111))
-	stored.SetFieldAt(SampleCoordinate{25, 25}, 1, uint32(222222))
-	stored.Flush()
+	SetFieldAt(stored, SampleCoordinate{0, 0}, 0, uint16(123))
+	SetFieldAt(stored, SampleCoordinate{0, 0}, 1, uint32(456789))
+	SetFieldAt(stored, SampleCoordinate{49, 49}, 0, uint16(321))
+	SetFieldAt(stored, SampleCoordinate{49, 49}, 1, uint32(987654))
+	SetFieldAt(stored, SampleCoordinate{25, 25}, 0, uint16(111))
+	SetFieldAt(stored, SampleCoordinate{25, 25}, 1, uint32(222222))
+	stored.Commit()
 
 	rdBuffer := buffer.NewBufferFrom(wrtBuf.Bytes())
 	iterator := NewTileOrderReadIterator(rdBuffer, header, layer)
@@ -71,7 +71,7 @@ func TestTileOrderReadIterator(t *testing.T) {
 			}
 
 			// compare against raw data
-			expectedValue, err := stored.FieldAt(coord, fieldIndex)
+			expectedValue, err := FieldAt(stored, coord, fieldIndex)
 			if err != nil {
 				t.Errorf("Error retrieving sample at coord %v for comparison: %v", coord, err)
 			}
@@ -158,7 +158,7 @@ func TestTileOrderWriteIterator(t *testing.T) {
 	}
 
 	for _, check := range checks {
-		sample, err := stored.SampleAt(check.coord)
+		sample, err := SampleAt(stored, check.coord)
 		if err != nil {
 			t.Errorf("Error retrieving sample at coord %v: %v", check.coord, err)
 			continue

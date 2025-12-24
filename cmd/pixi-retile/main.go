@@ -84,7 +84,7 @@ func main() {
 	}
 	dstLayer := pixi.NewLayer(srcLayer.Name, srcLayer.Separated, srcLayer.Compression, dstDims, srcLayer.Fields)
 
-	srcData := pixi.NewReadCachedLayer(pixi.NewLayerReadFifoCache(srcStream, srcPixi.Header, srcLayer, 4))
+	srcData := pixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, srcLayer, 4)
 
 	err = dstPixi.WriteHeader(dstFile)
 	if err != nil {
@@ -107,7 +107,7 @@ func main() {
 
 	for dstIterator.Next() {
 		coord := dstIterator.Coordinate()
-		pixel, err := srcData.SampleAt(coord)
+		pixel, err := pixi.SampleAt(srcData, coord)
 		if err != nil {
 			fmt.Println("Failed to read sample from source Pixi file.")
 			return

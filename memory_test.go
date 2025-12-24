@@ -17,8 +17,6 @@ func TestMemorySampleChannelConcurrent(t *testing.T) {
 	}
 	layer := NewLayer(
 		"concurrent-test",
-		false,
-		CompressionNone,
 		DimensionSet{{Name: "x", Size: 50, TileSize: 10}, {Name: "y", Size: 50, TileSize: 10}},
 		ChannelSet{{Name: "one", Type: ChannelUint16}, {Name: "two", Type: ChannelUint32}},
 	)
@@ -71,7 +69,6 @@ func TestMemorySetSampleAt(t *testing.T) {
 		wrtBuf,
 		header,
 		"stored-set-sample-at",
-		false,
 		DimensionSet{{Name: "x", Size: 50, TileSize: 10}, {Name: "y", Size: 50, TileSize: 10}},
 		ChannelSet{{Name: "one", Type: ChannelUint16}, {Name: "two", Type: ChannelUint32}},
 	)

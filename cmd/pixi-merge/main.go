@@ -45,6 +45,11 @@ func main() {
 		return
 	}
 
+	layerOpts := []pixi.LayerOption{pixi.WithCompression(compression)}
+	if *separatedArg {
+		layerOpts = append(layerOpts, pixi.WithPlanar())
+	}
+
 	srcFileNames := flag.Args()
 
 	// open input files
@@ -147,10 +152,9 @@ func main() {
 
 		mergedLayer := pixi.NewLayer(
 			strings.Join(layerNames[layerIndex], "+"),
-			*separatedArg,
-			compression,
 			targetDimensions[layerIndex],
 			mergedChannels,
+			layerOpts...,
 		)
 		previousLayer = mergedLayer
 

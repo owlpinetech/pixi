@@ -141,12 +141,15 @@ func main() {
 	previousOffset := dstPixi.FirstLayerOffset
 	var previousLayer *pixi.Layer
 	for layerIndex, layerReaders := range srcReaders {
+		opts := []pixi.LayerOption{pixi.WithCompression(targetCompressions[layerIndex])}
+		if targetSeparated[layerIndex] {
+			opts = append(opts, pixi.WithPlanar())
+		}
 		mergedLayer := pixi.NewLayer(
 			strings.Join(layerNames[layerIndex], "+"),
-			targetSeparated[layerIndex],
-			targetCompressions[layerIndex],
 			targetDimensions[layerIndex],
 			targetChannels[layerIndex],
+			opts...,
 		)
 		previousLayer = mergedLayer
 

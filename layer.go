@@ -6,6 +6,39 @@ import (
 	"io"
 )
 
+type layerOptions struct {
+	separated   bool
+	compression Compression
+}
+
+type LayerOption interface {
+	applyLayer(*layerOptions)
+}
+
+type separatedOption struct {
+	separated bool
+}
+
+func (o separatedOption) applyLayer(opts *layerOptions) {
+	opts.separated = o.separated
+}
+
+func WithPlanar() LayerOption {
+	return separatedOption{separated: true}
+}
+
+type compressionOption struct {
+	compression Compression
+}
+
+func (o compressionOption) applyLayer(opts *layerOptions) {
+	opts.compression = o.compression
+}
+
+func WithCompression(c Compression) LayerOption {
+	return compressionOption{compression: c}
+}
+
 // Pixi files are composed of one or more layers. Generally, layers are used to represent the same data set
 // at different 'zoom levels'. For example, a large digital elevation model data set might have a layer
 // that shows a zoomed-out view of the terrain at a much smaller footprint, useful for thumbnails and previews.
@@ -30,11 +63,16 @@ type Layer struct {
 }
 
 // Helper constructor to ensure that certain invariants in a layer are maintained when it is created.
-func NewLayer(name string, separated bool, compression Compression, dimensions DimensionSet, channels ChannelSet) *Layer {
+func NewLayer(name string, dimensions DimensionSet, channels ChannelSet, opts ...LayerOption) *Layer {
+	options := layerOptions{} // zero values are defaults, interleaved sample values and no compression
+	for _, o := range opts {
+		o.applyLayer(&options)
+	}
+
 	l := &Layer{
 		Name:        name,
-		Separated:   separated,
-		Compression: compression,
+		Separated:   options.separated,
+		Compression: options.compression,
 		Dimensions:  dimensions,
 		Channels:    channels,
 	}
@@ -49,8 +87,9 @@ func NewLayer(name string, separated bool, compression Compression, dimensions D
 // assumes that the PixiHeader has already been written to the backing stream, and that the stream cursor is at the correct
 // offset for writing the layer header. If the write fails partway through, an error is returned, but the backing stream may be
 // partially written. Otherwise, returns a pointer to the created Layer, with supporting channels ready for further read/write access.
-func NewBlankUncompressedLayer(backing io.WriteSeeker, header *Header, name string, separated bool, dimensions DimensionSet, channels ChannelSet) (*Layer, error) {
-	layer := NewLayer(name, separated, CompressionNone, dimensions, channels)
+func NewBlankUncompressedLayer(backing io.WriteSeeker, header *Header, name string, dimensions DimensionSet, channels ChannelSet, opts ...LayerOption) (*Layer, error) {
+	uncompOpts := append(opts, WithCompression(CompressionNone))
+	layer := NewLayer(name, dimensions, channels, uncompOpts...)
 	err := layer.WriteHeader(backing, header)
 	if err != nil {
 		return nil, err

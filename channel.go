@@ -13,7 +13,7 @@ import (
 	"github.com/x448/float16"
 )
 
-// Describes a set of values in a data set with a common shape. Similar to a channel of a record
+// Describes a set of values in a data set with a common shape. Similar to a column of a table
 // in a database, but with a more restricted set of available types per channel.
 type Channel struct {
 	Name string      // A friendly name for this channel, to help guide interpretation of the data.

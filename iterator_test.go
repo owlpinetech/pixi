@@ -20,7 +20,6 @@ func TestTileOrderReadIterator(t *testing.T) {
 		wrtBuf,
 		header,
 		"tile-order-read-iterator-test",
-		false,
 		DimensionSet{{Name: "x", Size: 50, TileSize: 10}, {Name: "y", Size: 50, TileSize: 10}},
 		ChannelSet{{Name: "one", Type: ChannelUint16}, {Name: "two", Type: ChannelUint32}},
 	)
@@ -98,8 +97,6 @@ func TestTileOrderWriteIterator(t *testing.T) {
 	}
 	layer := NewLayer(
 		"tile-order-write-iterator-test",
-		false,
-		CompressionNone,
 		DimensionSet{{Name: "x", Size: 50, TileSize: 10}, {Name: "y", Size: 50, TileSize: 10}},
 		ChannelSet{{Name: "one", Type: ChannelUint16}, {Name: "two", Type: ChannelUint32}})
 

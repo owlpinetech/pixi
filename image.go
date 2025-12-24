@@ -9,6 +9,22 @@ import (
 	"github.com/gracefulearth/go-colorext"
 )
 
+type fromImageOptions struct {
+	compression    Compression
+	separated      bool
+	offsetSize     OffsetSize
+	byteOrder      binary.ByteOrder
+	xTileSize      int
+	yTileSize      int
+	tags           map[string]string
+	dimensionNames []string
+	channelNames   []string
+}
+
+type FromImageOption interface {
+	apply(*fromImageOptions)
+}
+
 type FromImageOptions struct {
 	Compression Compression
 	OffsetSize  OffsetSize
@@ -207,14 +223,18 @@ func ImageToLayer(img image.Image, layerName string, separated bool, compression
 	}
 	yTileSize = min(height, yTileSize)
 
+	opts := []LayerOption{WithCompression(compression)}
+	if separated {
+		opts = append(opts, WithPlanar())
+	}
+
 	return NewLayer(
 		layerName,
-		separated,
-		compression,
 		DimensionSet{
 			{Name: "x", Size: width, TileSize: xTileSize},
 			{Name: "y", Size: height, TileSize: yTileSize}},
-		channels), nil
+		channels,
+		opts...), nil
 }
 
 func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, error) {

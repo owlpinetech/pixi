@@ -136,12 +136,15 @@ func main() {
 		}
 
 		// Create destination layer
+		opts := []pixi.LayerOption{pixi.WithCompression(srcLayer.Compression)}
+		if srcLayer.Separated {
+			opts = append(opts, pixi.WithPlanar())
+		}
 		dstLayer := pixi.NewLayer(
 			srcLayer.Name+"_decimated",
-			srcLayer.Separated,
-			srcLayer.Compression,
 			newDims,
 			srcLayer.Channels,
+			opts...,
 		)
 
 		// Create cached reader for source layer

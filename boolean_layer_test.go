@@ -33,7 +33,11 @@ func TestMemoryLayerBooleanChannels(t *testing.T) {
 			}
 			dimensions := DimensionSet{{Name: "x", Size: 10, TileSize: 5}}
 
-			layer := NewLayer("test", mode.separated, CompressionNone, dimensions, channels)
+			opts := []LayerOption{}
+			if mode.separated {
+				opts = append(opts, WithPlanar())
+			}
+			layer := NewLayer("test", dimensions, channels, opts...)
 
 			// Create some test data
 			testData := []struct {
@@ -165,7 +169,11 @@ func TestCachedLayerBooleanChannels(t *testing.T) {
 			}
 			dimensions := DimensionSet{{Name: "x", Size: 8, TileSize: 4}}
 
-			layer := NewLayer("test", mode.separated, CompressionNone, dimensions, channels)
+			opts := []LayerOption{}
+			if mode.separated {
+				opts = append(opts, WithPlanar())
+			}
+			layer := NewLayer("test", dimensions, channels, opts...)
 
 			// Create test data
 			testData := []struct {
@@ -284,7 +292,7 @@ func TestBooleanChannelBitPacking(t *testing.T) {
 	// Use 10 samples to test byte boundary (8 bits + 2 bits)
 	dimensions := DimensionSet{{Name: "x", Size: 10, TileSize: 10}}
 
-	layer := NewLayer("test", true, CompressionNone, dimensions, channels) // separated = true
+	layer := NewLayer("test", dimensions, channels, WithPlanar()) // separated = true
 
 	// Verify tile size is correctly calculated for bitchannel
 	expectedTileSize := (10 + 7) / 8 // 10 bits = 2 bytes
@@ -375,13 +383,17 @@ func TestTileOrderReadIteratorBooleanChannels(t *testing.T) {
 
 			// Create blank uncompressed layer
 			wrtBuf := buffer.NewBuffer(100)
+			opts := []LayerOption{}
+			if mode.separated {
+				opts = append(opts, WithPlanar())
+			}
 			layer, err := NewBlankUncompressedLayer(
 				wrtBuf,
 				header,
 				"tile-order-read-iterator-boolean-test",
-				mode.separated,
 				dimensions,
 				channels,
+				opts...,
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -482,7 +494,11 @@ func TestTileOrderWriteIteratorBooleanChannels(t *testing.T) {
 			}
 			dimensions := DimensionSet{{Name: "x", Size: 8, TileSize: 4}}
 
-			layer := NewLayer("test", mode.separated, CompressionNone, dimensions, channels)
+			opts := []LayerOption{}
+			if mode.separated {
+				opts = append(opts, WithPlanar())
+			}
+			layer := NewLayer("test", dimensions, channels, opts...)
 
 			// Create test data
 			testData := []struct {
@@ -568,7 +584,7 @@ func TestTileOrderWriteIteratorBooleanChannels(t *testing.T) {
 		}
 		dimensions := DimensionSet{{Name: "x", Size: 4, TileSize: 4}}
 
-		layer := NewLayer("test", true, CompressionNone, dimensions, channels) // separated mode
+		layer := NewLayer("test", dimensions, channels, WithPlanar()) // separated mode
 
 		wrtBuf := buffer.NewBuffer(100)
 		iterator := NewTileOrderWriteIterator(wrtBuf, header, layer)

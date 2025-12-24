@@ -1,6 +1,9 @@
 package pixi
 
-import "iter"
+import (
+	"iter"
+	"strings"
+)
 
 // An ordered set of named dimensions present in the layer of a Pixi file.
 type DimensionSet []Dimension
@@ -109,6 +112,7 @@ func (set DimensionSet) TileCoordinates() iter.Seq[TileCoordinate] {
 	}
 }
 
+// Returns true if the given sample coordinate is within the bounds of the dimension set.
 func (set DimensionSet) ContainsCoordinate(coord SampleCoordinate) bool {
 	if len(coord) != len(set) {
 		return false
@@ -122,13 +126,14 @@ func (set DimensionSet) ContainsCoordinate(coord SampleCoordinate) bool {
 }
 
 func (set DimensionSet) String() string {
-	str := "DimensionSet{"
+	var str strings.Builder
+	str.WriteString("DimensionSet{")
 	for i, dim := range set {
 		if i > 0 {
-			str += ", "
+			str.WriteString(", ")
 		}
-		str += dim.String()
+		str.WriteString(dim.String())
 	}
-	str += "}"
-	return str
+	str.WriteString("}")
+	return str.String()
 }

@@ -7,8 +7,8 @@ import (
 	"github.com/owlpinetech/pixi/internal/buffer"
 )
 
-func TestMemoryLayerBooleanFields(t *testing.T) {
-	header := &PixiHeader{
+func TestMemoryLayerBooleanChannels(t *testing.T) {
+	header := &Header{
 		Version:    Version,
 		ByteOrder:  binary.BigEndian,
 		OffsetSize: 8,
@@ -25,15 +25,15 @@ func TestMemoryLayerBooleanFields(t *testing.T) {
 
 	for _, mode := range modes {
 		t.Run(mode.name, func(t *testing.T) {
-			// Create layer with boolean and other fields
-			fields := FieldSet{
-				{Name: "active", Type: FieldBool},
-				{Name: "count", Type: FieldInt32},
-				{Name: "enabled", Type: FieldBool},
+			// Create layer with boolean and other channels
+			channels := ChannelSet{
+				{Name: "active", Type: ChannelBool},
+				{Name: "count", Type: ChannelInt32},
+				{Name: "enabled", Type: ChannelBool},
 			}
 			dimensions := DimensionSet{{Name: "x", Size: 10, TileSize: 5}}
 
-			layer := NewLayer("test", mode.separated, CompressionNone, dimensions, fields)
+			layer := NewLayer("test", mode.separated, CompressionNone, dimensions, channels)
 
 			// Create some test data
 			testData := []struct {
@@ -77,61 +77,61 @@ func TestMemoryLayerBooleanFields(t *testing.T) {
 						t.Fatalf("SampleAt failed at coord %v: %v", coord, err)
 					}
 
-					// Verify each field
+					// Verify each channel
 					if readSample[0].(bool) != data.active {
-						t.Errorf("Active field mismatch at %v: expected %v, got %v", coord, data.active, readSample[0])
+						t.Errorf("Active channel mismatch at %v: expected %v, got %v", coord, data.active, readSample[0])
 					}
 					if readSample[1].(int32) != data.count {
-						t.Errorf("Count field mismatch at %v: expected %v, got %v", coord, data.count, readSample[1])
+						t.Errorf("Count channel mismatch at %v: expected %v, got %v", coord, data.count, readSample[1])
 					}
 					if readSample[2].(bool) != data.enabled {
-						t.Errorf("Enabled field mismatch at %v: expected %v, got %v", coord, data.enabled, readSample[2])
+						t.Errorf("Enabled channel mismatch at %v: expected %v, got %v", coord, data.enabled, readSample[2])
 					}
 				}
 			})
 
-			// Test FieldAt and SetFieldAt
-			t.Run("FieldAt_SetFieldAt", func(t *testing.T) {
+			// Test ChannelAt and SetChannelAt
+			t.Run("ChannelAt_SetChannelAt", func(t *testing.T) {
 				for i, data := range testData {
 					coord := SampleCoordinate{i}
 
-					// Set individual fields
-					err := SetFieldAt(memLayer, coord, 0, data.active)
+					// Set individual channels
+					err := SetChannelAt(memLayer, coord, 0, data.active)
 					if err != nil {
-						t.Fatalf("SetFieldAt(active) failed at coord %v: %v", coord, err)
+						t.Fatalf("SetChannelAt(active) failed at coord %v: %v", coord, err)
 					}
-					err = SetFieldAt(memLayer, coord, 1, data.count)
+					err = SetChannelAt(memLayer, coord, 1, data.count)
 					if err != nil {
-						t.Fatalf("SetFieldAt(count) failed at coord %v: %v", coord, err)
+						t.Fatalf("SetChannelAt(count) failed at coord %v: %v", coord, err)
 					}
-					err = SetFieldAt(memLayer, coord, 2, data.enabled)
+					err = SetChannelAt(memLayer, coord, 2, data.enabled)
 					if err != nil {
-						t.Fatalf("SetFieldAt(enabled) failed at coord %v: %v", coord, err)
+						t.Fatalf("SetChannelAt(enabled) failed at coord %v: %v", coord, err)
 					}
 
-					// Read individual fields
-					activeVal, err := FieldAt(memLayer, coord, 0)
+					// Read individual channels
+					activeVal, err := ChannelAt(memLayer, coord, 0)
 					if err != nil {
-						t.Fatalf("FieldAt(active) failed at coord %v: %v", coord, err)
+						t.Fatalf("ChannelAt(active) failed at coord %v: %v", coord, err)
 					}
-					countVal, err := FieldAt(memLayer, coord, 1)
+					countVal, err := ChannelAt(memLayer, coord, 1)
 					if err != nil {
-						t.Fatalf("FieldAt(count) failed at coord %v: %v", coord, err)
+						t.Fatalf("ChannelAt(count) failed at coord %v: %v", coord, err)
 					}
-					enabledVal, err := FieldAt(memLayer, coord, 2)
+					enabledVal, err := ChannelAt(memLayer, coord, 2)
 					if err != nil {
-						t.Fatalf("FieldAt(enabled) failed at coord %v: %v", coord, err)
+						t.Fatalf("ChannelAt(enabled) failed at coord %v: %v", coord, err)
 					}
 
 					// Verify values
 					if activeVal.(bool) != data.active {
-						t.Errorf("FieldAt(active) mismatch at %v: expected %v, got %v", coord, data.active, activeVal)
+						t.Errorf("ChannelAt(active) mismatch at %v: expected %v, got %v", coord, data.active, activeVal)
 					}
 					if countVal.(int32) != data.count {
-						t.Errorf("FieldAt(count) mismatch at %v: expected %v, got %v", coord, data.count, countVal)
+						t.Errorf("ChannelAt(count) mismatch at %v: expected %v, got %v", coord, data.count, countVal)
 					}
 					if enabledVal.(bool) != data.enabled {
-						t.Errorf("FieldAt(enabled) mismatch at %v: expected %v, got %v", coord, data.enabled, enabledVal)
+						t.Errorf("ChannelAt(enabled) mismatch at %v: expected %v, got %v", coord, data.enabled, enabledVal)
 					}
 				}
 			})
@@ -139,8 +139,8 @@ func TestMemoryLayerBooleanFields(t *testing.T) {
 	}
 }
 
-func TestCachedLayerBooleanFields(t *testing.T) {
-	header := &PixiHeader{
+func TestCachedLayerBooleanChannels(t *testing.T) {
+	header := &Header{
 		Version:    Version,
 		ByteOrder:  binary.BigEndian,
 		OffsetSize: 8,
@@ -157,15 +157,15 @@ func TestCachedLayerBooleanFields(t *testing.T) {
 
 	for _, mode := range modes {
 		t.Run(mode.name, func(t *testing.T) {
-			// Create layer with boolean and other fields
-			fields := FieldSet{
-				{Name: "visible", Type: FieldBool},
-				{Name: "priority", Type: FieldInt16},
-				{Name: "active", Type: FieldBool},
+			// Create layer with boolean and other channels
+			channels := ChannelSet{
+				{Name: "visible", Type: ChannelBool},
+				{Name: "priority", Type: ChannelInt16},
+				{Name: "active", Type: ChannelBool},
 			}
 			dimensions := DimensionSet{{Name: "x", Size: 8, TileSize: 4}}
 
-			layer := NewLayer("test", mode.separated, CompressionNone, dimensions, fields)
+			layer := NewLayer("test", mode.separated, CompressionNone, dimensions, channels)
 
 			// Create test data
 			testData := []struct {
@@ -208,61 +208,61 @@ func TestCachedLayerBooleanFields(t *testing.T) {
 						t.Fatalf("SampleAt failed at coord %v: %v", coord, err)
 					}
 
-					// Verify each field
+					// Verify each channel
 					if readSample[0].(bool) != data.visible {
-						t.Errorf("Visible field mismatch at %v: expected %v, got %v", coord, data.visible, readSample[0])
+						t.Errorf("Visible channel mismatch at %v: expected %v, got %v", coord, data.visible, readSample[0])
 					}
 					if readSample[1].(int16) != data.priority {
-						t.Errorf("Priority field mismatch at %v: expected %v, got %v", coord, data.priority, readSample[1])
+						t.Errorf("Priority channel mismatch at %v: expected %v, got %v", coord, data.priority, readSample[1])
 					}
 					if readSample[2].(bool) != data.active {
-						t.Errorf("Active field mismatch at %v: expected %v, got %v", coord, data.active, readSample[2])
+						t.Errorf("Active channel mismatch at %v: expected %v, got %v", coord, data.active, readSample[2])
 					}
 				}
 			})
 
-			// Test FieldAt and SetFieldAt
-			t.Run("FieldAt_SetFieldAt", func(t *testing.T) {
+			// Test ChannelAt and SetChannelAt
+			t.Run("ChannelAt_SetChannelAt", func(t *testing.T) {
 				for i, data := range testData {
 					coord := SampleCoordinate{i}
 
-					// Set individual fields
-					err := SetFieldAt(cache, coord, 0, data.visible)
+					// Set individual channels
+					err := SetChannelAt(cache, coord, 0, data.visible)
 					if err != nil {
-						t.Fatalf("SetFieldAt(visible) failed at coord %v: %v", coord, err)
+						t.Fatalf("SetChannelAt(visible) failed at coord %v: %v", coord, err)
 					}
-					err = SetFieldAt(cache, coord, 1, data.priority)
+					err = SetChannelAt(cache, coord, 1, data.priority)
 					if err != nil {
-						t.Fatalf("SetFieldAt(priority) failed at coord %v: %v", coord, err)
+						t.Fatalf("SetChannelAt(priority) failed at coord %v: %v", coord, err)
 					}
-					err = SetFieldAt(cache, coord, 2, data.active)
+					err = SetChannelAt(cache, coord, 2, data.active)
 					if err != nil {
-						t.Fatalf("SetFieldAt(active) failed at coord %v: %v", coord, err)
+						t.Fatalf("SetChannelAt(active) failed at coord %v: %v", coord, err)
 					}
 
-					// Read individual fields
-					visibleVal, err := FieldAt(cache, coord, 0)
+					// Read individual channels
+					visibleVal, err := ChannelAt(cache, coord, 0)
 					if err != nil {
-						t.Fatalf("FieldAt(visible) failed at coord %v: %v", coord, err)
+						t.Fatalf("ChannelAt(visible) failed at coord %v: %v", coord, err)
 					}
-					priorityVal, err := FieldAt(cache, coord, 1)
+					priorityVal, err := ChannelAt(cache, coord, 1)
 					if err != nil {
-						t.Fatalf("FieldAt(priority) failed at coord %v: %v", coord, err)
+						t.Fatalf("ChannelAt(priority) failed at coord %v: %v", coord, err)
 					}
-					activeVal, err := FieldAt(cache, coord, 2)
+					activeVal, err := ChannelAt(cache, coord, 2)
 					if err != nil {
-						t.Fatalf("FieldAt(active) failed at coord %v: %v", coord, err)
+						t.Fatalf("ChannelAt(active) failed at coord %v: %v", coord, err)
 					}
 
 					// Verify values
 					if visibleVal.(bool) != data.visible {
-						t.Errorf("FieldAt(visible) mismatch at %v: expected %v, got %v", coord, data.visible, visibleVal)
+						t.Errorf("ChannelAt(visible) mismatch at %v: expected %v, got %v", coord, data.visible, visibleVal)
 					}
 					if priorityVal.(int16) != data.priority {
-						t.Errorf("FieldAt(priority) mismatch at %v: expected %v, got %v", coord, data.priority, priorityVal)
+						t.Errorf("ChannelAt(priority) mismatch at %v: expected %v, got %v", coord, data.priority, priorityVal)
 					}
 					if activeVal.(bool) != data.active {
-						t.Errorf("FieldAt(active) mismatch at %v: expected %v, got %v", coord, data.active, activeVal)
+						t.Errorf("ChannelAt(active) mismatch at %v: expected %v, got %v", coord, data.active, activeVal)
 					}
 				}
 			})
@@ -270,27 +270,27 @@ func TestCachedLayerBooleanFields(t *testing.T) {
 	}
 }
 
-func TestBooleanFieldBitPacking(t *testing.T) {
-	header := &PixiHeader{
+func TestBooleanChannelBitPacking(t *testing.T) {
+	header := &Header{
 		Version:    Version,
 		ByteOrder:  binary.BigEndian,
 		OffsetSize: 8,
 	}
 
-	// Test specifically the bitfield packing in separated mode
-	fields := FieldSet{
-		{Name: "flags", Type: FieldBool},
+	// Test specifically the bitchannel packing in separated mode
+	channels := ChannelSet{
+		{Name: "flags", Type: ChannelBool},
 	}
 	// Use 10 samples to test byte boundary (8 bits + 2 bits)
 	dimensions := DimensionSet{{Name: "x", Size: 10, TileSize: 10}}
 
-	layer := NewLayer("test", true, CompressionNone, dimensions, fields) // separated = true
+	layer := NewLayer("test", true, CompressionNone, dimensions, channels) // separated = true
 
-	// Verify tile size is correctly calculated for bitfield
+	// Verify tile size is correctly calculated for bitchannel
 	expectedTileSize := (10 + 7) / 8 // 10 bits = 2 bytes
 	actualTileSize := layer.DiskTileSize(0)
 	if actualTileSize != expectedTileSize {
-		t.Errorf("DiskTileSize for boolean bitfield: expected %d bytes, got %d", expectedTileSize, actualTileSize)
+		t.Errorf("DiskTileSize for boolean bitchannel: expected %d bytes, got %d", expectedTileSize, actualTileSize)
 	}
 
 	// Write initial data
@@ -308,18 +308,18 @@ func TestBooleanFieldBitPacking(t *testing.T) {
 	// Set the pattern
 	for i, value := range testPattern {
 		coord := SampleCoordinate{i}
-		err := SetFieldAt(memLayer, coord, 0, value)
+		err := SetChannelAt(memLayer, coord, 0, value)
 		if err != nil {
-			t.Fatalf("SetFieldAt failed at coord %d: %v", i, err)
+			t.Fatalf("SetChannelAt failed at coord %d: %v", i, err)
 		}
 	}
 
 	// Read back and verify
 	for i, expected := range testPattern {
 		coord := SampleCoordinate{i}
-		value, err := FieldAt(memLayer, coord, 0)
+		value, err := ChannelAt(memLayer, coord, 0)
 		if err != nil {
-			t.Fatalf("FieldAt failed at coord %d: %v", i, err)
+			t.Fatalf("ChannelAt failed at coord %d: %v", i, err)
 		}
 		if value.(bool) != expected {
 			t.Errorf("Bit pattern mismatch at position %d: expected %v, got %v", i, expected, value)
@@ -327,8 +327,8 @@ func TestBooleanFieldBitPacking(t *testing.T) {
 	}
 }
 
-func TestTileOrderReadIteratorBooleanFields(t *testing.T) {
-	header := &PixiHeader{
+func TestTileOrderReadIteratorBooleanChannels(t *testing.T) {
+	header := &Header{
 		Version:    Version,
 		ByteOrder:  binary.BigEndian,
 		OffsetSize: 8,
@@ -345,11 +345,11 @@ func TestTileOrderReadIteratorBooleanFields(t *testing.T) {
 
 	for _, mode := range modes {
 		t.Run(mode.name, func(t *testing.T) {
-			// Create layer with boolean and other fields
-			fields := FieldSet{
-				{Name: "enabled", Type: FieldBool},
-				{Name: "score", Type: FieldInt32},
-				{Name: "active", Type: FieldBool},
+			// Create layer with boolean and other channels
+			channels := ChannelSet{
+				{Name: "enabled", Type: ChannelBool},
+				{Name: "score", Type: ChannelInt32},
+				{Name: "active", Type: ChannelBool},
 			}
 			dimensions := DimensionSet{{Name: "x", Size: 12, TileSize: 4}}
 
@@ -381,7 +381,7 @@ func TestTileOrderReadIteratorBooleanFields(t *testing.T) {
 				"tile-order-read-iterator-boolean-test",
 				mode.separated,
 				dimensions,
-				fields,
+				channels,
 			)
 			if err != nil {
 				t.Fatal(err)
@@ -418,28 +418,28 @@ func TestTileOrderReadIteratorBooleanFields(t *testing.T) {
 
 				// Test Sample() method
 				if sample[0].(bool) != expectedData.enabled {
-					t.Errorf("Sample() enabled field mismatch at coord %v: expected %v, got %v", coord, expectedData.enabled, sample[0])
+					t.Errorf("Sample() enabled channel mismatch at coord %v: expected %v, got %v", coord, expectedData.enabled, sample[0])
 				}
 				if sample[1].(int32) != expectedData.score {
-					t.Errorf("Sample() score field mismatch at coord %v: expected %v, got %v", coord, expectedData.score, sample[1])
+					t.Errorf("Sample() score channel mismatch at coord %v: expected %v, got %v", coord, expectedData.score, sample[1])
 				}
 				if sample[2].(bool) != expectedData.active {
-					t.Errorf("Sample() active field mismatch at coord %v: expected %v, got %v", coord, expectedData.active, sample[2])
+					t.Errorf("Sample() active channel mismatch at coord %v: expected %v, got %v", coord, expectedData.active, sample[2])
 				}
 
-				// Test Field() method
-				enabledVal := iterator.Field(0)
-				scoreVal := iterator.Field(1)
-				activeVal := iterator.Field(2)
+				// Test Channel() method
+				enabledVal := iterator.Channel(0)
+				scoreVal := iterator.Channel(1)
+				activeVal := iterator.Channel(2)
 
 				if enabledVal.(bool) != expectedData.enabled {
-					t.Errorf("Field(0) enabled field mismatch at coord %v: expected %v, got %v", coord, expectedData.enabled, enabledVal)
+					t.Errorf("Channel(0) enabled channel mismatch at coord %v: expected %v, got %v", coord, expectedData.enabled, enabledVal)
 				}
 				if scoreVal.(int32) != expectedData.score {
-					t.Errorf("Field(1) score field mismatch at coord %v: expected %v, got %v", coord, expectedData.score, scoreVal)
+					t.Errorf("Channel(1) score channel mismatch at coord %v: expected %v, got %v", coord, expectedData.score, scoreVal)
 				}
 				if activeVal.(bool) != expectedData.active {
-					t.Errorf("Field(2) active field mismatch at coord %v: expected %v, got %v", coord, expectedData.active, activeVal)
+					t.Errorf("Channel(2) active channel mismatch at coord %v: expected %v, got %v", coord, expectedData.active, activeVal)
 				}
 
 				sampleIndex++
@@ -456,8 +456,8 @@ func TestTileOrderReadIteratorBooleanFields(t *testing.T) {
 	}
 }
 
-func TestTileOrderWriteIteratorBooleanFields(t *testing.T) {
-	header := &PixiHeader{
+func TestTileOrderWriteIteratorBooleanChannels(t *testing.T) {
+	header := &Header{
 		Version:    Version,
 		ByteOrder:  binary.BigEndian,
 		OffsetSize: 8,
@@ -474,15 +474,15 @@ func TestTileOrderWriteIteratorBooleanFields(t *testing.T) {
 
 	for _, mode := range modes {
 		t.Run(mode.name, func(t *testing.T) {
-			// Create layer with boolean and other fields
-			fields := FieldSet{
-				{Name: "visible", Type: FieldBool},
-				{Name: "weight", Type: FieldFloat32},
-				{Name: "locked", Type: FieldBool},
+			// Create layer with boolean and other channels
+			channels := ChannelSet{
+				{Name: "visible", Type: ChannelBool},
+				{Name: "weight", Type: ChannelFloat32},
+				{Name: "locked", Type: ChannelBool},
 			}
 			dimensions := DimensionSet{{Name: "x", Size: 8, TileSize: 4}}
 
-			layer := NewLayer("test", mode.separated, CompressionNone, dimensions, fields)
+			layer := NewLayer("test", mode.separated, CompressionNone, dimensions, channels)
 
 			// Create test data
 			testData := []struct {
@@ -547,28 +547,28 @@ func TestTileOrderWriteIteratorBooleanFields(t *testing.T) {
 				}
 
 				if sample[0].(bool) != expectedData.visible {
-					t.Errorf("Visible field mismatch at coord %v: expected %v, got %v", coord, expectedData.visible, sample[0])
+					t.Errorf("Visible channel mismatch at coord %v: expected %v, got %v", coord, expectedData.visible, sample[0])
 				}
 				if sample[1].(float32) != expectedData.weight {
-					t.Errorf("Weight field mismatch at coord %v: expected %v, got %v", coord, expectedData.weight, sample[1])
+					t.Errorf("Weight channel mismatch at coord %v: expected %v, got %v", coord, expectedData.weight, sample[1])
 				}
 				if sample[2].(bool) != expectedData.locked {
-					t.Errorf("Locked field mismatch at coord %v: expected %v, got %v", coord, expectedData.locked, sample[2])
+					t.Errorf("Locked channel mismatch at coord %v: expected %v, got %v", coord, expectedData.locked, sample[2])
 				}
 			}
 		})
 	}
 
-	// Test SetField() method specifically
-	t.Run("SetField", func(t *testing.T) {
-		fields := FieldSet{
-			{Name: "flag1", Type: FieldBool},
-			{Name: "value", Type: FieldInt16},
-			{Name: "flag2", Type: FieldBool},
+	// Test SetChannel() method specifically
+	t.Run("SetChannel", func(t *testing.T) {
+		channels := ChannelSet{
+			{Name: "flag1", Type: ChannelBool},
+			{Name: "value", Type: ChannelInt16},
+			{Name: "flag2", Type: ChannelBool},
 		}
 		dimensions := DimensionSet{{Name: "x", Size: 4, TileSize: 4}}
 
-		layer := NewLayer("test", true, CompressionNone, dimensions, fields) // separated mode
+		layer := NewLayer("test", true, CompressionNone, dimensions, channels) // separated mode
 
 		wrtBuf := buffer.NewBuffer(100)
 		iterator := NewTileOrderWriteIterator(wrtBuf, header, layer)
@@ -588,10 +588,10 @@ func TestTileOrderWriteIteratorBooleanFields(t *testing.T) {
 		for iterator.Next() {
 			expectedData := testData[sampleIndex]
 
-			// Use SetField() for each field
-			iterator.SetField(0, expectedData.flag1)
-			iterator.SetField(1, expectedData.value)
-			iterator.SetField(2, expectedData.flag2)
+			// Use SetChannel() for each channel
+			iterator.SetChannel(0, expectedData.flag1)
+			iterator.SetChannel(1, expectedData.value)
+			iterator.SetChannel(2, expectedData.flag2)
 
 			sampleIndex++
 		}
@@ -609,27 +609,27 @@ func TestTileOrderWriteIteratorBooleanFields(t *testing.T) {
 		for i, expectedData := range testData {
 			coord := SampleCoordinate{i}
 
-			flag1Val, err := FieldAt(memLayer, coord, 0)
+			flag1Val, err := ChannelAt(memLayer, coord, 0)
 			if err != nil {
-				t.Fatalf("FieldAt(0) failed at coord %v: %v", coord, err)
+				t.Fatalf("ChannelAt(0) failed at coord %v: %v", coord, err)
 			}
-			valueVal, err := FieldAt(memLayer, coord, 1)
+			valueVal, err := ChannelAt(memLayer, coord, 1)
 			if err != nil {
-				t.Fatalf("FieldAt(1) failed at coord %v: %v", coord, err)
+				t.Fatalf("ChannelAt(1) failed at coord %v: %v", coord, err)
 			}
-			flag2Val, err := FieldAt(memLayer, coord, 2)
+			flag2Val, err := ChannelAt(memLayer, coord, 2)
 			if err != nil {
-				t.Fatalf("FieldAt(2) failed at coord %v: %v", coord, err)
+				t.Fatalf("ChannelAt(2) failed at coord %v: %v", coord, err)
 			}
 
 			if flag1Val.(bool) != expectedData.flag1 {
-				t.Errorf("Flag1 field mismatch at coord %v: expected %v, got %v", coord, expectedData.flag1, flag1Val)
+				t.Errorf("Flag1 channel mismatch at coord %v: expected %v, got %v", coord, expectedData.flag1, flag1Val)
 			}
 			if valueVal.(int16) != expectedData.value {
-				t.Errorf("Value field mismatch at coord %v: expected %v, got %v", coord, expectedData.value, valueVal)
+				t.Errorf("Value channel mismatch at coord %v: expected %v, got %v", coord, expectedData.value, valueVal)
 			}
 			if flag2Val.(bool) != expectedData.flag2 {
-				t.Errorf("Flag2 field mismatch at coord %v: expected %v, got %v", coord, expectedData.flag2, flag2Val)
+				t.Errorf("Flag2 channel mismatch at coord %v: expected %v, got %v", coord, expectedData.flag2, flag2Val)
 			}
 		}
 	})

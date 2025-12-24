@@ -20,7 +20,7 @@ type OffsetSize int
 // is always found at the start of a stream of Pixi data. Because so much of how the rest of
 // the file is serialized is dependent on this information, it is threaded throughout the
 // reading and writing methods of the other structures that make up a Pixi stream.
-type PixiHeader struct {
+type Header struct {
 	Version          int
 	OffsetSize       OffsetSize
 	ByteOrder        binary.ByteOrder
@@ -29,24 +29,24 @@ type PixiHeader struct {
 }
 
 // Get the size in bytes of the full Pixi header (including first tag section and first layer offsets) as it is laid out and written to disk.
-func (s *PixiHeader) DiskSize() int {
+func (s *Header) DiskSize() int {
 	return 4 + 2 + 1 + 1 + 2*int(s.OffsetSize)
 }
 
 // Writes a fixed size value, or a slice of such values, using the byte order given in the header.
-func (s *PixiHeader) Write(w io.Writer, val any) error {
+func (s *Header) Write(w io.Writer, val any) error {
 	return binary.Write(w, s.ByteOrder, val)
 }
 
 // Reads a fixed-size value, or a slice of such values, using the byte order given in the header.
-func (s *PixiHeader) Read(r io.Reader, val any) error {
+func (s *Header) Read(r io.Reader, val any) error {
 	return binary.Read(r, s.ByteOrder, val)
 }
 
 // Writes a file offset to the current position in the writer stream, based on the offset size
 // specified in the header. Panics if the file offset size has not yet been set, and returns
 // an error if writing fails.
-func (s *PixiHeader) WriteOffset(w io.Writer, offset int64) error {
+func (s *Header) WriteOffset(w io.Writer, offset int64) error {
 	switch s.OffsetSize {
 	case 4:
 		return binary.Write(w, s.ByteOrder, int32(offset))
@@ -59,7 +59,7 @@ func (s *PixiHeader) WriteOffset(w io.Writer, offset int64) error {
 // Reads a file offset from the current position in the reader, based on the offset size
 // read earlier in the file. Panics if the file offset size has not yet been set, and returns
 // an error if reading fails.
-func (s *PixiHeader) ReadOffset(r io.Reader) (int64, error) {
+func (s *Header) ReadOffset(r io.Reader) (int64, error) {
 	switch s.OffsetSize {
 	case 4:
 		var offset int32
@@ -76,7 +76,7 @@ func (s *PixiHeader) ReadOffset(r io.Reader) (int64, error) {
 // Writes a slice of offsets to the current position in the writer stream, based on the offset size
 // specified in the header. Panics if the file offset size has not yet been set, and returns
 // an error if writing fails.
-func (s *PixiHeader) WriteOffsets(w io.Writer, offsets []int64) error {
+func (s *Header) WriteOffsets(w io.Writer, offsets []int64) error {
 	switch s.OffsetSize {
 	case 4:
 		smallOffs := make([]int32, len(offsets))
@@ -93,7 +93,7 @@ func (s *PixiHeader) WriteOffsets(w io.Writer, offsets []int64) error {
 // Reads a slice of offsets from the current position in the reader, based on the offset size
 // read earlier in the file. Panics if the file offset size has not yet been set, and returns
 // an error if reading fails.
-func (s *PixiHeader) ReadOffsets(r io.Reader, offsets []int64) error {
+func (s *Header) ReadOffsets(r io.Reader, offsets []int64) error {
 	switch s.OffsetSize {
 	case 4:
 		smallOffs := make([]int32, len(offsets))
@@ -114,7 +114,7 @@ func (s *PixiHeader) ReadOffsets(r io.Reader, offsets []int64) error {
 // Writes a 'friendly' name from to the writer stream at the current position. A
 // 'friendly' string is always the same format, specified by a 16-bit length followed
 // by that number of bytes of UTF8 string.
-func (s *PixiHeader) WriteFriendly(w io.Writer, friendly string) error {
+func (s *Header) WriteFriendly(w io.Writer, friendly string) error {
 	strBytes := []byte(friendly)
 	err := s.Write(w, uint16(len(strBytes)))
 	if err != nil {
@@ -126,7 +126,7 @@ func (s *PixiHeader) WriteFriendly(w io.Writer, friendly string) error {
 // Read a 'friendly' name from the reader stream at the current position. 'Friendly'
 // strings are always the same format, specified by a 16-bit length followed by that
 // number of bytes interpreted as a UTF8 string.
-func (s *PixiHeader) ReadFriendly(r io.Reader) (string, error) {
+func (s *Header) ReadFriendly(r io.Reader) (string, error) {
 	var strLen uint16
 	err := s.Read(r, &strLen)
 	if err != nil {
@@ -138,7 +138,7 @@ func (s *PixiHeader) ReadFriendly(r io.Reader) (string, error) {
 }
 
 // Write the information in this header to the current position in the writer stream.
-func (h *PixiHeader) WriteHeader(w io.Writer) error {
+func (h *Header) WriteHeader(w io.Writer) error {
 	// write file type (4 bytes)
 	_, err := w.Write([]byte(FileType))
 	if err != nil {
@@ -179,7 +179,7 @@ func (h *PixiHeader) WriteHeader(w io.Writer) error {
 
 // Read Pixi header information into this struct from the current position in the reader stream.
 // Will return an error if the reading fails, or if there are format errors in the Pixi header.
-func (h *PixiHeader) ReadHeader(r io.Reader) error {
+func (h *Header) ReadHeader(r io.Reader) error {
 	buf := make([]byte, 4)
 
 	// check file type
@@ -249,7 +249,7 @@ func (h *PixiHeader) ReadHeader(r io.Reader) error {
 // that is difficult to know the size of in advance. After completing the offsets overwrite, or upon encountering
 // an error in attempting to do so, this function will return the cursor to the position at which it was
 // when the call to this function was made.
-func (h *PixiHeader) OverwriteOffsets(w io.WriteSeeker, firstLayer int64, firstTags int64) error {
+func (h *Header) OverwriteOffsets(w io.WriteSeeker, firstLayer int64, firstTags int64) error {
 	oldPos, err := w.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return err
@@ -275,8 +275,8 @@ func (h *PixiHeader) OverwriteOffsets(w io.WriteSeeker, firstLayer int64, firstT
 	return nil
 }
 
-func allHeaderVariants(version int) []*PixiHeader {
-	return []*PixiHeader{
+func allHeaderVariants(version int) []*Header {
+	return []*Header{
 		{Version: version, ByteOrder: binary.BigEndian, OffsetSize: 4},
 		{Version: version, ByteOrder: binary.BigEndian, OffsetSize: 8},
 		{Version: version, ByteOrder: binary.LittleEndian, OffsetSize: 4},

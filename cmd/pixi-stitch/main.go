@@ -48,9 +48,9 @@ func main() {
 	targetLayerCount := -1
 	targetSeparated := []bool{}
 	targetCompressions := []pixi.Compression{}
-	targetHeader := &pixi.PixiHeader{}
+	targetHeader := &pixi.Header{}
 	targetDimensions := []pixi.DimensionSet{}
-	targetFields := []pixi.FieldSet{}
+	targetChannels := []pixi.ChannelSet{}
 	srcPixis := []*pixi.Pixi{}
 	srcReaders := map[int][]pixi.TileAccessLayer{}
 	layerNames := map[int][]string{}
@@ -75,7 +75,7 @@ func main() {
 			targetHeader = srcPixi.Header
 			for _, layer := range srcPixi.Layers {
 				targetDimensions = append(targetDimensions, slices.Clone(layer.Dimensions))
-				targetFields = append(targetFields, slices.Clone(layer.Fields))
+				targetChannels = append(targetChannels, slices.Clone(layer.Channels))
 				targetCompressions = append(targetCompressions, layer.Compression)
 				targetSeparated = append(targetSeparated, layer.Separated)
 			}
@@ -88,9 +88,9 @@ func main() {
 					fmt.Printf("Source Pixi file '%s' has different number of dimensions for layer %d than previous files.\n", srcFileNames[srcIndex], layerInd)
 					return
 				}
-				for fieldInd, field := range layer.Fields {
-					if field.Type != targetFields[layerInd][fieldInd].Type {
-						fmt.Printf("Source Pixi file '%s' has different field types/sizes for layer %d than previous files.\n", srcFileNames[srcIndex], layerInd)
+				for channelInd, channel := range layer.Channels {
+					if channel.Type != targetChannels[layerInd][channelInd].Type {
+						fmt.Printf("Source Pixi file '%s' has different channel types/sizes for layer %d than previous files.\n", srcFileNames[srcIndex], layerInd)
 						return
 					}
 				}
@@ -120,7 +120,7 @@ func main() {
 	}
 	defer dstFile.Close()
 
-	dstPixi := &pixi.PixiHeader{
+	dstPixi := &pixi.Header{
 		Version:    pixi.Version,
 		OffsetSize: targetHeader.OffsetSize,
 		ByteOrder:  targetHeader.ByteOrder,
@@ -146,7 +146,7 @@ func main() {
 			targetSeparated[layerIndex],
 			targetCompressions[layerIndex],
 			targetDimensions[layerIndex],
-			targetFields[layerIndex],
+			targetChannels[layerIndex],
 		)
 		previousLayer = mergedLayer
 

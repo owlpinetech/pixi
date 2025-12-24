@@ -72,7 +72,7 @@ func main() {
 	}
 
 	// create destination Pixi file with updated layer
-	dstPixi := &pixi.PixiHeader{Version: pixi.Version, OffsetSize: srcPixi.Header.OffsetSize, ByteOrder: srcPixi.Header.ByteOrder}
+	dstPixi := &pixi.Header{Version: pixi.Version, OffsetSize: srcPixi.Header.OffsetSize, ByteOrder: srcPixi.Header.ByteOrder}
 
 	dstDims := make(pixi.DimensionSet, len(srcLayer.Dimensions))
 	for i, dim := range srcLayer.Dimensions {
@@ -82,7 +82,7 @@ func main() {
 			TileSize: tileSizes[i],
 		}
 	}
-	dstLayer := pixi.NewLayer(srcLayer.Name, srcLayer.Separated, srcLayer.Compression, dstDims, srcLayer.Fields)
+	dstLayer := pixi.NewLayer(srcLayer.Name, srcLayer.Separated, srcLayer.Compression, dstDims, srcLayer.Channels)
 
 	srcData := pixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, srcLayer, 4)
 

@@ -14,7 +14,7 @@ import (
 
 func main() {
 	dstFileName := flag.String("dst", "", "name of the output pixi file")
-	separatedArg := flag.Bool("sep", false, "whether to separate fields of layers in the output file")
+	separatedArg := flag.Bool("sep", false, "whether to separate channels of layers in the output file")
 	compressionArg := flag.String("comp", "none", "compression type for output file (none, flate, lzw-lsb, lzw-msb)")
 	flag.Parse()
 
@@ -61,7 +61,7 @@ func main() {
 	}
 
 	targetLayerCount := -1
-	targetHeader := &pixi.PixiHeader{}
+	targetHeader := &pixi.Header{}
 	targetDimensions := []pixi.DimensionSet{}
 	srcPixis := []*pixi.Pixi{}
 	srcReaders := map[int][]*pixi.TileOrderReadIterator{}
@@ -117,7 +117,7 @@ func main() {
 	}
 	defer dstFile.Close()
 
-	dstPixi := &pixi.PixiHeader{
+	dstPixi := &pixi.Header{
 		Version:    pixi.Version,
 		OffsetSize: targetHeader.OffsetSize,
 		ByteOrder:  targetHeader.ByteOrder,
@@ -138,10 +138,10 @@ func main() {
 	previousOffset := dstPixi.FirstLayerOffset
 	var previousLayer *pixi.Layer
 	for layerIndex, layerReaders := range srcReaders {
-		mergedFields := pixi.FieldSet{}
+		mergedChannels := pixi.ChannelSet{}
 		for _, reader := range layerReaders {
-			for _, field := range reader.Layer().Fields {
-				mergedFields = append(mergedFields, field)
+			for _, channel := range reader.Layer().Channels {
+				mergedChannels = append(mergedChannels, channel)
 			}
 		}
 
@@ -150,7 +150,7 @@ func main() {
 			*separatedArg,
 			compression,
 			targetDimensions[layerIndex],
-			mergedFields,
+			mergedChannels,
 		)
 		previousLayer = mergedLayer
 
@@ -175,8 +175,8 @@ func main() {
 			dstIndex := 0
 			for _, reader := range layerReaders {
 				sample := reader.Sample()
-				for _, field := range sample {
-					dstLayerWriter.SetField(dstIndex, field)
+				for _, channel := range sample {
+					dstLayerWriter.SetChannel(dstIndex, channel)
 					dstIndex += 1
 				}
 			}

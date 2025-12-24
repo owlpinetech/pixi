@@ -387,7 +387,7 @@ func TestTileOrderReadIteratorBooleanChannels(t *testing.T) {
 			if mode.separated {
 				opts = append(opts, WithPlanar())
 			}
-			layer, err := NewBlankUncompressedLayer(
+			layer, err := newBlankUncompressedLayer(
 				wrtBuf,
 				header,
 				"tile-order-read-iterator-boolean-test",

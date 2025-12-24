@@ -75,7 +75,7 @@ func TestCachedSetSampleAt(t *testing.T) {
 	wrtBuf := buffer.NewBuffer(10)
 	header.WriteHeader(wrtBuf)
 
-	layer, err := NewBlankUncompressedLayer(
+	layer, err := newBlankUncompressedLayer(
 		wrtBuf,
 		header,
 		"stored-set-sample-at",

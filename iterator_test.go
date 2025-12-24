@@ -16,7 +16,7 @@ func TestTileOrderReadIterator(t *testing.T) {
 
 	// write some test data
 	wrtBuf := buffer.NewBuffer(10)
-	layer, err := NewBlankUncompressedLayer(
+	layer, err := newBlankUncompressedLayer(
 		wrtBuf,
 		header,
 		"tile-order-read-iterator-test",

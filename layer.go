@@ -112,9 +112,9 @@ func (d *Layer) HeaderSize(h *PixiHeader) int {
 	for _, f := range d.Fields {
 		headerSize += f.HeaderSize(h) // add each field header size
 	}
-	headerSize += d.DiskTiles() * h.OffsetSize // offset size bytes for each real disk tile size in bytes
-	headerSize += d.DiskTiles() * h.OffsetSize // offset size bytes for each tile offset
-	headerSize += h.OffsetSize                 // offset size bytes for the next layer start offset
+	headerSize += d.DiskTiles() * int(h.OffsetSize) // offset size bytes for each real disk tile size in bytes
+	headerSize += d.DiskTiles() * int(h.OffsetSize) // offset size bytes for each tile offset
+	headerSize += int(h.OffsetSize)                 // offset size bytes for the next layer start offset
 	return headerSize
 }
 

@@ -52,7 +52,7 @@ func main() {
 	targetDimensions := []pixi.DimensionSet{}
 	targetFields := []pixi.FieldSet{}
 	srcPixis := []*pixi.Pixi{}
-	srcReaders := map[int][]pixi.DirectAccessLayerReader{}
+	srcReaders := map[int][]pixi.TileAccessLayer{}
 	layerNames := map[int][]string{}
 	tags := map[string]string{}
 	for srcIndex, srcStream := range srcStreams {
@@ -104,7 +104,7 @@ func main() {
 		}
 
 		for layerIndex, layer := range srcPixi.Layers {
-			layerReader := pixi.NewReadCachedLayer(pixi.NewLayerReadFifoCache(srcStream, srcPixi.Header, layer, 16))
+			layerReader := pixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, layer, 16)
 			srcReaders[layerIndex] = append(srcReaders[layerIndex], layerReader)
 			if !slices.Contains(layerNames[layerIndex], layer.Name) {
 				layerNames[layerIndex] = append(layerNames[layerIndex], layer.Name)
@@ -166,7 +166,7 @@ func main() {
 			}
 			// adjust coordinate to source reader space
 			coord[*stitchDimension] = stitchPos
-			sample, err := layerReaders[srcReaderIndex].SampleAt(coord)
+			sample, err := pixi.SampleAt(layerReaders[srcReaderIndex], coord)
 			if err != nil {
 				fmt.Println("Error at coordinate:", coord, "original:", dstLayerWriter.Coordinate(), "dimensions:", layerReaders[srcReaderIndex].Layer().Dimensions)
 				fmt.Println("Failed to retrieve sample from source Pixi files: ", err)

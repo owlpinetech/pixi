@@ -13,8 +13,8 @@ import (
 
 func main() {
 	pixiPath := flag.String("path", "", "path of the pixi file to examine or tag")
-	tags := flag.String("tags", "", "tag name to add to the pixi file")
-	vals := flag.String("vals", "", "value of the tag to add to the pixi file")
+	tags := flag.String("tags", "", "comma-separated tag names to add to the pixi file")
+	vals := flag.String("vals", "", "comma-seperated values of the tags to add to the pixi file")
 	flag.Parse()
 
 	if *pixiPath == "" {

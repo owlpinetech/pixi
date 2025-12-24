@@ -31,15 +31,15 @@ func (f Field) Size() int {
 // The read operation is type-dependent, with each field type having its own specific method
 // for reading values. This ensures that the correct data is read and converted into the
 // expected format.
-func (f Field) BytesToValue(raw []byte, order binary.ByteOrder) any {
-	return f.Type.BytesToValue(raw, order)
+func (f Field) Value(raw []byte, order binary.ByteOrder) any {
+	return f.Type.Value(raw, order)
 }
 
 // This function writes a value of any type into bytes according to the specified FieldType.
 // The written bytes are stored in the provided byte array. This function will panic if
 // the FieldType is unknown or if an unsupported field type is encountered.
-func (f Field) ValueToBytes(val any, order binary.ByteOrder, raw []byte) {
-	f.Type.ValueToBytes(val, order, raw)
+func (f Field) PutValue(val any, order binary.ByteOrder, raw []byte) {
+	f.Type.PutValue(val, order, raw)
 }
 
 // Get the size in bytes of this dimension description as it is laid out and written to disk.
@@ -79,7 +79,7 @@ func (d Field) Write(w io.Writer, h *PixiHeader) error {
 	// Write optional Min value
 	if d.Min != nil {
 		minBytes := make([]byte, d.Type.Base().Size())
-		d.Type.Base().ValueToBytes(d.Min, h.ByteOrder, minBytes)
+		d.Type.Base().PutValue(d.Min, h.ByteOrder, minBytes)
 		_, err = w.Write(minBytes)
 		if err != nil {
 			return err
@@ -89,7 +89,7 @@ func (d Field) Write(w io.Writer, h *PixiHeader) error {
 	// Write optional Max value
 	if d.Max != nil {
 		maxBytes := make([]byte, d.Type.Base().Size())
-		d.Type.Base().ValueToBytes(d.Max, h.ByteOrder, maxBytes)
+		d.Type.Base().PutValue(d.Max, h.ByteOrder, maxBytes)
 		_, err = w.Write(maxBytes)
 		if err != nil {
 			return err
@@ -124,7 +124,7 @@ func (d *Field) Read(r io.Reader, h *PixiHeader) error {
 		if err != nil {
 			return err
 		}
-		d.Min = d.Type.BytesToValue(minBytes, h.ByteOrder)
+		d.Min = d.Type.Value(minBytes, h.ByteOrder)
 	} else {
 		d.Min = nil
 	}
@@ -136,7 +136,7 @@ func (d *Field) Read(r io.Reader, h *PixiHeader) error {
 		if err != nil {
 			return err
 		}
-		d.Max = d.Type.BytesToValue(maxBytes, h.ByteOrder)
+		d.Max = d.Type.Value(maxBytes, h.ByteOrder)
 	} else {
 		d.Max = nil
 	}
@@ -149,130 +149,18 @@ func (field *Field) UpdateMinMax(value any) bool {
 	changed := false
 
 	// Update Min if needed
-	if field.Min == nil || field.CompareValues(value, field.Min) < 0 {
+	if field.Min == nil || field.Type.CompareValues(value, field.Min) < 0 {
 		field.Min = value
 		changed = true
 	}
 
 	// Update Max if needed
-	if field.Max == nil || field.CompareValues(value, field.Max) > 0 {
+	if field.Max == nil || field.Type.CompareValues(value, field.Max) > 0 {
 		field.Max = value
 		changed = true
 	}
 
 	return changed
-}
-
-// Compares two values based on the field type. Returns -1 if a < b, 0 if a == b, 1 if a > b.
-func (field *Field) CompareValues(a, b any) int {
-	switch field.Type.Base() {
-	case FieldInt8:
-		va, vb := a.(int8), b.(int8)
-		if va < vb {
-			return -1
-		}
-		if va > vb {
-			return 1
-		}
-		return 0
-	case FieldUint8:
-		va, vb := a.(uint8), b.(uint8)
-		if va < vb {
-			return -1
-		}
-		if va > vb {
-			return 1
-		}
-		return 0
-	case FieldInt16:
-		va, vb := a.(int16), b.(int16)
-		if va < vb {
-			return -1
-		}
-		if va > vb {
-			return 1
-		}
-		return 0
-	case FieldUint16:
-		va, vb := a.(uint16), b.(uint16)
-		if va < vb {
-			return -1
-		}
-		if va > vb {
-			return 1
-		}
-		return 0
-	case FieldInt32:
-		va, vb := a.(int32), b.(int32)
-		if va < vb {
-			return -1
-		}
-		if va > vb {
-			return 1
-		}
-		return 0
-	case FieldUint32:
-		va, vb := a.(uint32), b.(uint32)
-		if va < vb {
-			return -1
-		}
-		if va > vb {
-			return 1
-		}
-		return 0
-	case FieldInt64:
-		va, vb := a.(int64), b.(int64)
-		if va < vb {
-			return -1
-		}
-		if va > vb {
-			return 1
-		}
-		return 0
-	case FieldUint64:
-		va, vb := a.(uint64), b.(uint64)
-		if va < vb {
-			return -1
-		}
-		if va > vb {
-			return 1
-		}
-		return 0
-	case FieldFloat8:
-		va, vb := float64(a.(float8.Float8)), float64(b.(float8.Float8))
-		return cmp.Compare(va, vb)
-	case FieldFloat16:
-		va, vb := a.(float16.Float16).Float32(), b.(float16.Float16).Float32()
-		return cmp.Compare(va, vb)
-	case FieldFloat32:
-		return cmp.Compare(a.(float32), b.(float32))
-	case FieldFloat64:
-		return cmp.Compare(a.(float64), b.(float64))
-	case FieldBool:
-		va, vb := a.(bool), b.(bool)
-		if !va && vb {
-			return -1
-		}
-		if va && !vb {
-			return 1
-		}
-		return 0
-	case FieldInt128:
-		va, vb := a.(int128.Int128), b.(int128.Int128)
-		return va.Cmp(vb)
-	case FieldUint128:
-		va, vb := a.(int128.Uint128), b.(int128.Uint128)
-		return va.Cmp(vb)
-	case FieldFloat128:
-		va, vb := a.(float128.Float128), b.(float128.Float128)
-		return va.Compare(vb)
-	case FieldBFloat16:
-		va, vb := a.(floatx.BFloat16), b.(floatx.BFloat16)
-		vaf, vbf := va.Float32(), vb.Float32()
-		return cmp.Compare(vaf, vbf)
-	default:
-		return 0
-	}
 }
 
 // Describes the size and interpretation of a field.
@@ -427,7 +315,7 @@ func (f FieldType) String() string {
 // The read operation is type-dependent, with each field type having its own specific method
 // for reading values. This ensures that the correct data is read and converted into the
 // expected format.
-func (f FieldType) BytesToValue(raw []byte, o binary.ByteOrder) any {
+func (f FieldType) Value(raw []byte, o binary.ByteOrder) any {
 	switch f.Base() {
 	case FieldUnknown:
 		panic("pixi: tried to read field with unknown size")
@@ -504,7 +392,7 @@ func (f FieldType) BytesToValue(raw []byte, o binary.ByteOrder) any {
 
 // Writes the given value, assumed to correspond to the FieldType, into it's raw representation
 // in bytes according to the byte order specified.
-func (f FieldType) ValueToBytes(val any, o binary.ByteOrder, bytes []byte) {
+func (f FieldType) PutValue(val any, o binary.ByteOrder, bytes []byte) {
 	switch f.Base() {
 	case FieldUnknown:
 		panic("pixi: tried to write field with unknown size")
@@ -575,5 +463,185 @@ func (f FieldType) ValueToBytes(val any, o binary.ByteOrder, bytes []byte) {
 		o.PutUint16(bytes, uint16(bf16))
 	default:
 		panic("pixi: tried to write unsupported field type")
+	}
+}
+
+func (f FieldType) AppendValue(val any, o binary.AppendByteOrder, raw []byte) []byte {
+	switch f.Base() {
+	case FieldUnknown:
+		panic("pixi: tried to write field with unknown size")
+	case FieldInt8:
+		return append(raw, byte(val.(int8)))
+	case FieldUint8:
+		return append(raw, val.(uint8))
+	case FieldInt16:
+		return o.AppendUint16(raw, uint16(val.(int16)))
+	case FieldUint16:
+		return o.AppendUint16(raw, val.(uint16))
+	case FieldInt32:
+		return o.AppendUint32(raw, uint32(val.(int32)))
+	case FieldUint32:
+		return o.AppendUint32(raw, val.(uint32))
+	case FieldInt64:
+		return o.AppendUint64(raw, uint64(val.(int64)))
+	case FieldUint64:
+		return o.AppendUint64(raw, val.(uint64))
+	case FieldFloat8:
+		return append(raw, byte(val.(float8.Float8)))
+	case FieldFloat16:
+		return o.AppendUint16(raw, val.(float16.Float16).Bits())
+	case FieldFloat32:
+		return o.AppendUint32(raw, math.Float32bits(val.(float32)))
+	case FieldFloat64:
+		return o.AppendUint64(raw, math.Float64bits(val.(float64)))
+	case FieldBool:
+		if val.(bool) {
+			return append(raw, 1)
+		} else {
+			return append(raw, 0)
+		}
+	case FieldInt128:
+		// Write 128-bit signed integer to bytes
+		val128 := val.(int128.Int128)
+		if o == binary.BigEndian {
+			return o.AppendUint64(o.AppendUint64(raw, uint64(val128.H)), val128.L)
+		} else {
+			return o.AppendUint64(o.AppendUint64(raw, val128.L), uint64(val128.H))
+		}
+	case FieldUint128:
+		// Write 128-bit unsigned integer to bytes
+		val128 := val.(int128.Uint128)
+		if o == binary.BigEndian {
+			return o.AppendUint64(o.AppendUint64(raw, val128.H), val128.L)
+		} else {
+			return o.AppendUint64(o.AppendUint64(raw, val128.L), val128.H)
+		}
+	case FieldFloat128:
+		// Write 128-bit floating point to bytes
+		val128 := val.(float128.Float128)
+		h, l := val128.Bits()
+		if o == binary.BigEndian {
+			return o.AppendUint64(o.AppendUint64(raw, h), l)
+		} else {
+			return o.AppendUint64(o.AppendUint64(raw, l), h)
+		}
+	case FieldBFloat16:
+		// Write BFloat16 to bytes
+		bf16 := val.(floatx.BFloat16)
+		return o.AppendUint16(raw, uint16(bf16))
+	default:
+		panic("pixi: tried to write unsupported field type")
+	}
+}
+
+// Compares two values based on the field type. Returns -1 if a < b, 0 if a == b, 1 if a > b.
+func (ftype FieldType) CompareValues(a, b any) int {
+	switch ftype.Base() {
+	case FieldInt8:
+		va, vb := a.(int8), b.(int8)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldUint8:
+		va, vb := a.(uint8), b.(uint8)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldInt16:
+		va, vb := a.(int16), b.(int16)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldUint16:
+		va, vb := a.(uint16), b.(uint16)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldInt32:
+		va, vb := a.(int32), b.(int32)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldUint32:
+		va, vb := a.(uint32), b.(uint32)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldInt64:
+		va, vb := a.(int64), b.(int64)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldUint64:
+		va, vb := a.(uint64), b.(uint64)
+		if va < vb {
+			return -1
+		}
+		if va > vb {
+			return 1
+		}
+		return 0
+	case FieldFloat8:
+		va, vb := float64(a.(float8.Float8)), float64(b.(float8.Float8))
+		return cmp.Compare(va, vb)
+	case FieldFloat16:
+		va, vb := a.(float16.Float16).Float32(), b.(float16.Float16).Float32()
+		return cmp.Compare(va, vb)
+	case FieldFloat32:
+		return cmp.Compare(a.(float32), b.(float32))
+	case FieldFloat64:
+		return cmp.Compare(a.(float64), b.(float64))
+	case FieldBool:
+		va, vb := a.(bool), b.(bool)
+		if !va && vb {
+			return -1
+		}
+		if va && !vb {
+			return 1
+		}
+		return 0
+	case FieldInt128:
+		va, vb := a.(int128.Int128), b.(int128.Int128)
+		return va.Cmp(vb)
+	case FieldUint128:
+		va, vb := a.(int128.Uint128), b.(int128.Uint128)
+		return va.Cmp(vb)
+	case FieldFloat128:
+		va, vb := a.(float128.Float128), b.(float128.Float128)
+		return va.Compare(vb)
+	case FieldBFloat16:
+		va, vb := a.(floatx.BFloat16), b.(floatx.BFloat16)
+		vaf, vbf := va.Float32(), vb.Float32()
+		return cmp.Compare(vaf, vbf)
+	default:
+		return 0
 	}
 }

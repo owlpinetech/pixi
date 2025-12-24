@@ -9,7 +9,12 @@ import (
 
 const (
 	offsetsOffset int64 = 8
+
+	OffsetSize4 OffsetSize = 4
+	OffsetSize8 OffsetSize = 8
 )
+
+type OffsetSize int
 
 // Contains information used to read or write the rest of a Pixi data file. This information
 // is always found at the start of a stream of Pixi data. Because so much of how the rest of
@@ -17,7 +22,7 @@ const (
 // reading and writing methods of the other structures that make up a Pixi stream.
 type PixiHeader struct {
 	Version          int
-	OffsetSize       int
+	OffsetSize       OffsetSize
 	ByteOrder        binary.ByteOrder
 	FirstLayerOffset int64
 	FirstTagsOffset  int64
@@ -25,7 +30,7 @@ type PixiHeader struct {
 
 // Get the size in bytes of the full Pixi header (including first tag section and first layer offsets) as it is laid out and written to disk.
 func (s *PixiHeader) DiskSize() int {
-	return 4 + 2 + 1 + 1 + s.OffsetSize + s.OffsetSize
+	return 4 + 2 + 1 + 1 + 2*int(s.OffsetSize)
 }
 
 // Writes a fixed size value, or a slice of such values, using the byte order given in the header.
@@ -211,7 +216,7 @@ func (h *PixiHeader) ReadHeader(r io.Reader) error {
 	if buf[0] != 4 && buf[0] != 8 {
 		return ErrFormat("reader only supports offset sizes of 4 or 8 bytes")
 	}
-	h.OffsetSize = int(buf[0])
+	h.OffsetSize = OffsetSize(buf[0])
 
 	switch buf[1] {
 	case 0x00:

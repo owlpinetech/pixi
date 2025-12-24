@@ -19,7 +19,7 @@ func TestDimensionHeaderSize(t *testing.T) {
 			Size:     rand.Int(),
 			TileSize: rand.Int(),
 		}
-		if dim.HeaderSize(header) != 2+nameLen+header.OffsetSize+header.OffsetSize {
+		if dim.HeaderSize(header) != 2+nameLen+2*int(header.OffsetSize) {
 			t.Errorf("unexpected dimension header size")
 		}
 	}

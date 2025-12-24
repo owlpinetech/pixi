@@ -26,6 +26,8 @@ func main() {
 	toDstFile := toPixiFlags.String("dst", "", "name of the resulting Pixi file")
 	toTileSize := toPixiFlags.Int("tileSize", 0, "the size of tiles to generate in the Pixi file, if zero (default) will be the same size as the image")
 	toComp := toPixiFlags.Int("compression", 0, "compression to be used for data in Pixi (none, flate, lzw-lsb, lzw-msb, rle8) represented as 0, 1, 2, 3, 4 respectively")
+	toOrder := toPixiFlags.Bool("bigEndian", true, "whether to use big-endian byte order in the Pixi file")
+	toOffsetSize := toPixiFlags.Int("offsetSize", 4, "the size in bytes of offsets in the Pixi file (4 or 8)")
 
 	fromPixiFlags := flag.NewFlagSet("fromPixi", flag.ExitOnError)
 	fromSrcFile := fromPixiFlags.String("src", "", "Pixi file to convert")
@@ -39,7 +41,7 @@ func main() {
 			return
 		}
 
-		if err := otherToPixi(*toSrcFile, *toDstFile, *toTileSize, *toComp); err != nil {
+		if err := otherToPixi(*toSrcFile, *toDstFile, *toTileSize, *toComp, *toOrder, *toOffsetSize); err != nil {
 			fmt.Println(err)
 			return
 		}
@@ -61,7 +63,7 @@ func main() {
 	}
 }
 
-func otherToPixi(srcFile string, dstFile string, tileSize int, comp int) error {
+func otherToPixi(srcFile string, dstFile string, tileSize int, comp int, bigEndian bool, offsetSize int) error {
 	var srcStream io.Reader
 	if strings.HasPrefix(srcFile, "http://") || strings.HasPrefix(srcFile, "https://") {
 		resp, err := http.Get(srcFile)
@@ -103,9 +105,20 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int) error {
 	case 4:
 		compression = pixi.CompressionRle8
 	}
+
+	if offsetSize != 4 && offsetSize != 8 {
+		return fmt.Errorf("invalid offset size: %d; must be 4 or 8", offsetSize)
+	}
+
+	order := binary.ByteOrder(binary.BigEndian)
+	if !bigEndian {
+		order = binary.LittleEndian
+	}
+
 	options := pixi.FromImageOptions{
 		Compression: compression,
-		ByteOrder:   binary.BigEndian,
+		OffsetSize:  pixi.OffsetSize(offsetSize),
+		ByteOrder:   order,
 		XTileSize:   tileSize,
 		YTileSize:   tileSize,
 		Tags:        map[string]string{},

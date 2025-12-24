@@ -34,7 +34,7 @@ func TestFieldType_ValueFromBytes(t *testing.T) {
 		{"Float64", FieldFloat64, float64(3.14159)},
 		{"Bool_true", FieldBool, true},
 		{"Bool_false", FieldBool, false},
-		{"Int128", FieldInt128, int128.Int128{H: -1, L: ^uint64(123456789012345-1)}},
+		{"Int128", FieldInt128, int128.Int128{H: -1, L: ^uint64(123456789012345 - 1)}},
 		{"Uint128", FieldUint128, int128.Uint128{H: 0, L: 123456789012345}},
 		{"Float128", FieldFloat128, float128.FromFloat64(-123.456)},
 		{"BFloat16", FieldBFloat16, floatx.BF16Fromfloat32(1.5)},
@@ -121,7 +121,7 @@ func TestFieldType_ValueFromBytes(t *testing.T) {
 				binary.Write(buf, binary.BigEndian, uint16(bf16))
 				raw = buf.Bytes()
 			}
-			val := tt.fieldType.BytesToValue(raw, binary.BigEndian)
+			val := tt.fieldType.Value(raw, binary.BigEndian)
 			if !reflect.DeepEqual(val, tt.value) {
 				t.Errorf("Read() = %+v, want %+v", val, tt.value)
 			}
@@ -149,7 +149,7 @@ func TestFieldType_WriteValue(t *testing.T) {
 		{FieldFloat64, []byte{0xbf, 0xf0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, float64(-1.0)},
 		{FieldBool, []byte{0x01}, true},
 		{FieldBool, []byte{0x00}, false},
-		{FieldInt128, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfb, 0x2e}, int128.Int128{H: -1, L: ^uint64(1234-1)}},
+		{FieldInt128, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xfb, 0x2e}, int128.Int128{H: -1, L: ^uint64(1234 - 1)}},
 		{FieldUint128, []byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x04, 0xd2}, int128.Uint128{H: 0, L: 1234}},
 		{FieldFloat128, []byte{0x40, 0x09, 0x34, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}, float128.FromFloat64(1234.0)},
 		{FieldBFloat16, []byte{0x3e, 0x00}, floatx.BF16Fromfloat32(1.5)},
@@ -157,7 +157,7 @@ func TestFieldType_WriteValue(t *testing.T) {
 
 	for i, test := range tests {
 		buf := make([]byte, test.fieldType.Size())
-		test.fieldType.ValueToBytes(test.readExpected, binary.BigEndian, buf)
+		test.fieldType.PutValue(test.readExpected, binary.BigEndian, buf)
 
 		written := buf
 		for b := range test.writeData {
@@ -218,7 +218,7 @@ func TestFieldWithMinMaxWriteRead(t *testing.T) {
 		{Name: "bool_with_both", Type: FieldBool, Min: false, Max: true},
 		{Name: "int64_with_min", Type: FieldInt64, Min: int64(-9223372036854775808), Max: nil},
 		{Name: "float64_with_max", Type: FieldFloat64, Min: nil, Max: float64(3.141592653589793)},
-		{Name: "int128_with_both", Type: FieldInt128, Min: int128.Int128{H: -1, L: ^uint64(999999-1)}, Max: int128.Int128{H: 0, L: 999999}},
+		{Name: "int128_with_both", Type: FieldInt128, Min: int128.Int128{H: -1, L: ^uint64(999999 - 1)}, Max: int128.Int128{H: 0, L: 999999}},
 		{Name: "uint128_with_max", Type: FieldUint128, Min: nil, Max: int128.Uint128{H: 0, L: 999999}},
 		{Name: "float128_with_min", Type: FieldFloat128, Min: float128.FromFloat64(-123.456), Max: nil},
 		{Name: "bfloat16_with_both", Type: FieldBFloat16, Min: floatx.BF16Fromfloat32(-1.0), Max: floatx.BF16Fromfloat32(1.0)},
@@ -391,86 +391,6 @@ func TestTileOrderWriteIteratorMinMaxTracking(t *testing.T) {
 
 		if layer.Fields[0].Max == nil || layer.Fields[0].Max.(int32) != 30 {
 			t.Errorf("Expected max to be 30, got %v", layer.Fields[0].Max)
-		}
-	}
-}
-
-func TestMemoryLayerMinMaxTracking(t *testing.T) {
-	headers := allHeaderVariants(Version)
-
-	for _, h := range headers {
-		buf := buffer.NewBuffer(1000)
-
-		// Create a layer with multiple fields
-		layer := &Layer{
-			Name:        "test",
-			Separated:   false,
-			Compression: CompressionNone,
-			Dimensions: DimensionSet{
-				{Name: "x", Size: 2, TileSize: 2},
-				{Name: "y", Size: 2, TileSize: 2},
-			},
-			Fields: FieldSet{
-				{Name: "temperature", Type: FieldFloat32},
-				{Name: "count", Type: FieldInt16},
-			},
-		}
-		layer.TileBytes = make([]int64, layer.Dimensions.Tiles())
-		layer.TileOffsets = make([]int64, layer.Dimensions.Tiles())
-
-		memLayer := NewMemoryLayer(buf, h, layer)
-
-		// Test SetFieldAt
-		testData := []struct {
-			coord SampleCoordinate
-			temp  float32
-			count int16
-		}{
-			{SampleCoordinate{0, 0}, 25.5, 10},
-			{SampleCoordinate{1, 0}, -5.2, 25},
-			{SampleCoordinate{0, 1}, 35.8, 5},
-			{SampleCoordinate{1, 1}, 15.0, 30},
-		}
-
-		for _, data := range testData {
-			err := memLayer.SetFieldAt(data.coord, 0, data.temp)
-			if err != nil {
-				t.Fatalf("SetFieldAt failed: %v", err)
-			}
-			err = memLayer.SetFieldAt(data.coord, 1, data.count)
-			if err != nil {
-				t.Fatalf("SetFieldAt failed: %v", err)
-			}
-		}
-
-		// Check Min/Max for temperature field
-		if layer.Fields[0].Min == nil || layer.Fields[0].Min.(float32) != -5.2 {
-			t.Errorf("Expected temperature min to be -5.2, got %v", layer.Fields[0].Min)
-		}
-		if layer.Fields[0].Max == nil || layer.Fields[0].Max.(float32) != 35.8 {
-			t.Errorf("Expected temperature max to be 35.8, got %v", layer.Fields[0].Max)
-		}
-
-		// Check Min/Max for count field
-		if layer.Fields[1].Min == nil || layer.Fields[1].Min.(int16) != 5 {
-			t.Errorf("Expected count min to be 5, got %v", layer.Fields[1].Min)
-		}
-		if layer.Fields[1].Max == nil || layer.Fields[1].Max.(int16) != 30 {
-			t.Errorf("Expected count max to be 30, got %v", layer.Fields[1].Max)
-		}
-
-		// Test SetSampleAt
-		err := memLayer.SetSampleAt(SampleCoordinate{0, 0}, []any{float32(-10.5), int16(2)})
-		if err != nil {
-			t.Fatalf("SetSampleAt failed: %v", err)
-		}
-
-		// Check that Min was updated
-		if layer.Fields[0].Min == nil || layer.Fields[0].Min.(float32) != -10.5 {
-			t.Errorf("Expected updated temperature min to be -10.5, got %v", layer.Fields[0].Min)
-		}
-		if layer.Fields[1].Min == nil || layer.Fields[1].Min.(int16) != 2 {
-			t.Errorf("Expected updated count min to be 2, got %v", layer.Fields[1].Min)
 		}
 	}
 }

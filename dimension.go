@@ -16,7 +16,7 @@ type Dimension struct {
 
 // Get the size in bytes of this dimension description as it is laid out and written to disk.
 func (d Dimension) HeaderSize(h *PixiHeader) int {
-	return 2 + len([]byte(d.Name)) + h.OffsetSize + h.OffsetSize
+	return 2 + len([]byte(d.Name)) + 2*int(h.OffsetSize)
 }
 
 // Returns the number of tiles in this dimension.

@@ -26,8 +26,8 @@ func (t *TagSection) WriteHeader(w io.Writer, h *Header) error {
 // Writes the tag section in binary to the given stream, according to the specification
 // in the Pixi header.
 func (t *TagSection) Write(w io.Writer, h *Header) error {
-	// write number of tags, then the next tag section, offset then each key-value pair for tags
-	err := t.WriteHeader(w, h)
+	// write number of tags, then each key-value pair for tags
+	err := h.Write(w, uint32(len(t.Tags)))
 	if err != nil {
 		return err
 	}

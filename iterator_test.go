@@ -16,25 +16,24 @@ func TestTileOrderReadIterator(t *testing.T) {
 
 	// write some test data
 	wrtBuf := buffer.NewBuffer(10)
-	layer, err := NewBlankUncompressedLayer(
+	layer, err := newBlankUncompressedLayer(
 		wrtBuf,
 		header,
 		"tile-order-read-iterator-test",
-		false,
 		DimensionSet{{Name: "x", Size: 50, TileSize: 10}, {Name: "y", Size: 50, TileSize: 10}},
-		FieldSet{{Name: "one", Type: FieldUint16}, {Name: "two", Type: FieldUint32}},
+		ChannelSet{{Name: "one", Type: ChannelUint16}, {Name: "two", Type: ChannelUint32}},
 	)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	stored := NewMemoryLayer(wrtBuf, header, layer)
-	SetFieldAt(stored, SampleCoordinate{0, 0}, 0, uint16(123))
-	SetFieldAt(stored, SampleCoordinate{0, 0}, 1, uint32(456789))
-	SetFieldAt(stored, SampleCoordinate{49, 49}, 0, uint16(321))
-	SetFieldAt(stored, SampleCoordinate{49, 49}, 1, uint32(987654))
-	SetFieldAt(stored, SampleCoordinate{25, 25}, 0, uint16(111))
-	SetFieldAt(stored, SampleCoordinate{25, 25}, 1, uint32(222222))
+	SetChannelAt(stored, SampleCoordinate{0, 0}, 0, uint16(123))
+	SetChannelAt(stored, SampleCoordinate{0, 0}, 1, uint32(456789))
+	SetChannelAt(stored, SampleCoordinate{49, 49}, 0, uint16(321))
+	SetChannelAt(stored, SampleCoordinate{49, 49}, 1, uint32(987654))
+	SetChannelAt(stored, SampleCoordinate{25, 25}, 0, uint16(111))
+	SetChannelAt(stored, SampleCoordinate{25, 25}, 1, uint32(222222))
 	stored.Commit()
 
 	rdBuffer := buffer.NewBufferFrom(wrtBuf.Bytes())
@@ -61,22 +60,22 @@ func TestTileOrderReadIterator(t *testing.T) {
 			}
 		}
 
-		for fieldIndex := range layer.Fields {
-			if len((sample)) != len(layer.Fields) {
-				t.Errorf("Tile order iterator Sample() length does not match field count at index %d: got %d, expected %d", tileOrderIndex, len(sample), len(layer.Fields))
+		for channelIndex := range layer.Channels {
+			if len((sample)) != len(layer.Channels) {
+				t.Errorf("Tile order iterator Sample() length does not match channel count at index %d: got %d, expected %d", tileOrderIndex, len(sample), len(layer.Channels))
 			}
-			fieldValue := iterator.Field(fieldIndex)
-			if fieldValue != sample[fieldIndex] {
-				t.Errorf("Tile order iterator Field() result does not match Sample() result at index %d, field %d: Field() %v, Sample() %v", tileOrderIndex, fieldIndex, fieldValue, sample[fieldIndex])
+			channelValue := iterator.Channel(channelIndex)
+			if channelValue != sample[channelIndex] {
+				t.Errorf("Tile order iterator Channel() result does not match Sample() result at index %d, channel %d: Channel() %v, Sample() %v", tileOrderIndex, channelIndex, channelValue, sample[channelIndex])
 			}
 
 			// compare against raw data
-			expectedValue, err := FieldAt(stored, coord, fieldIndex)
+			expectedValue, err := ChannelAt(stored, coord, channelIndex)
 			if err != nil {
 				t.Errorf("Error retrieving sample at coord %v for comparison: %v", coord, err)
 			}
-			if fieldValue != expectedValue {
-				t.Errorf("Tile order iterator returned incorrect value at index %d, field %d: got %v, expected %v", tileOrderIndex, fieldIndex, fieldValue, expectedValue)
+			if channelValue != expectedValue {
+				t.Errorf("Tile order iterator returned incorrect value at index %d, channel %d: got %v, expected %v", tileOrderIndex, channelIndex, channelValue, expectedValue)
 			}
 		}
 	}
@@ -98,10 +97,8 @@ func TestTileOrderWriteIterator(t *testing.T) {
 	}
 	layer := NewLayer(
 		"tile-order-write-iterator-test",
-		false,
-		CompressionNone,
 		DimensionSet{{Name: "x", Size: 50, TileSize: 10}, {Name: "y", Size: 50, TileSize: 10}},
-		FieldSet{{Name: "one", Type: FieldUint16}, {Name: "two", Type: FieldUint32}})
+		ChannelSet{{Name: "one", Type: ChannelUint16}, {Name: "two", Type: ChannelUint32}})
 
 	wrtBuf := buffer.NewBuffer(10)
 
@@ -118,7 +115,7 @@ func TestTileOrderWriteIterator(t *testing.T) {
 		}
 		lastTileIndex = tileOrderIndex
 
-		sample := make(Sample, len(layer.Fields))
+		sample := make(Sample, len(layer.Channels))
 		if coord[0] == 0 && coord[1] == 0 {
 			sample[0] = uint16(123)
 			sample[1] = uint32(456789)
@@ -165,7 +162,7 @@ func TestTileOrderWriteIterator(t *testing.T) {
 		}
 		for i := range check.expect {
 			if sample[i] != check.expect[i] {
-				t.Errorf("Incorrect value at coord %v, field %d: got %v, expected %v", check.coord, i, sample[i], check.expect[i])
+				t.Errorf("Incorrect value at coord %v, channel %d: got %v, expected %v", check.coord, i, sample[i], check.expect[i])
 			}
 		}
 	}

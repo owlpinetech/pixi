@@ -95,7 +95,11 @@ func main() {
 			TileSize: tileSizes[i],
 		}
 	}
-	dstLayer := pixi.NewLayer(srcLayer.Name, srcLayer.Separated, srcLayer.Compression, dstDims, srcLayer.Fields)
+	opts := []pixi.LayerOption{pixi.WithCompression(srcLayer.Compression)}
+	if srcLayer.Separated {
+		opts = append(opts, pixi.WithPlanar())
+	}
+	dstLayer := pixi.NewLayer(srcLayer.Name, dstDims, srcLayer.Channels, opts...)
 
 	srcData := pixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, srcLayer, 4)
 

@@ -108,23 +108,23 @@ func TestLzwMsbCompressionWriteRead(t *testing.T) {
 
 func TestRle8CompressionWriteReadCondensedLayer(t *testing.T) {
 	for range 25 {
-		// create between 1 and 5 fields of random sizes
-		fieldCount := rand.IntN(5) + 1
-		fields := make(FieldSet, fieldCount)
-		for i := range fieldCount {
-			fieldSize := (rand.IntN(2) + 1) * 2
-			fieldType := FieldUint8
-			switch fieldSize {
+		// create between 1 and 5 channels of random sizes
+		channelCount := rand.IntN(5) + 1
+		channels := make(ChannelSet, channelCount)
+		for i := range channelCount {
+			channelSize := (rand.IntN(2) + 1) * 2
+			channelType := ChannelUint8
+			switch channelSize {
 			case 1:
-				fieldType = FieldUint8
+				channelType = ChannelUint8
 			case 2:
-				fieldType = FieldUint16
+				channelType = ChannelUint16
 			case 4:
-				fieldType = FieldUint32
+				channelType = ChannelUint32
 			}
-			fields[i] = Field{
-				Name: "field-" + string(rune('A'+i)),
-				Type: fieldType,
+			channels[i] = Channel{
+				Name: "channel-" + string(rune('A'+i)),
+				Type: channelType,
 			}
 		}
 
@@ -132,7 +132,7 @@ func TestRle8CompressionWriteReadCondensedLayer(t *testing.T) {
 		chunk := []byte{}
 		for range 50 {
 			repeatCount := rand.IntN(10) + 1
-			sample := make([]byte, fields.Size())
+			sample := make([]byte, channels.Size())
 			for i := range sample {
 				sample[i] = byte(rand.IntN(256))
 			}
@@ -142,7 +142,7 @@ func TestRle8CompressionWriteReadCondensedLayer(t *testing.T) {
 		}
 
 		buf := bytes.NewBuffer([]byte{})
-		layer := &Layer{Fields: fields, Separated: false}
+		layer := &Layer{Channels: channels, Separated: false}
 		amtWrt, err := CompressionRle8.writeChunk(buf, layer, 0, chunk)
 		if err != nil {
 			t.Fatal(err)

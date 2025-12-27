@@ -69,8 +69,8 @@ func (coord SampleCoordinate) ToTileCoordinate(set DimensionSet) TileCoordinate 
 
 type TileOrderIndex int
 
-// Indexes into a sample of a particular tile in the DimensionSet. The Tile field is a linear index into the tiles of the DimensionSet,
-// and the InTile field is a linear index into the samples of that tile. The Tile field is converted from a multidimensional TileCoordinate
+// Indexes into a sample of a particular tile in the DimensionSet. The Tile channel is a linear index into the tiles of the DimensionSet,
+// and the InTile channel is a linear index into the samples of that tile. The Tile channel is converted from a multidimensional TileCoordinate
 // in a similar way to SampleIndex being converted from SampleCoordinate, and the same for the InTile linear index. Note that Tile here is
 // NOT guaranteed to be usable as a TileIndex for a Layer, since that requires knowledge of whether the Layer is separated or not.
 type TileSelector struct {

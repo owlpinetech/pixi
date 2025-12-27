@@ -11,7 +11,7 @@ import (
 
 func testSampleAtSameAsRaw(t *testing.T, wg *sync.WaitGroup, layer TileAccessLayer, coord SampleCoordinate, expect any) {
 	defer wg.Done()
-	at, err := FieldAt(layer, coord, 1)
+	at, err := ChannelAt(layer, coord, 1)
 	if err != nil {
 		t.Error(err)
 	} else if at != expect {
@@ -19,7 +19,7 @@ func testSampleAtSameAsRaw(t *testing.T, wg *sync.WaitGroup, layer TileAccessLay
 	}
 }
 
-func TestCachedSampleFieldConcurrent(t *testing.T) {
+func TestCachedSampleChannelConcurrent(t *testing.T) {
 	header := &Header{
 		Version:    Version,
 		OffsetSize: 4,
@@ -27,10 +27,8 @@ func TestCachedSampleFieldConcurrent(t *testing.T) {
 	}
 	layer := NewLayer(
 		"concurrent-test",
-		false,
-		CompressionNone,
 		DimensionSet{{Name: "x", Size: 50, TileSize: 10}, {Name: "y", Size: 50, TileSize: 10}},
-		FieldSet{{Name: "one", Type: FieldUint16}, {Name: "two", Type: FieldUint32}},
+		ChannelSet{{Name: "one", Type: ChannelUint16}, {Name: "two", Type: ChannelUint32}},
 	)
 
 	// write some test data
@@ -49,7 +47,7 @@ func TestCachedSampleFieldConcurrent(t *testing.T) {
 	rdBuffer := buffer.NewBufferFrom(wrtBuf.Bytes())
 	cache := NewFifoCacheLayer(rdBuffer, header, layer, 4)
 
-	// we're only going to look at the second field for this test
+	// we're only going to look at the second channel for this test
 	testSampleCount := layer.Dimensions.Samples() / 4
 	testCoords := make([]SampleCoordinate, testSampleCount)
 	testExpect := make([]any, testSampleCount) // offset into raw tile chunk, not written data
@@ -57,7 +55,7 @@ func TestCachedSampleFieldConcurrent(t *testing.T) {
 		testIndex := SampleIndex(rand.IntN(layer.Dimensions.Samples()))
 		testTile := testIndex.ToSampleCoordinate(layer.Dimensions).ToTileSelector(layer.Dimensions)
 		testCoords[i] = testIndex.ToSampleCoordinate(layer.Dimensions)
-		testExpect[i] = layer.Fields[1].Value(rawTiles[testTile.Tile][testTile.InTile*layer.Fields.Size()+layer.Fields[0].Size():], header.ByteOrder)
+		testExpect[i] = layer.Channels[1].Value(rawTiles[testTile.Tile][testTile.InTile*layer.Channels.Size()+layer.Channels[0].Size():], header.ByteOrder)
 	}
 
 	var wg sync.WaitGroup
@@ -77,13 +75,12 @@ func TestCachedSetSampleAt(t *testing.T) {
 	wrtBuf := buffer.NewBuffer(10)
 	header.WriteHeader(wrtBuf)
 
-	layer, err := NewBlankUncompressedLayer(
+	layer, err := newBlankUncompressedLayer(
 		wrtBuf,
 		header,
 		"stored-set-sample-at",
-		false,
 		DimensionSet{{Name: "x", Size: 50, TileSize: 10}, {Name: "y", Size: 50, TileSize: 10}},
-		FieldSet{{Name: "one", Type: FieldUint16}, {Name: "two", Type: FieldUint32}},
+		ChannelSet{{Name: "one", Type: ChannelUint16}, {Name: "two", Type: ChannelUint32}},
 	)
 	if err != nil {
 		t.Fatal(err)

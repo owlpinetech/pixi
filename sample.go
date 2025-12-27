@@ -1,22 +1,22 @@
 package pixi
 
-// A sample is a list of field values, in field-index order, for at a single index / coordinate in a layer.
+// A sample is a list of channel values, in channel-index order, for at a single index / coordinate in a layer.
 type Sample []any
 
-// Creates a Sample from a map of named field values, according to the order of fields in the given layer.
-func FromNamedSample(fieldset FieldSet, named map[string]any) Sample {
-	sample := make(Sample, len(fieldset))
-	for i, field := range fieldset {
-		sample[i] = named[field.Name]
+// Creates a Sample from a map of named channel values, according to the order of channels in the given layer.
+func FromNamedSample(channelset ChannelSet, named map[string]any) Sample {
+	sample := make(Sample, len(channelset))
+	for i, channel := range channelset {
+		sample[i] = named[channel.Name]
 	}
 	return sample
 }
 
-// Creates a map of named field values from the Sample, according to the order of fields in the given layer.
-func (s Sample) Named(fieldSet FieldSet) map[string]any {
+// Creates a map of named channel values from the Sample, according to the order of channels in the given layer.
+func (s Sample) Named(channelSet ChannelSet) map[string]any {
 	named := make(map[string]any)
-	for i, field := range fieldSet {
-		named[field.Name] = s[i]
+	for i, channel := range channelSet {
+		named[channel.Name] = s[i]
 	}
 	return named
 }

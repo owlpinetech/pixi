@@ -9,7 +9,7 @@ import (
 	"github.com/owlpinetech/pixi/internal/buffer"
 )
 
-func TestMemorySampleFieldConcurrent(t *testing.T) {
+func TestMemorySampleChannelConcurrent(t *testing.T) {
 	header := &Header{
 		Version:    Version,
 		OffsetSize: 4,
@@ -17,10 +17,8 @@ func TestMemorySampleFieldConcurrent(t *testing.T) {
 	}
 	layer := NewLayer(
 		"concurrent-test",
-		false,
-		CompressionNone,
 		DimensionSet{{Name: "x", Size: 50, TileSize: 10}, {Name: "y", Size: 50, TileSize: 10}},
-		FieldSet{{Name: "one", Type: FieldUint16}, {Name: "two", Type: FieldUint32}},
+		ChannelSet{{Name: "one", Type: ChannelUint16}, {Name: "two", Type: ChannelUint32}},
 	)
 
 	// write some test data
@@ -39,7 +37,7 @@ func TestMemorySampleFieldConcurrent(t *testing.T) {
 	rdBuffer := buffer.NewBufferFrom(wrtBuf.Bytes())
 	stored := NewMemoryLayer(rdBuffer, header, layer)
 
-	// we're only going to look at the second field for this test
+	// we're only going to look at the second channel for this test
 	testSampleCount := layer.Dimensions.Samples() / 4
 	testCoords := make([]SampleCoordinate, testSampleCount)
 	testExpect := make([]any, testSampleCount) // offset into raw tile chunk, not written data
@@ -47,7 +45,7 @@ func TestMemorySampleFieldConcurrent(t *testing.T) {
 		testIndex := SampleIndex(rand.IntN(layer.Dimensions.Samples()))
 		testTile := testIndex.ToSampleCoordinate(layer.Dimensions).ToTileSelector(layer.Dimensions)
 		testCoords[i] = testIndex.ToSampleCoordinate(layer.Dimensions)
-		testExpect[i] = layer.Fields[1].Value(rawTiles[testTile.Tile][testTile.InTile*layer.Fields.Size()+layer.Fields[0].Size():], header.ByteOrder)
+		testExpect[i] = layer.Channels[1].Value(rawTiles[testTile.Tile][testTile.InTile*layer.Channels.Size()+layer.Channels[0].Size():], header.ByteOrder)
 	}
 
 	var wg sync.WaitGroup
@@ -67,13 +65,12 @@ func TestMemorySetSampleAt(t *testing.T) {
 	wrtBuf := buffer.NewBuffer(10)
 	header.WriteHeader(wrtBuf)
 
-	layer, err := NewBlankUncompressedLayer(
+	layer, err := newBlankUncompressedLayer(
 		wrtBuf,
 		header,
 		"stored-set-sample-at",
-		false,
 		DimensionSet{{Name: "x", Size: 50, TileSize: 10}, {Name: "y", Size: 50, TileSize: 10}},
-		FieldSet{{Name: "one", Type: FieldUint16}, {Name: "two", Type: FieldUint32}},
+		ChannelSet{{Name: "one", Type: ChannelUint16}, {Name: "two", Type: ChannelUint32}},
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -109,7 +106,7 @@ func TestMemoryLayerMinMaxTracking(t *testing.T) {
 	for _, h := range headers {
 		buf := buffer.NewBuffer(1000)
 
-		// Create a layer with multiple fields
+		// Create a layer with multiple channels
 		layer := &Layer{
 			Name:        "test",
 			Separated:   false,
@@ -118,9 +115,9 @@ func TestMemoryLayerMinMaxTracking(t *testing.T) {
 				{Name: "x", Size: 2, TileSize: 2},
 				{Name: "y", Size: 2, TileSize: 2},
 			},
-			Fields: FieldSet{
-				{Name: "temperature", Type: FieldFloat32},
-				{Name: "count", Type: FieldInt16},
+			Channels: ChannelSet{
+				{Name: "temperature", Type: ChannelFloat32},
+				{Name: "count", Type: ChannelInt16},
 			},
 		}
 		layer.TileBytes = make([]int64, layer.Dimensions.Tiles())
@@ -128,7 +125,7 @@ func TestMemoryLayerMinMaxTracking(t *testing.T) {
 
 		memLayer := NewMemoryLayer(buf, h, layer)
 
-		// Test SetFieldAt
+		// Test SetChannelAt
 		testData := []struct {
 			coord SampleCoordinate
 			temp  float32
@@ -141,30 +138,30 @@ func TestMemoryLayerMinMaxTracking(t *testing.T) {
 		}
 
 		for _, data := range testData {
-			err := SetFieldAt(memLayer, data.coord, 0, data.temp)
+			err := SetChannelAt(memLayer, data.coord, 0, data.temp)
 			if err != nil {
-				t.Fatalf("SetFieldAt failed: %v", err)
+				t.Fatalf("SetChannelAt failed: %v", err)
 			}
-			err = SetFieldAt(memLayer, data.coord, 1, data.count)
+			err = SetChannelAt(memLayer, data.coord, 1, data.count)
 			if err != nil {
-				t.Fatalf("SetFieldAt failed: %v", err)
+				t.Fatalf("SetChannelAt failed: %v", err)
 			}
 		}
 
-		// Check Min/Max for temperature field
-		if layer.Fields[0].Min == nil || layer.Fields[0].Min.(float32) != -5.2 {
-			t.Errorf("Expected temperature min to be -5.2, got %v", layer.Fields[0].Min)
+		// Check Min/Max for temperature channel
+		if layer.Channels[0].Min == nil || layer.Channels[0].Min.(float32) != -5.2 {
+			t.Errorf("Expected temperature min to be -5.2, got %v", layer.Channels[0].Min)
 		}
-		if layer.Fields[0].Max == nil || layer.Fields[0].Max.(float32) != 35.8 {
-			t.Errorf("Expected temperature max to be 35.8, got %v", layer.Fields[0].Max)
+		if layer.Channels[0].Max == nil || layer.Channels[0].Max.(float32) != 35.8 {
+			t.Errorf("Expected temperature max to be 35.8, got %v", layer.Channels[0].Max)
 		}
 
-		// Check Min/Max for count field
-		if layer.Fields[1].Min == nil || layer.Fields[1].Min.(int16) != 5 {
-			t.Errorf("Expected count min to be 5, got %v", layer.Fields[1].Min)
+		// Check Min/Max for count channel
+		if layer.Channels[1].Min == nil || layer.Channels[1].Min.(int16) != 5 {
+			t.Errorf("Expected count min to be 5, got %v", layer.Channels[1].Min)
 		}
-		if layer.Fields[1].Max == nil || layer.Fields[1].Max.(int16) != 30 {
-			t.Errorf("Expected count max to be 30, got %v", layer.Fields[1].Max)
+		if layer.Channels[1].Max == nil || layer.Channels[1].Max.(int16) != 30 {
+			t.Errorf("Expected count max to be 30, got %v", layer.Channels[1].Max)
 		}
 
 		// Test SetSampleAt
@@ -174,11 +171,11 @@ func TestMemoryLayerMinMaxTracking(t *testing.T) {
 		}
 
 		// Check that Min was updated
-		if layer.Fields[0].Min == nil || layer.Fields[0].Min.(float32) != -10.5 {
-			t.Errorf("Expected updated temperature min to be -10.5, got %v", layer.Fields[0].Min)
+		if layer.Channels[0].Min == nil || layer.Channels[0].Min.(float32) != -10.5 {
+			t.Errorf("Expected updated temperature min to be -10.5, got %v", layer.Channels[0].Min)
 		}
-		if layer.Fields[1].Min == nil || layer.Fields[1].Min.(int16) != 2 {
-			t.Errorf("Expected updated count min to be 2, got %v", layer.Fields[1].Min)
+		if layer.Channels[1].Min == nil || layer.Channels[1].Min.(int16) != 2 {
+			t.Errorf("Expected updated count min to be 2, got %v", layer.Channels[1].Min)
 		}
 	}
 }

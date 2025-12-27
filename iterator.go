@@ -91,24 +91,24 @@ func (t *TileOrderReadIterator) Coordinate() SampleCoordinate {
 		ToSampleCoordinate(t.layer.Dimensions)
 }
 
-func (t *TileOrderReadIterator) Field(fieldIndex int) any {
+func (t *TileOrderReadIterator) Channel(channelIndex int) any {
 	if t.currentError != nil {
 		return nil
 	}
 
 	if t.layer.Separated {
-		tileData := t.tiles[fieldIndex]
-		if t.layer.Fields[fieldIndex].Type == FieldBool {
+		tileData := t.tiles[channelIndex]
+		if t.layer.Channels[channelIndex].Type == ChannelBool {
 			return UnpackBool(tileData, t.sampleInTile)
 		} else {
-			inTileOffset := t.sampleInTile * t.layer.Fields[fieldIndex].Size()
-			return t.layer.Fields[fieldIndex].Value(tileData[inTileOffset:], t.header.ByteOrder)
+			inTileOffset := t.sampleInTile * t.layer.Channels[channelIndex].Size()
+			return t.layer.Channels[channelIndex].Value(tileData[inTileOffset:], t.header.ByteOrder)
 		}
 	} else {
 		tileData := t.tiles[nonSeparatedKey]
-		inTileOffset := t.sampleInTile * t.layer.Fields.Size()
-		fieldOffset := t.layer.Fields.Offset(fieldIndex)
-		return t.layer.Fields[fieldIndex].Value(tileData[inTileOffset+fieldOffset:], t.header.ByteOrder)
+		inTileOffset := t.sampleInTile * t.layer.Channels.Size()
+		channelOffset := t.layer.Channels.Offset(channelIndex)
+		return t.layer.Channels[channelIndex].Value(tileData[inTileOffset+channelOffset:], t.header.ByteOrder)
 	}
 }
 
@@ -117,23 +117,23 @@ func (t *TileOrderReadIterator) Sample() Sample {
 		return nil
 	}
 
-	sample := make([]any, len(t.layer.Fields))
+	sample := make([]any, len(t.layer.Channels))
 	if t.layer.Separated {
-		for fieldIndex, field := range t.layer.Fields {
-			tileData := t.tiles[fieldIndex]
-			if field.Type == FieldBool {
-				sample[fieldIndex] = UnpackBool(tileData, t.sampleInTile)
+		for channelIndex, channel := range t.layer.Channels {
+			tileData := t.tiles[channelIndex]
+			if channel.Type == ChannelBool {
+				sample[channelIndex] = UnpackBool(tileData, t.sampleInTile)
 			} else {
-				inTileOffset := t.sampleInTile * field.Size()
-				sample[fieldIndex] = field.Value(tileData[inTileOffset:], t.header.ByteOrder)
+				inTileOffset := t.sampleInTile * channel.Size()
+				sample[channelIndex] = channel.Value(tileData[inTileOffset:], t.header.ByteOrder)
 			}
 		}
 	} else {
 		tileData := t.tiles[nonSeparatedKey]
-		inTileOffset := t.sampleInTile * t.layer.Fields.Size()
-		for fieldIndex, field := range t.layer.Fields {
-			sample[fieldIndex] = field.Value(tileData[inTileOffset:], t.header.ByteOrder)
-			inTileOffset += field.Size()
+		inTileOffset := t.sampleInTile * t.layer.Channels.Size()
+		for channelIndex, channel := range t.layer.Channels {
+			sample[channelIndex] = channel.Value(tileData[inTileOffset:], t.header.ByteOrder)
+			inTileOffset += channel.Size()
 		}
 	}
 
@@ -143,14 +143,14 @@ func (t *TileOrderReadIterator) Sample() Sample {
 func (t *TileOrderReadIterator) readTiles(tileIndex int) (map[int][]byte, error) {
 	result := make(map[int][]byte)
 	if t.layer.Separated {
-		for fieldIndex := range t.layer.Fields {
-			fieldTile := tileIndex + t.layer.Dimensions.Tiles()*fieldIndex
-			tileData := make([]byte, t.layer.DiskTileSize(fieldTile))
-			err := t.layer.ReadTile(t.backing, t.header, fieldTile, tileData)
+		for channelIndex := range t.layer.Channels {
+			channelTile := tileIndex + t.layer.Dimensions.Tiles()*channelIndex
+			tileData := make([]byte, t.layer.DiskTileSize(channelTile))
+			err := t.layer.ReadTile(t.backing, t.header, channelTile, tileData)
 			if err != nil {
 				return nil, err
 			}
-			result[fieldIndex] = tileData
+			result[channelIndex] = tileData
 		}
 	} else {
 		tileData := make([]byte, t.layer.DiskTileSize(tileIndex))
@@ -193,9 +193,9 @@ func NewTileOrderWriteIterator(backing io.WriteSeeker, header *Header, layer *La
 	}
 
 	if layer.Separated {
-		for fieldIndex := range layer.Fields {
-			tileSize := layer.DiskTileSize(layer.Dimensions.Tiles() * fieldIndex)
-			iterator.tiles[fieldIndex] = make([]byte, tileSize)
+		for channelIndex := range layer.Channels {
+			tileSize := layer.DiskTileSize(layer.Dimensions.Tiles() * channelIndex)
+			iterator.tiles[channelIndex] = make([]byte, tileSize)
 		}
 	} else {
 		tileSize := layer.DiskTileSize(0)
@@ -254,9 +254,9 @@ func (t *TileOrderWriteIterator) Next() bool {
 		} else {
 			// load the next tile (or tiles, if separated)
 			if t.layer.Separated {
-				for fieldIndex := range t.layer.Fields {
-					tileSize := t.layer.DiskTileSize(t.tile + t.layer.Dimensions.Tiles()*fieldIndex)
-					t.tiles[fieldIndex] = make([]byte, tileSize)
+				for channelIndex := range t.layer.Channels {
+					tileSize := t.layer.DiskTileSize(t.tile + t.layer.Dimensions.Tiles()*channelIndex)
+					t.tiles[channelIndex] = make([]byte, tileSize)
 				}
 			} else {
 				tileSize := t.layer.DiskTileSize(t.tile)
@@ -279,27 +279,27 @@ func (t *TileOrderWriteIterator) Coordinate() SampleCoordinate {
 		ToSampleCoordinate(t.layer.Dimensions)
 }
 
-func (t *TileOrderWriteIterator) SetField(fieldIndex int, value any) {
+func (t *TileOrderWriteIterator) SetChannel(channelIndex int, value any) {
 	if t.Error() != nil {
 		return
 	}
 
-	// Update Min/Max for the field
-	t.layer.Fields[fieldIndex].UpdateMinMax(value)
+	// Update Min/Max for the channel
+	t.layer.Channels[channelIndex].UpdateMinMax(value)
 
 	if t.layer.Separated {
-		tileData := t.tiles[fieldIndex]
-		if t.layer.Fields[fieldIndex].Type == FieldBool {
+		tileData := t.tiles[channelIndex]
+		if t.layer.Channels[channelIndex].Type == ChannelBool {
 			PackBool(value.(bool), tileData, t.sampleInTile)
 		} else {
-			inTileOffset := t.sampleInTile * t.layer.Fields[fieldIndex].Size()
-			t.layer.Fields[fieldIndex].PutValue(value, t.header.ByteOrder, tileData[inTileOffset:])
+			inTileOffset := t.sampleInTile * t.layer.Channels[channelIndex].Size()
+			t.layer.Channels[channelIndex].PutValue(value, t.header.ByteOrder, tileData[inTileOffset:])
 		}
 	} else {
 		tileData := t.tiles[nonSeparatedKey]
-		inTileOffset := t.sampleInTile * t.layer.Fields.Size()
-		fieldOffset := t.layer.Fields.Offset(fieldIndex)
-		t.layer.Fields[fieldIndex].PutValue(value, t.header.ByteOrder, tileData[inTileOffset+fieldOffset:])
+		inTileOffset := t.sampleInTile * t.layer.Channels.Size()
+		channelOffset := t.layer.Channels.Offset(channelIndex)
+		t.layer.Channels[channelIndex].PutValue(value, t.header.ByteOrder, tileData[inTileOffset+channelOffset:])
 	}
 }
 
@@ -308,36 +308,36 @@ func (t *TileOrderWriteIterator) SetSample(value Sample) {
 		return
 	}
 
-	// Update Min/Max for all fields in the sample
-	for fieldIndex, fieldValue := range value {
-		t.layer.Fields[fieldIndex].UpdateMinMax(fieldValue)
+	// Update Min/Max for all channels in the sample
+	for channelIndex, channelValue := range value {
+		t.layer.Channels[channelIndex].UpdateMinMax(channelValue)
 	}
 
 	if t.layer.Separated {
-		for fieldIndex, field := range t.layer.Fields {
-			tileData := t.tiles[fieldIndex]
-			if field.Type == FieldBool {
-				PackBool(value[fieldIndex].(bool), tileData, t.sampleInTile)
+		for channelIndex, channel := range t.layer.Channels {
+			tileData := t.tiles[channelIndex]
+			if channel.Type == ChannelBool {
+				PackBool(value[channelIndex].(bool), tileData, t.sampleInTile)
 			} else {
-				inTileOffset := t.sampleInTile * field.Size()
-				field.PutValue(value[fieldIndex], t.header.ByteOrder, tileData[inTileOffset:])
+				inTileOffset := t.sampleInTile * channel.Size()
+				channel.PutValue(value[channelIndex], t.header.ByteOrder, tileData[inTileOffset:])
 			}
 		}
 	} else {
 		tileData := t.tiles[nonSeparatedKey]
-		inTileOffset := t.sampleInTile * t.layer.Fields.Size()
-		for fieldIndex, field := range t.layer.Fields {
-			field.PutValue(value[fieldIndex], t.header.ByteOrder, tileData[inTileOffset:])
-			inTileOffset += field.Size()
+		inTileOffset := t.sampleInTile * t.layer.Channels.Size()
+		for channelIndex, channel := range t.layer.Channels {
+			channel.PutValue(value[channelIndex], t.header.ByteOrder, tileData[inTileOffset:])
+			inTileOffset += channel.Size()
 		}
 	}
 }
 
 func (t *TileOrderWriteIterator) writeTiles(tiles map[int][]byte, tileIndex int) error {
 	if t.layer.Separated {
-		for fieldIndex := range t.layer.Fields {
-			fieldTile := tileIndex + t.layer.Dimensions.Tiles()*fieldIndex
-			err := t.layer.WriteTile(t.backing, t.header, fieldTile, tiles[fieldIndex])
+		for channelIndex := range t.layer.Channels {
+			channelTile := tileIndex + t.layer.Dimensions.Tiles()*channelIndex
+			err := t.layer.WriteTile(t.backing, t.header, channelTile, tiles[channelIndex])
 			if err != nil {
 				return err
 			}

@@ -67,7 +67,11 @@ func main() {
 	}
 
 	for _, srcLayer := range srcPixi.Layers {
-		dstLayer := pixi.NewLayer(srcLayer.Name, srcLayer.Separated, compression, srcLayer.Dimensions, srcLayer.Fields)
+		opts := []pixi.LayerOption{pixi.WithCompression(compression)}
+		if srcLayer.Separated {
+			opts = append(opts, pixi.WithPlanar())
+		}
+		dstLayer := pixi.NewLayer(srcLayer.Name, srcLayer.Dimensions, srcLayer.Channels, opts...)
 		srcData := pixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, srcLayer, 4)
 
 		err = summary.AppendIterativeLayer(dstFile, dstLayer, func(dstIterator pixi.IterativeLayerWriter) error {

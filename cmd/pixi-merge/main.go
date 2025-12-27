@@ -14,7 +14,7 @@ import (
 
 func main() {
 	dstFileName := flag.String("dst", "", "name of the output pixi file")
-	separatedArg := flag.Bool("sep", false, "whether to separate fields of layers in the output file")
+	separatedArg := flag.Bool("sep", false, "whether to separate channels of layers in the output file")
 	compressionArg := flag.String("comp", "none", "compression type for output file (none, flate, lzw-lsb, lzw-msb)")
 	flag.Parse()
 
@@ -43,6 +43,11 @@ func main() {
 	default:
 		fmt.Printf("Unsupported compression type: %s\n", *compressionArg)
 		return
+	}
+
+	layerOpts := []pixi.LayerOption{pixi.WithCompression(compression)}
+	if *separatedArg {
+		layerOpts = append(layerOpts, pixi.WithPlanar())
 	}
 
 	srcFileNames := flag.Args()
@@ -134,19 +139,18 @@ func main() {
 	}
 
 	for layerIndex, layerReaders := range srcReaders {
-		mergedFields := pixi.FieldSet{}
+		mergedChannels := pixi.ChannelSet{}
 		for _, reader := range layerReaders {
-			for _, field := range reader.Layer().Fields {
-				mergedFields = append(mergedFields, field)
+			for _, channel := range reader.Layer().Channels {
+				mergedChannels = append(mergedChannels, channel)
 			}
 		}
 
 		mergedLayer := pixi.NewLayer(
 			strings.Join(layerNames[layerIndex], "+"),
-			*separatedArg,
-			compression,
 			targetDimensions[layerIndex],
-			mergedFields,
+			mergedChannels,
+			layerOpts...,
 		)
 
 		err = summary.AppendIterativeLayer(dstFile, mergedLayer, func(dstLayerWriter pixi.IterativeLayerWriter) error {

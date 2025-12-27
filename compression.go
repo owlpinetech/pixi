@@ -90,16 +90,16 @@ func (c Compression) writeChunk(w io.Writer, layer *Layer, tileIndex int, chunk 
 		if layer == nil {
 			return 0, ErrFormat("RLE compression requires layer information")
 		}
-		if len(layer.Fields) == 0 {
-			return 0, ErrFormat("RLE compression requires layer fields to be defined")
+		if len(layer.Channels) == 0 {
+			return 0, ErrFormat("RLE compression requires layer channels to be defined")
 		}
 		buf := new(bytes.Buffer)
 		// two modes: separated vs condensed
 		if layer.Separated {
-			field := layer.Fields[tileIndex/layer.Dimensions.Tiles()]
-			fieldBytes := field.Size()
-			for i := 0; i < len(chunk); i += fieldBytes {
-				j := i + fieldBytes
+			channel := layer.Channels[tileIndex/layer.Dimensions.Tiles()]
+			channelBytes := channel.Size()
+			for i := 0; i < len(chunk); i += channelBytes {
+				j := i + channelBytes
 				if j > len(chunk) {
 					break
 				}
@@ -107,8 +107,8 @@ func (c Compression) writeChunk(w io.Writer, layer *Layer, tileIndex int, chunk 
 
 				// count repeats
 				repeatCount := byte(1)
-				for k := j; k < len(chunk); k += fieldBytes {
-					l := k + fieldBytes
+				for k := j; k < len(chunk); k += channelBytes {
+					l := k + channelBytes
 					if l > len(chunk) {
 						break
 					}
@@ -130,12 +130,12 @@ func (c Compression) writeChunk(w io.Writer, layer *Layer, tileIndex int, chunk 
 				}
 
 				// advance i to skip repeats
-				i += (int(repeatCount) - 1) * fieldBytes
+				i += (int(repeatCount) - 1) * channelBytes
 			}
 		} else {
-			fieldsBytes := layer.Fields.Size()
-			for i := 0; i < len(chunk); i += fieldsBytes {
-				j := i + fieldsBytes
+			channelsBytes := layer.Channels.Size()
+			for i := 0; i < len(chunk); i += channelsBytes {
+				j := i + channelsBytes
 				if j > len(chunk) {
 					break
 				}
@@ -143,8 +143,8 @@ func (c Compression) writeChunk(w io.Writer, layer *Layer, tileIndex int, chunk 
 
 				// count repeats
 				repeatCount := byte(1)
-				for k := j; k < len(chunk); k += fieldsBytes {
-					l := k + fieldsBytes
+				for k := j; k < len(chunk); k += channelsBytes {
+					l := k + channelsBytes
 					if l > len(chunk) {
 						break
 					}
@@ -166,7 +166,7 @@ func (c Compression) writeChunk(w io.Writer, layer *Layer, tileIndex int, chunk 
 				}
 
 				// advance i to skip repeats
-				i += (int(repeatCount) - 1) * fieldsBytes
+				i += (int(repeatCount) - 1) * channelsBytes
 			}
 		}
 		// write buffer to writer
@@ -208,13 +208,13 @@ func (c Compression) readChunk(r io.Reader, layer *Layer, tileIndex int, chunk [
 		if layer == nil {
 			return 0, ErrFormat("RLE compression requires layer information")
 		}
-		if len(layer.Fields) == 0 {
-			return 0, ErrFormat("RLE compression requires layer fields to be defined")
+		if len(layer.Channels) == 0 {
+			return 0, ErrFormat("RLE compression requires layer channels to be defined")
 		}
 		chunkOffset := 0
 		if layer.Separated {
-			field := layer.Fields[tileIndex/layer.Dimensions.Tiles()]
-			fieldBytes := field.Size()
+			channel := layer.Channels[tileIndex/layer.Dimensions.Tiles()]
+			channelBytes := channel.Size()
 			for chunkOffset < len(chunk) {
 				// read repeat count
 				countByte := make([]byte, 1)
@@ -224,19 +224,19 @@ func (c Compression) readChunk(r io.Reader, layer *Layer, tileIndex int, chunk [
 				}
 				repeatCount := int(countByte[0])
 				// read sample
-				sample := make([]byte, fieldBytes)
+				sample := make([]byte, channelBytes)
 				_, err = r.Read(sample)
 				if err != nil {
 					return chunkOffset, err
 				}
 				// write sample repeatCount times
 				for range repeatCount {
-					copy(chunk[chunkOffset:chunkOffset+fieldBytes], sample)
-					chunkOffset += fieldBytes
+					copy(chunk[chunkOffset:chunkOffset+channelBytes], sample)
+					chunkOffset += channelBytes
 				}
 			}
 		} else {
-			fieldsBytes := layer.Fields.Size()
+			channelsBytes := layer.Channels.Size()
 			for chunkOffset < len(chunk) {
 				// read repeat count
 				countByte := make([]byte, 1)
@@ -246,7 +246,7 @@ func (c Compression) readChunk(r io.Reader, layer *Layer, tileIndex int, chunk [
 				}
 				repeatCount := int(countByte[0])
 				// read sample
-				sample := make([]byte, fieldsBytes)
+				sample := make([]byte, channelsBytes)
 				_, err = r.Read(sample)
 				if err != nil {
 					return chunkOffset, err
@@ -254,7 +254,7 @@ func (c Compression) readChunk(r io.Reader, layer *Layer, tileIndex int, chunk [
 				// write sample repeatCount times
 				for range repeatCount {
 					copy(chunk[chunkOffset:], sample)
-					chunkOffset += fieldsBytes
+					chunkOffset += channelsBytes
 				}
 			}
 		}

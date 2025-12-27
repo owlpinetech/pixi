@@ -136,6 +136,8 @@ func (p *Pixi) AppendTags(w io.WriteSeeker, tags map[string]string) error {
 			return err
 		}
 	}
+
+	p.Tags = append(p.Tags, newTagSection)
 	return nil
 }
 
@@ -190,5 +192,7 @@ func (p *Pixi) AppendIterativeLayer(w io.WriteSeeker, layer *Layer, generator fu
 			return err
 		}
 	}
+
+	p.Layers = append(p.Layers, layer)
 	return nil
 }

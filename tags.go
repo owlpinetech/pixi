@@ -20,7 +20,7 @@ func (t *TagSection) WriteHeader(w io.Writer, h *Header) error {
 	if err != nil {
 		return err
 	}
-	return h.WriteOffset(w, int64(len(t.Tags)))
+	return h.WriteOffset(w, t.NextTagsStart)
 }
 
 // Writes the tag section in binary to the given stream, according to the specification

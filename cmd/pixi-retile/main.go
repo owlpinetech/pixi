@@ -70,7 +70,7 @@ func main() {
 		return
 	}
 
-	// create destination Pixi file with updated laye
+	// create destination Pixi file with updated layer
 	dstPixi := pixi.NewHeader(srcPixi.Header.ByteOrder, srcPixi.Header.OffsetSize)
 	err = dstPixi.WriteHeader(dstFile)
 	if err != nil {

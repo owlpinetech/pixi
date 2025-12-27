@@ -68,7 +68,7 @@ func main() {
 		return
 	}
 
-	if *tags == "" || len(tagNames) == 0 {
+	if len(tagNames) == 0 {
 		fmt.Println("Listing Pixi tags:")
 		for k, v := range allTags {
 			fmt.Printf("%s => %s\n", k, v)
@@ -86,33 +86,10 @@ func main() {
 	for i, tag := range tagNames {
 		newTags[tag] = tagVals[i]
 	}
-	newSection := &pixi.TagSection{
-		Tags:          newTags,
-		NextTagsStart: 0,
-	}
 
-	fileInfo, err := editFile.Stat()
+	err = root.AppendTags(editFile, newTags)
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-	fileSize := fileInfo.Size()
-
-	root.Tags[len(root.Tags)-1].NextTagsStart = fileSize
-	if len(root.Tags) > 1 {
-		editFile.Seek(root.Tags[len(root.Tags)-2].NextTagsStart, io.SeekStart)
-	} else {
-		editFile.Seek(root.Header.FirstTagsOffset, io.SeekStart)
-	}
-	err = root.Tags[len(root.Tags)-1].Write(editFile, root.Header)
-	if err != nil {
-		fmt.Println("Failed to overwrite previous tag section in Pixi file.")
-		return
-	}
-	editFile.Seek(fileSize, io.SeekStart)
-	err = newSection.Write(editFile, root.Header)
-	if err != nil {
-		fmt.Println("Failed to write new tag section to Pixi file.")
+		fmt.Println("Failed to append tags to Pixi file:", err)
 		return
 	}
 }

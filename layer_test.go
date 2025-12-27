@@ -114,7 +114,7 @@ func TestLayerHeaderWriteRead(t *testing.T) {
 				}
 
 				readBuf := buffer.NewBufferFrom(buf.Bytes())
-				readHdr := &PixiHeader{}
+				readHdr := &Header{}
 				err = readHdr.ReadHeader(readBuf)
 				if err != nil {
 					t.Fatal("read header", err)

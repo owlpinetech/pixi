@@ -6,7 +6,7 @@ type Accessor interface {
 
 type TileAccessLayer interface {
 	Accessor
-	Header() *PixiHeader
+	Header() *Header
 	Tile(tile int) ([]byte, error)
 }
 

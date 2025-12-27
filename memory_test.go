@@ -10,7 +10,7 @@ import (
 )
 
 func TestMemorySampleFieldConcurrent(t *testing.T) {
-	header := &PixiHeader{
+	header := &Header{
 		Version:    Version,
 		OffsetSize: 4,
 		ByteOrder:  binary.BigEndian,
@@ -59,7 +59,7 @@ func TestMemorySampleFieldConcurrent(t *testing.T) {
 }
 
 func TestMemorySetSampleAt(t *testing.T) {
-	header := &PixiHeader{
+	header := &Header{
 		Version:    Version,
 		OffsetSize: 4,
 		ByteOrder:  binary.BigEndian,

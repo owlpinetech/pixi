@@ -20,7 +20,7 @@ func testSampleAtSameAsRaw(t *testing.T, wg *sync.WaitGroup, layer TileAccessLay
 }
 
 func TestCachedSampleFieldConcurrent(t *testing.T) {
-	header := &PixiHeader{
+	header := &Header{
 		Version:    Version,
 		OffsetSize: 4,
 		ByteOrder:  binary.BigEndian,
@@ -69,7 +69,7 @@ func TestCachedSampleFieldConcurrent(t *testing.T) {
 }
 
 func TestCachedSetSampleAt(t *testing.T) {
-	header := &PixiHeader{
+	header := &Header{
 		Version:    Version,
 		OffsetSize: 4,
 		ByteOrder:  binary.BigEndian,

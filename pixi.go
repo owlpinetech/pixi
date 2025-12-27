@@ -15,7 +15,7 @@ const (
 // Represents a single pixi file composed of one or more layers. Functions as a handle
 // to access the description of the each layer as well as the data stored in each layer.
 type Pixi struct {
-	Header *PixiHeader   // The metadata about the file version and how to read information from the file.
+	Header *Header       // The metadata about the file version and how to read information from the file.
 	Layers []*Layer      // The metadata information about each layer in the file.
 	Tags   []*TagSection // The string tags of the file, broken up into sections for easy appending.
 }
@@ -24,7 +24,7 @@ type Pixi struct {
 // containing struct.
 func ReadPixi(r io.ReadSeeker) (*Pixi, error) {
 	pixi := &Pixi{
-		Header: &PixiHeader{},
+		Header: &Header{},
 		Layers: make([]*Layer, 0),
 		Tags:   make([]*TagSection, 0),
 	}
@@ -96,4 +96,99 @@ func (d *Pixi) DiskDataBytes() int64 {
 		}
 	}
 	return size
+}
+
+// Appends a new tag section to the end of the file with the given tags.
+func (p *Pixi) AppendTags(w io.WriteSeeker, tags map[string]string) error {
+	// Append the new tag section to the end of the file
+	tagSectionStart, err := w.Seek(0, io.SeekEnd)
+	if err != nil {
+		return err
+	}
+	newTagSection := &TagSection{
+		Tags: tags,
+	}
+	err = newTagSection.Write(w, p.Header)
+	if err != nil {
+		return err
+	}
+
+	// Update the previous tag section (or the header if this is the first)
+	if len(p.Tags) == 0 {
+		if err = p.Header.OverwriteOffsets(w, p.Header.FirstLayerOffset, tagSectionStart); err != nil {
+			return err
+		}
+	} else {
+		var prevTagOffset int64
+		if len(p.Tags) == 1 {
+			prevTagOffset = p.Header.FirstTagsOffset
+		} else {
+			prevTagOffset = p.Tags[len(p.Tags)-2].NextTagsStart
+		}
+		_, err = w.Seek(prevTagOffset, io.SeekStart)
+		if err != nil {
+			return err
+		}
+
+		p.Tags[len(p.Tags)-1].NextTagsStart = tagSectionStart
+		err = p.Tags[len(p.Tags)-1].WriteHeader(w, p.Header)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Appends a new layer to the end of the file, using the provided generator function for writing samples to the layer.
+func (p *Pixi) AppendIterativeLayer(w io.WriteSeeker, layer *Layer, generator func(writer IterativeLayerWriter) error) error {
+	// append the new layer to the end of the file
+	_, err := w.Seek(0, io.SeekEnd)
+	if err != nil {
+		return err
+	}
+
+	// write out all the tile data
+	writerIterator := NewTileOrderWriteIterator(w, p.Header, layer)
+	if err := generator(writerIterator); err != nil {
+		return err
+	}
+	writerIterator.Done()
+	if err := writerIterator.Error(); err != nil {
+		return err
+	}
+
+	// write out the layer metadata
+	layerStart, err := w.Seek(0, io.SeekEnd)
+	if err != nil {
+		return err
+	}
+	err = layer.WriteHeader(w, p.Header)
+	if err != nil {
+		return err
+	}
+
+	// update the previous layer (or the header if this is the first)
+	if len(p.Layers) == 0 {
+		if err = p.Header.OverwriteOffsets(w, layerStart, p.Header.FirstTagsOffset); err != nil {
+			return err
+		}
+	} else {
+		var prevLayerOffset int64
+		if len(p.Layers) == 1 {
+			prevLayerOffset = p.Header.FirstLayerOffset
+		} else {
+			prevLayerOffset = p.Layers[len(p.Layers)-2].NextLayerStart
+		}
+		_, err = w.Seek(prevLayerOffset, io.SeekStart)
+		if err != nil {
+			return err
+		}
+
+		p.Layers[len(p.Layers)-1].NextLayerStart = layerStart
+		err = p.Layers[len(p.Layers)-1].WriteHeader(w, p.Header)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

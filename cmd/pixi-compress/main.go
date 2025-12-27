@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/owlpinetech/pixi"
@@ -41,13 +40,6 @@ func main() {
 	}
 	defer srcStream.Close()
 
-	dstFile, err := os.Create(*dstFileName)
-	if err != nil {
-		fmt.Println("Failed to create destination file.")
-		return
-	}
-	defer dstFile.Close()
-
 	// read source Pixi file and validate layer index
 	srcPixi, err := pixi.ReadPixi(srcStream)
 	if err != nil {
@@ -55,64 +47,42 @@ func main() {
 		return
 	}
 
+	dstFile, err := os.Create(*dstFileName)
+	if err != nil {
+		fmt.Println("Failed to create destination file.")
+		return
+	}
+	defer dstFile.Close()
+
 	// create destination Pixi file with compressed layers
-	dstPixi := &pixi.PixiHeader{Version: pixi.Version, OffsetSize: srcPixi.Header.OffsetSize, ByteOrder: srcPixi.Header.ByteOrder}
+	dstPixi := pixi.NewHeader(srcPixi.Header.ByteOrder, srcPixi.Header.OffsetSize)
+	summary := &pixi.Pixi{
+		Header: dstPixi,
+	}
+
+	err = summary.AppendTags(dstFile, srcPixi.AllTags())
+	if err != nil {
+		fmt.Println("Failed to write tags to destination Pixi file.")
+		return
+	}
 
 	for _, srcLayer := range srcPixi.Layers {
 		dstLayer := pixi.NewLayer(srcLayer.Name, srcLayer.Separated, compression, srcLayer.Dimensions, srcLayer.Fields)
 		srcData := pixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, srcLayer, 4)
 
-		err = dstPixi.WriteHeader(dstFile)
-		if err != nil {
-			fmt.Println("Failed to write Pixi header to destination Pixi file.")
-			return
-		}
-		tagsOffset, err := dstFile.Seek(0, io.SeekCurrent)
-		if err != nil {
-			fmt.Println("Failed to seek in destination Pixi file.")
-			return
-		}
-		tagSection := pixi.TagSection{Tags: srcPixi.AllTags(), NextTagsStart: 0}
-		err = tagSection.Write(dstFile, dstPixi)
-		if err != nil {
-			fmt.Println("Failed to write tags to destination Pixi file.")
-			return
-		}
-
-		dstIterator := pixi.NewTileOrderWriteIterator(dstFile, dstPixi, dstLayer)
-
-		for dstIterator.Next() {
-			coord := dstIterator.Coordinate()
-			pixel, err := pixi.SampleAt(srcData, coord)
-			if err != nil {
-				fmt.Println("Failed to read sample from source Pixi file.")
-				return
+		err = summary.AppendIterativeLayer(dstFile, dstLayer, func(dstIterator pixi.IterativeLayerWriter) error {
+			for dstIterator.Next() {
+				coord := dstIterator.Coordinate()
+				pixel, err := pixi.SampleAt(srcData, coord)
+				if err != nil {
+					return fmt.Errorf("Failed to read sample from source Pixi file.")
+				}
+				dstIterator.SetSample(pixel)
 			}
-			dstIterator.SetSample(pixel)
-		}
-
-		dstIterator.Done()
-		if dstIterator.Error() != nil {
-			fmt.Println("Failed during tile writing iteration.")
-			return
-		}
-
-		firstlayerOffset, err := dstFile.Seek(0, io.SeekCurrent)
+			return nil
+		})
 		if err != nil {
-			fmt.Println("Failed to seek in destination Pixi file.")
-			return
-		}
-
-		// update offsets to different sections
-		err = dstPixi.OverwriteOffsets(dstFile, firstlayerOffset, tagsOffset)
-		if err != nil {
-			fmt.Println("Failed to overwrite offsets in destination Pixi file.")
-			return
-		}
-
-		err = dstLayer.WriteHeader(dstFile, dstPixi)
-		if err != nil {
-			fmt.Println("Failed to write layer header to destination Pixi file.")
+			fmt.Println("Failed to write layer to destination Pixi file.")
 			return
 		}
 	}

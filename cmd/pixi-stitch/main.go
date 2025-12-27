@@ -48,7 +48,7 @@ func main() {
 	targetLayerCount := -1
 	targetSeparated := []bool{}
 	targetCompressions := []pixi.Compression{}
-	targetHeader := &pixi.PixiHeader{}
+	targetHeader := &pixi.Header{}
 	targetDimensions := []pixi.DimensionSet{}
 	targetFields := []pixi.FieldSet{}
 	srcPixis := []*pixi.Pixi{}
@@ -120,26 +120,22 @@ func main() {
 	}
 	defer dstFile.Close()
 
-	dstPixi := &pixi.PixiHeader{
-		Version:    pixi.Version,
-		OffsetSize: targetHeader.OffsetSize,
-		ByteOrder:  targetHeader.ByteOrder,
-	}
+	dstPixi := pixi.NewHeader(targetHeader.ByteOrder, targetHeader.OffsetSize)
 	err = dstPixi.WriteHeader(dstFile)
 	if err != nil {
 		fmt.Println("Failed to write Pixi header to destination Pixi file.")
 		return
 	}
+	dstSummary := &pixi.Pixi{
+		Header: dstPixi,
+	}
 
-	tagSection := pixi.TagSection{Tags: tags}
-	err = tagSection.Write(dstFile, dstPixi)
+	err = dstSummary.AppendTags(dstFile, tags)
 	if err != nil {
 		fmt.Println("Failed to write tags to destination Pixi file.")
 		return
 	}
 
-	previousOffset := dstPixi.FirstLayerOffset
-	var previousLayer *pixi.Layer
 	for layerIndex, layerReaders := range srcReaders {
 		mergedLayer := pixi.NewLayer(
 			strings.Join(layerNames[layerIndex], "+"),
@@ -148,56 +144,33 @@ func main() {
 			targetDimensions[layerIndex],
 			targetFields[layerIndex],
 		)
-		previousLayer = mergedLayer
 
-		dstLayerWriter := pixi.NewTileOrderWriteIterator(dstFile, dstPixi, mergedLayer)
+		err = dstSummary.AppendIterativeLayer(dstFile, mergedLayer, func(dstLayerWriter pixi.IterativeLayerWriter) error {
+			for dstLayerWriter.Next() {
+				coord := dstLayerWriter.Coordinate()
 
-		for dstLayerWriter.Next() {
-			coord := dstLayerWriter.Coordinate()
-
-			// determine which source reader to pull from
-			stitchPos := coord[*stitchDimension]
-			srcReaderIndex := 0
-			for ; srcReaderIndex < len(layerReaders)-1; srcReaderIndex++ {
-				if stitchPos < layerReaders[srcReaderIndex].Layer().Dimensions[*stitchDimension].Size {
-					break
+				// determine which source reader to pull from
+				stitchPos := coord[*stitchDimension]
+				srcReaderIndex := 0
+				for ; srcReaderIndex < len(layerReaders)-1; srcReaderIndex++ {
+					if stitchPos < layerReaders[srcReaderIndex].Layer().Dimensions[*stitchDimension].Size {
+						break
+					}
+					stitchPos -= layerReaders[srcReaderIndex].Layer().Dimensions[*stitchDimension].Size
 				}
-				stitchPos -= layerReaders[srcReaderIndex].Layer().Dimensions[*stitchDimension].Size
+				// adjust coordinate to source reader space
+				coord[*stitchDimension] = stitchPos
+				sample, err := pixi.SampleAt(layerReaders[srcReaderIndex], coord)
+				if err != nil {
+					return fmt.Errorf("Failed to retrieve sample from source Pixi files: %v", err)
+				}
+
+				dstLayerWriter.SetSample(sample)
 			}
-			// adjust coordinate to source reader space
-			coord[*stitchDimension] = stitchPos
-			sample, err := pixi.SampleAt(layerReaders[srcReaderIndex], coord)
-			if err != nil {
-				fmt.Println("Error at coordinate:", coord, "original:", dstLayerWriter.Coordinate(), "dimensions:", layerReaders[srcReaderIndex].Layer().Dimensions)
-				fmt.Println("Failed to retrieve sample from source Pixi files: ", err)
-				return
-			}
-
-			dstLayerWriter.SetSample(sample)
-		}
-
-		dstLayerWriter.Done()
-		if dstLayerWriter.Error() != nil {
-			fmt.Println("Failed to finalize layer writing to destination Pixi file.")
-			return
-		}
-
-		offset, err := dstFile.Seek(0, io.SeekCurrent)
+			return nil
+		})
 		if err != nil {
-			fmt.Println("Failed to seek in destination Pixi file.")
-			return
-		}
-		if previousLayer != nil {
-			previousLayer.NextLayerStart = offset
-			previousLayer.OverwriteHeader(dstFile, dstPixi, previousOffset)
-		} else {
-			dstPixi.OverwriteOffsets(dstFile, offset, int64(dstPixi.DiskSize()))
-		}
-		previousOffset = offset
-
-		err = mergedLayer.WriteHeader(dstFile, dstPixi)
-		if err != nil {
-			fmt.Println("Failed to write layer header to destination Pixi file.")
+			fmt.Println("Failed to write layer to destination Pixi file.")
 			return
 		}
 	}

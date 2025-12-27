@@ -2,131 +2,79 @@ package pixi
 
 import (
 	"encoding/binary"
+	"fmt"
 	"image"
 	"image/color"
 	"io"
+	"strings"
 
 	"github.com/gracefulearth/go-colorext"
 )
 
-type FromImageOptions struct {
-	Compression Compression
-	OffsetSize  OffsetSize
-	ByteOrder   binary.ByteOrder
-	XTileSize   int
-	YTileSize   int
-	Tags        map[string]string
+type fromImageOptions struct {
+	layerOpts      layerOptions
+	offsetSize     OffsetSize
+	byteOrder      binary.ByteOrder
+	xTileSize      int
+	yTileSize      int
+	tags           map[string]string
+	dimensionNames []string
+	channelNames   []string
 }
 
-func PixiFromImage(w io.WriteSeeker, img image.Image, options FromImageOptions) error {
-	header := &PixiHeader{Version: Version, OffsetSize: options.OffsetSize, ByteOrder: options.ByteOrder}
-	// write the header first
-	err := header.WriteHeader(w)
-	if err != nil {
-		return err
-	}
+type FromImageOption interface {
+	applyImage(*fromImageOptions)
+}
 
-	switch img.ColorModel() {
-	case color.NRGBAModel:
-		options.Tags["color-model"] = "nrgba"
-	case color.NRGBA64Model:
-		options.Tags["color-model"] = "nrgba64"
-	case color.RGBAModel:
-		options.Tags["color-model"] = "rgba"
-	case color.RGBA64Model:
-		options.Tags["color-model"] = "rgba64"
-	case color.CMYKModel:
-		options.Tags["color-model"] = "cmyk"
-	case color.YCbCrModel:
-		options.Tags["color-model"] = "YCbCr"
-	case color.NYCbCrAModel:
-		options.Tags["color-model"] = "NYCbCrA"
-	case color.GrayModel:
-		options.Tags["color-model"] = "gray"
-	case color.Gray16Model:
-		options.Tags["color-model"] = "gray16"
-	case colorext.GrayS16Model:
-		options.Tags["color-model"] = "grays16"
-	}
-
-	// write out the tags, 0 for next start means no further sections
-	tagsOffset, err := w.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return err
-	}
-	tagSection := TagSection{Tags: options.Tags, NextTagsStart: 0}
-	err = tagSection.Write(w, header)
-	if err != nil {
-		return err
-	}
-
+func (p *Pixi) AppendImage(w io.WriteSeeker, img image.Image, options FromImageOptions) error {
 	layer, err := ImageToLayer(img, "image", false, options.Compression, options.XTileSize, options.YTileSize)
 	if err != nil {
 		return err
 	}
 
-	// write out all the tile data
-	writerIterator := NewTileOrderWriteIterator(w, header, layer)
+	p.AppendTags(w, options.Tags)
 
-	for writerIterator.Next() {
-		coord := writerIterator.Coordinate()
-		pixel := img.At(coord[0], coord[1])
-		switch img.ColorModel() {
-		case color.NRGBAModel:
-			col := pixel.(color.NRGBA)
-			writerIterator.SetSample([]any{col.R, col.G, col.B, col.A})
-		case color.NRGBA64Model:
-			col := pixel.(color.NRGBA64)
-			writerIterator.SetSample([]any{col.R, col.G, col.B, col.A})
-		case color.RGBAModel:
-			col := pixel.(color.RGBA)
-			writerIterator.SetSample([]any{col.R, col.G, col.B, col.A})
-		case color.RGBA64Model:
-			col := pixel.(color.RGBA64)
-			writerIterator.SetSample([]any{col.R, col.G, col.B, col.A})
-		case color.CMYKModel:
-			col := pixel.(color.CMYK)
-			writerIterator.SetSample([]any{col.C, col.M, col.Y, col.K})
-		case color.YCbCrModel:
-			col := pixel.(color.YCbCr)
-			writerIterator.SetSample([]any{col.Y, col.Cb, col.Cr})
-		case color.NYCbCrAModel:
-			col := pixel.(color.NYCbCrA)
-			writerIterator.SetSample([]any{col.Y, col.Cb, col.Cr, col.A})
-		case color.GrayModel:
-			col := pixel.(color.Gray)
-			writerIterator.SetSample([]any{col.Y})
-		case color.Gray16Model:
-			col := pixel.(color.Gray16)
-			writerIterator.SetSample([]any{col.Y})
-		case colorext.GrayS16Model:
-			col := pixel.(colorext.GrayS16)
-			writerIterator.SetSample([]any{col.Y})
-		default:
-			panic("unsupported color model")
+	return p.AppendIterativeLayer(w, layer, func(writerIterator IterativeLayerWriter) error {
+		for writerIterator.Next() {
+			coord := writerIterator.Coordinate()
+			pixel := img.At(coord[0], coord[1])
+			switch img.ColorModel() {
+			case color.NRGBAModel:
+				col := pixel.(color.NRGBA)
+				writerIterator.SetSample([]any{col.R, col.G, col.B, col.A})
+			case color.NRGBA64Model:
+				col := pixel.(color.NRGBA64)
+				writerIterator.SetSample([]any{col.R, col.G, col.B, col.A})
+			case color.RGBAModel:
+				col := pixel.(color.RGBA)
+				writerIterator.SetSample([]any{col.R, col.G, col.B, col.A})
+			case color.RGBA64Model:
+				col := pixel.(color.RGBA64)
+				writerIterator.SetSample([]any{col.R, col.G, col.B, col.A})
+			case color.CMYKModel:
+				col := pixel.(color.CMYK)
+				writerIterator.SetSample([]any{col.C, col.M, col.Y, col.K})
+			case color.YCbCrModel:
+				col := pixel.(color.YCbCr)
+				writerIterator.SetSample([]any{col.Y, col.Cb, col.Cr})
+			case color.NYCbCrAModel:
+				col := pixel.(color.NYCbCrA)
+				writerIterator.SetSample([]any{col.Y, col.Cb, col.Cr, col.A})
+			case color.GrayModel:
+				col := pixel.(color.Gray)
+				writerIterator.SetSample([]any{col.Y})
+			case color.Gray16Model:
+				col := pixel.(color.Gray16)
+				writerIterator.SetSample([]any{col.Y})
+			case colorext.GrayS16Model:
+				col := pixel.(colorext.GrayS16)
+				writerIterator.SetSample([]any{col.Y})
+			default:
+				return fmt.Errorf("unsupported color model")
+			}
 		}
-	}
-
-	writerIterator.Done()
-
-	firstlayerOffset, err := w.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return err
-	}
-
-	// update offsets to different sections
-	err = header.OverwriteOffsets(w, firstlayerOffset, tagsOffset)
-	if err != nil {
-		return err
-	}
-
-	// write layer header after data so we have proper size of header (including max & min)
-	err = layer.WriteHeader(w, header)
-	if err != nil {
-		return err
-	}
-
-	return writerIterator.Error()
+		return nil
+	})
 }
 
 func ImageToLayer(img image.Image, layerName string, separated bool, compression Compression, xTileSize int, yTileSize int) (*Layer, error) {
@@ -217,17 +165,17 @@ func ImageToLayer(img image.Image, layerName string, separated bool, compression
 		fields), nil
 }
 
-func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, error) {
+func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer, srcModel string) (image.Image, error) {
 	width := layer.Dimensions[0].Size
 	height := layer.Dimensions[1].Size
 
 	iterator := NewTileOrderReadIterator(r, pixImg.Header, layer)
 	defer iterator.Done()
 
-	colorModel := "nrgba"
+	colorModel := srcModel
 	if len(pixImg.Tags) > 0 {
 		if model, ok := pixImg.Tags[0].Tags["color-model"]; ok {
-			colorModel = model
+			colorModel = strings.ToLower(model)
 		}
 	}
 
@@ -357,9 +305,9 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			return nil, iterator.Error()
 		}
 		return cmykImg, nil
-	case "YCbCr":
-		if len(layer.Fields) < 3 {
-			return nil, ErrUnsupported("layer does not have enough fields for YCbCr color model")
+	case "ycbcr":
+		if len(layer.Channels) < 3 {
+			return nil, ErrUnsupported("layer does not have enough channels for YCbCr color model")
 		}
 		ycbcrImg := image.NewYCbCr(image.Rect(0, 0, width, height), image.YCbCrSubsampleRatio420)
 		yIndex := layer.Fields.Index("Y")
@@ -384,9 +332,9 @@ func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer) (image.Image, err
 			return nil, iterator.Error()
 		}
 		return ycbcrImg, nil
-	case "NYCbCrA":
-		if len(layer.Fields) < 4 {
-			return nil, ErrUnsupported("layer does not have enough fields for NYCbCrA color model")
+	case "nycbcra":
+		if len(layer.Channels) < 4 {
+			return nil, ErrUnsupported("layer does not have enough channels for NYCbCrA color model")
 		}
 		nycbcraImg := image.NewNYCbCrA(image.Rect(0, 0, width, height), image.YCbCrSubsampleRatio420)
 		yIndex := layer.Fields.Index("Y")

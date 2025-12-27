@@ -8,7 +8,7 @@ import (
 )
 
 func TestMemoryLayerBooleanFields(t *testing.T) {
-	header := &PixiHeader{
+	header := &Header{
 		Version:    Version,
 		ByteOrder:  binary.BigEndian,
 		OffsetSize: 8,
@@ -140,7 +140,7 @@ func TestMemoryLayerBooleanFields(t *testing.T) {
 }
 
 func TestCachedLayerBooleanFields(t *testing.T) {
-	header := &PixiHeader{
+	header := &Header{
 		Version:    Version,
 		ByteOrder:  binary.BigEndian,
 		OffsetSize: 8,
@@ -271,7 +271,7 @@ func TestCachedLayerBooleanFields(t *testing.T) {
 }
 
 func TestBooleanFieldBitPacking(t *testing.T) {
-	header := &PixiHeader{
+	header := &Header{
 		Version:    Version,
 		ByteOrder:  binary.BigEndian,
 		OffsetSize: 8,
@@ -328,7 +328,7 @@ func TestBooleanFieldBitPacking(t *testing.T) {
 }
 
 func TestTileOrderReadIteratorBooleanFields(t *testing.T) {
-	header := &PixiHeader{
+	header := &Header{
 		Version:    Version,
 		ByteOrder:  binary.BigEndian,
 		OffsetSize: 8,
@@ -457,7 +457,7 @@ func TestTileOrderReadIteratorBooleanFields(t *testing.T) {
 }
 
 func TestTileOrderWriteIteratorBooleanFields(t *testing.T) {
-	header := &PixiHeader{
+	header := &Header{
 		Version:    Version,
 		ByteOrder:  binary.BigEndian,
 		OffsetSize: 8,

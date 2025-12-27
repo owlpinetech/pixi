@@ -43,7 +43,7 @@ func (f Field) PutValue(val any, order binary.ByteOrder, raw []byte) {
 }
 
 // Get the size in bytes of this dimension description as it is laid out and written to disk.
-func (d Field) HeaderSize(h *PixiHeader) int {
+func (d Field) HeaderSize(h *Header) int {
 	size := 2 + len([]byte(d.Name)) + 4 // base size: name + field type
 
 	// Add size for optional Min value
@@ -61,7 +61,7 @@ func (d Field) HeaderSize(h *PixiHeader) int {
 
 // Writes the binary description of the field to the given stream, according to the specification
 // in the Pixi header h.
-func (d Field) Write(w io.Writer, h *PixiHeader) error {
+func (d Field) Write(w io.Writer, h *Header) error {
 	// Set flags based on presence of Min/Max values
 	encodedType := d.Type.WithMin(d.Min != nil).WithMax(d.Max != nil)
 
@@ -101,7 +101,7 @@ func (d Field) Write(w io.Writer, h *PixiHeader) error {
 
 // Reads a description of the field from the given binary stream, according to the specification
 // in the Pixi header h.
-func (d *Field) Read(r io.Reader, h *PixiHeader) error {
+func (d *Field) Read(r io.Reader, h *Header) error {
 	name, err := h.ReadFriendly(r)
 	if err != nil {
 		return err

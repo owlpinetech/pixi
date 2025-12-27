@@ -6,15 +6,48 @@ import (
 	"io"
 )
 
+type layerOptions struct {
+	separated   bool
+	compression Compression
+}
+
+type LayerOption interface {
+	applyLayer(*layerOptions)
+}
+
+type separatedOption struct {
+	separated bool
+}
+
+func (o separatedOption) applyLayer(opts *layerOptions) {
+	opts.separated = o.separated
+}
+
+func WithPlanar() LayerOption {
+	return separatedOption{separated: true}
+}
+
+type compressionOption struct {
+	compression Compression
+}
+
+func (o compressionOption) applyLayer(opts *layerOptions) {
+	opts.compression = o.compression
+}
+
+func WithCompression(c Compression) LayerOption {
+	return compressionOption{compression: c}
+}
+
 // Pixi files are composed of one or more layers. Generally, layers are used to represent the same data set
 // at different 'zoom levels'. For example, a large digital elevation model data set might have a layer
 // that shows a zoomed-out view of the terrain at a much smaller footprint, useful for thumbnails and previews.
 // Layers are also useful if data sets of different resolutions should be stored together in the same file.
 type Layer struct {
 	Name string // Friendly name of the layer
-	// Indicates whether the fields of the dataset are stored separated or contiguously. If true,
-	// values for each field are stored next to each other. If false, the default, values for each
-	// index are stored next to each other, with values for different fields stored next to each
+	// Indicates whether the channels of the dataset are stored separated or contiguously. If true,
+	// values for each channel are stored next to each other. If false, the default, values for each
+	// index are stored next to each other, with values for different channels stored next to each
 	// other at the same index.
 	Separated   bool
 	Compression Compression // The type of compression used on this dataset (e.g., Flate, lz4).
@@ -23,20 +56,25 @@ type Layer struct {
 	// samples for the first dimension are the closest together in memory, with progressively
 	// higher dimensions samples becoming further apart.
 	Dimensions     DimensionSet
-	Fields         FieldSet // An array of Field structs representing the fields in this dataset.
-	TileBytes      []int64  // An array of byte counts representing (compressed) size of each tile in bytes for this dataset.
-	TileOffsets    []int64  // An array of byte offsets representing the position in the file of each tile in the dataset.
-	NextLayerStart int64    // The byte-index offset of the next layer in the file, from the start of the file. 0 if this is the last layer in the file.
+	Channels       ChannelSet // An array of Channel structs representing the channels in this dataset.
+	TileBytes      []int64    // An array of byte counts representing (compressed) size of each tile in bytes for this dataset.
+	TileOffsets    []int64    // An array of byte offsets representing the position in the file of each tile in the dataset.
+	NextLayerStart int64      // The byte-index offset of the next layer in the file, from the start of the file. 0 if this is the last layer in the file.
 }
 
 // Helper constructor to ensure that certain invariants in a layer are maintained when it is created.
-func NewLayer(name string, separated bool, compression Compression, dimensions DimensionSet, fields FieldSet) *Layer {
+func NewLayer(name string, dimensions DimensionSet, channels ChannelSet, opts ...LayerOption) *Layer {
+	options := layerOptions{} // zero values are defaults, interleaved sample values and no compression
+	for _, o := range opts {
+		o.applyLayer(&options)
+	}
+
 	l := &Layer{
 		Name:        name,
-		Separated:   separated,
-		Compression: compression,
+		Separated:   options.separated,
+		Compression: options.compression,
 		Dimensions:  dimensions,
-		Fields:      fields,
+		Channels:    channels,
 	}
 
 	l.TileBytes = make([]int64, l.DiskTiles())
@@ -44,73 +82,50 @@ func NewLayer(name string, separated bool, compression Compression, dimensions D
 	return l
 }
 
-// Creates a new blank uncompressed layer, initializing all fields and allocating space for all tiles in the data set with
-// blank (zeroed) data. The backing WriteSeeker is left at the end of the written data, ready for further writes. This function
-// assumes that the PixiHeader has already been written to the backing stream, and that the stream cursor is at the correct
-// offset for writing the layer header. If the write fails partway through, an error is returned, but the backing stream may be
-// partially written. Otherwise, returns a pointer to the created Layer, with supporting fields ready for further read/write access.
-func NewBlankUncompressedLayer(backing io.WriteSeeker, header *PixiHeader, name string, separated bool, dimensions DimensionSet, fields FieldSet) (*Layer, error) {
-	layer := NewLayer(name, separated, CompressionNone, dimensions, fields)
-	err := layer.WriteHeader(backing, header)
-	if err != nil {
-		return nil, err
-	}
-
-	for tileIndex := range layer.DiskTiles() {
-		tileData := make([]byte, layer.DiskTileSize(tileIndex))
-		err = layer.WriteTile(backing, header, tileIndex, tileData)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return layer, nil
-}
-
 // The size of the requested disk tile in bytes. For contiguous files, the size of each tile is always
-// the same. However, for separated data sets, each field is tiled (so the number of on-disk
-// tiles is actually fieldCount * Tiles()). Hence, the tile size changes depending on which
-// field is being accessed.
+// the same. However, for separated data sets, each channel is tiled (so the number of on-disk
+// tiles is actually channelCount * Tiles()). Hence, the tile size changes depending on which
+// channel is being accessed.
 func (d *Layer) DiskTileSize(tileIndex int) int {
 	if d.Dimensions.Tiles() == 0 {
 		return 0
 	}
 	if d.Separated {
-		field := tileIndex / d.Dimensions.Tiles()
-		fieldType := d.Fields[field].Type
-		if fieldType == FieldBool {
-			// For boolean fields in separated mode, use bit packing
+		channel := tileIndex / d.Dimensions.Tiles()
+		channelType := d.Channels[channel].Type
+		if channelType == ChannelBool {
+			// For boolean channels in separated mode, use bit packing
 			samples := d.Dimensions.TileSamples()
 			return (samples + 7) / 8 // Round up to nearest byte
 		}
-		return d.Dimensions.TileSamples() * d.Fields[field].Size()
+		return d.Dimensions.TileSamples() * d.Channels[channel].Size()
 	} else {
-		return d.Dimensions.TileSamples() * d.Fields.Size()
+		return d.Dimensions.TileSamples() * d.Channels.Size()
 	}
 }
 
 // The number of discrete data tiles actually stored in the backing file. This number differs based
-// on whether fields are stored 'contiguous' or 'separated'; in the former case, DiskTiles() == Tiles(),
-// in the latter case, DiskTiles() == Tiles() * number of fields.
+// on whether channels are stored 'contiguous' or 'separated'; in the former case, DiskTiles() == Tiles(),
+// in the latter case, DiskTiles() == Tiles() * number of channels.
 func (d *Layer) DiskTiles() int {
 	tiles := d.Dimensions.Tiles()
 	if d.Separated {
-		tiles *= len(d.Fields)
+		tiles *= len(d.Channels)
 	}
 	return tiles
 }
 
 // Get the total number of bytes that will be occupied in the file by this layer's header.
-func (d *Layer) HeaderSize(h *PixiHeader) int {
+func (d *Layer) HeaderSize(h *Header) int {
 	headerSize := 4 + 4                   // 4 bytes each for configuration and compression
 	headerSize += 2 + len([]byte(d.Name)) // 2 bytes for name length, then name
 	headerSize += 4                       // four bytes for dimension count
 	for _, d := range d.Dimensions {
 		headerSize += d.HeaderSize(h) // add each dimension header size
 	}
-	headerSize += 4 // four bytes for field count
-	for _, f := range d.Fields {
-		headerSize += f.HeaderSize(h) // add each field header size
+	headerSize += 4 // four bytes for channel count
+	for _, f := range d.Channels {
+		headerSize += f.HeaderSize(h) // add each channel header size
 	}
 	headerSize += d.DiskTiles() * int(h.OffsetSize) // offset size bytes for each real disk tile size in bytes
 	headerSize += d.DiskTiles() * int(h.OffsetSize) // offset size bytes for each tile offset
@@ -130,7 +145,7 @@ func (d *Layer) DataSize() int64 {
 
 // Writes the binary description of the layer to the given stream, according to the specification
 // in the Pixi header h.
-func (d *Layer) WriteHeader(w io.Writer, h *PixiHeader) error {
+func (d *Layer) WriteHeader(w io.Writer, h *Header) error {
 	tiles := d.DiskTiles()
 	if tiles != len(d.TileBytes) {
 		return ErrFormat("invalid TileBytes: must have same number of elements as tiles in data set for valid pixi files")
@@ -172,13 +187,13 @@ func (d *Layer) WriteHeader(w io.Writer, h *PixiHeader) error {
 		}
 	}
 
-	// write fields
-	err = h.Write(w, uint32(len(d.Fields)))
+	// write channels
+	err = h.Write(w, uint32(len(d.Channels)))
 	if err != nil {
 		return err
 	}
-	for _, field := range d.Fields {
-		err = field.Write(w, h)
+	for _, channel := range d.Channels {
+		err = channel.Write(w, h)
 		if err != nil {
 			return err
 		}
@@ -203,7 +218,7 @@ func (d *Layer) WriteHeader(w io.Writer, h *PixiHeader) error {
 
 // Reads a description of the layer from the given binary stream, according to the specification
 // in the Pixi header h.
-func (d *Layer) ReadLayer(r io.Reader, h *PixiHeader) error {
+func (d *Layer) ReadLayer(r io.Reader, h *Header) error {
 	// read configuration and compression
 	var configuration uint32
 	err := h.Read(r, &configuration)
@@ -241,23 +256,23 @@ func (d *Layer) ReadLayer(r io.Reader, h *PixiHeader) error {
 		d.Dimensions[dInd] = *dim
 	}
 
-	// read field types
-	var fieldCount uint32
-	err = h.Read(r, &fieldCount)
+	// read channel types
+	var channelCount uint32
+	err = h.Read(r, &channelCount)
 	if err != nil {
-		return ErrFormat(fmt.Sprintf("reading field count: %s", err))
+		return ErrFormat(fmt.Sprintf("reading channel count: %s", err))
 	}
-	if fieldCount < 1 {
-		return ErrFormat("must have at least one field for a valid pixi file")
+	if channelCount < 1 {
+		return ErrFormat("must have at least one channel for a valid pixi file")
 	}
-	d.Fields = make(FieldSet, fieldCount)
-	for fInd := range d.Fields {
-		field := &Field{}
-		err = field.Read(r, h)
+	d.Channels = make(ChannelSet, channelCount)
+	for fInd := range d.Channels {
+		channel := &Channel{}
+		err = channel.Read(r, h)
 		if err != nil {
-			return ErrFormat(fmt.Sprintf("reading field %d: %s", fInd, err))
+			return ErrFormat(fmt.Sprintf("reading channel %d: %s", fInd, err))
 		}
-		d.Fields[fInd] = *field
+		d.Channels[fInd] = *channel
 	}
 
 	// read tile bytes, offsets, and next layer start
@@ -283,7 +298,7 @@ func (d *Layer) ReadLayer(r io.Reader, h *PixiHeader) error {
 // For a layer header which has already been written to the given position, writes the layer header again
 // to the same location before returning the stream cursor to the position it was at previously. Generally
 // this is used to update tile byte counts and tile offsets after they've been written to a stream.
-func (l *Layer) OverwriteHeader(w io.WriteSeeker, h *PixiHeader, headerStartOffset int64) error {
+func (l *Layer) OverwriteHeader(w io.WriteSeeker, h *Header, headerStartOffset int64) error {
 	oldPos, err := w.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return err
@@ -307,7 +322,7 @@ func (l *Layer) OverwriteHeader(w io.WriteSeeker, h *PixiHeader, headerStartOffs
 // data is written with a 4-byte checksum directly after it, which is used to verify data integrity
 // when reading the tile later. The compression attribute of the layer is used to apply compression
 // to the tile data before writing it to the stream.
-func (l *Layer) WriteTile(w io.WriteSeeker, h *PixiHeader, tileIndex int, data []byte) error {
+func (l *Layer) WriteTile(w io.WriteSeeker, h *Header, tileIndex int, data []byte) error {
 	streamOffset, err := w.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return err
@@ -324,7 +339,7 @@ func (l *Layer) WriteTile(w io.WriteSeeker, h *PixiHeader, tileIndex int, data [
 	return h.Write(w, checksum)
 }
 
-func (l *Layer) OverwriteTile(w io.WriteSeeker, h *PixiHeader, tileIndex int, data []byte) error {
+func (l *Layer) OverwriteTile(w io.WriteSeeker, h *Header, tileIndex int, data []byte) error {
 	if l.TileOffsets[tileIndex] == 0 {
 		panic("cannot overwrite a tile that has not already been written")
 	}
@@ -337,12 +352,12 @@ func (l *Layer) OverwriteTile(w io.WriteSeeker, h *PixiHeader, tileIndex int, da
 	return l.WriteTile(w, h, tileIndex, data)
 }
 
-// Read a raw tile (not yet decoded into sample fields) at the given tile index. The tile must
+// Read a raw tile (not yet decoded into sample channels) at the given tile index. The tile must
 // have been previously written (either in this session or a previous one) for this operation to succeed.
 // The data is verified for integrity using a four-byte checksum placed directly after the saved
 // tile data, and an error is returned (along with the data read into the chunk) if the checksum
 // check fails.
-func (l *Layer) ReadTile(r io.ReadSeeker, h *PixiHeader, tileIndex int, data []byte) error {
+func (l *Layer) ReadTile(r io.ReadSeeker, h *Header, tileIndex int, data []byte) error {
 	if tileIndex < 0 || tileIndex >= len(l.TileBytes) {
 		return ErrTileNotFound{TileIndex: tileIndex}
 	}

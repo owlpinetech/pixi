@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io"
 	"math"
 	"os"
 	"slices"
@@ -97,6 +96,13 @@ func main() {
 	}
 	defer srcStream.Close()
 
+	// Read source Pixi file
+	srcPixi, err := pixi.ReadPixi(srcStream)
+	if err != nil {
+		fmt.Println("Failed to read source Pixi file:", err)
+		return
+	}
+
 	// Create destination file
 	dstFile, err := os.Create(*dstFileName)
 	if err != nil {
@@ -105,18 +111,15 @@ func main() {
 	}
 	defer dstFile.Close()
 
-	// Read source Pixi file
-	srcPixi, err := pixi.ReadPixi(srcStream)
-	if err != nil {
-		fmt.Println("Failed to read source Pixi file:", err)
-		return
+	dstHeader := pixi.NewHeader(srcPixi.Header.ByteOrder, srcPixi.Header.OffsetSize)
+	dstSummary := &pixi.Pixi{
+		Header: dstHeader,
 	}
 
-	// Create destination Pixi file
-	dstPixi := &pixi.PixiHeader{
-		Version:    pixi.Version,
-		OffsetSize: srcPixi.Header.OffsetSize,
-		ByteOrder:  srcPixi.Header.ByteOrder,
+	err = dstSummary.Header.WriteHeader(dstFile)
+	if err != nil {
+		fmt.Println("Failed to write destination Pixi header:", err)
+		return
 	}
 
 	// Process each layer
@@ -136,71 +139,25 @@ func main() {
 		}
 
 		// Create destination layer
+		opts := []pixi.LayerOption{pixi.WithCompression(srcLayer.Compression)}
+		if srcLayer.Separated {
+			opts = append(opts, pixi.WithPlanar())
+		}
 		dstLayer := pixi.NewLayer(
 			srcLayer.Name+"_decimated",
-			srcLayer.Separated,
-			srcLayer.Compression,
 			newDims,
-			srcLayer.Fields,
+			srcLayer.Channels,
+			opts...,
 		)
 
 		// Create cached reader for source layer
 		srcData := pixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, srcLayer, 4)
 
-		// Write header
-		err = dstPixi.WriteHeader(dstFile)
+		err = dstSummary.AppendIterativeLayer(dstFile, dstLayer, func(dstIterator pixi.IterativeLayerWriter) error {
+			return decimateLayer(srcData, dstIterator, srcLayer.Dimensions, decimationMethod, factor)
+		})
 		if err != nil {
-			fmt.Printf("Failed to write Pixi header: %v\n", err)
-			return
-		}
-
-		// Write tags section
-		tagsOffset, err := dstFile.Seek(0, io.SeekCurrent)
-		if err != nil {
-			fmt.Printf("Failed to seek in destination file: %v\n", err)
-			return
-		}
-		tagSection := pixi.TagSection{Tags: srcPixi.AllTags(), NextTagsStart: 0}
-		err = tagSection.Write(dstFile, dstPixi)
-		if err != nil {
-			fmt.Printf("Failed to write tags: %v\n", err)
-			return
-		}
-
-		// Create write iterator for destination layer
-		dstIterator := pixi.NewTileOrderWriteIterator(dstFile, dstPixi, dstLayer)
-
-		// Decimate the data
-		err = decimateLayer(srcData, dstIterator, srcLayer.Dimensions, decimationMethod, factor)
-		if err != nil {
-			fmt.Printf("Failed to decimate layer %d: %v\n", layerIdx, err)
-			return
-		}
-
-		dstIterator.Done()
-		if dstIterator.Error() != nil {
-			fmt.Printf("Failed during tile writing iteration for layer %d: %v\n", layerIdx, dstIterator.Error())
-			return
-		}
-
-		// Get current position for layer offset
-		firstLayerOffset, err := dstFile.Seek(0, io.SeekCurrent)
-		if err != nil {
-			fmt.Printf("Failed to seek in destination file: %v\n", err)
-			return
-		}
-
-		// Update offsets
-		err = dstPixi.OverwriteOffsets(dstFile, firstLayerOffset, tagsOffset)
-		if err != nil {
-			fmt.Printf("Failed to overwrite offsets: %v\n", err)
-			return
-		}
-
-		// Write layer header
-		err = dstLayer.WriteHeader(dstFile, dstPixi)
-		if err != nil {
-			fmt.Printf("Failed to write layer %d header: %v\n", layerIdx, err)
+			fmt.Printf("Failed to write layer %d to destination Pixi file: %v\n", layerIdx, err)
 			return
 		}
 	}
@@ -221,7 +178,7 @@ func decimateLayer(srcData pixi.TileAccessLayer, dstIterator pixi.IterativeLayer
 		if len(srcSamples) == 0 {
 			return fmt.Errorf("no source samples found for destination coordinate %v", dstCoord)
 		}
-		decimatedSample := applySampleDecimation(srcSamples, dstIterator.Layer().Fields, method)
+		decimatedSample := applySampleDecimation(srcSamples, dstIterator.Layer().Channels, method)
 		dstIterator.SetSample(decimatedSample)
 	}
 
@@ -306,45 +263,45 @@ func collectSamplesRecursive(srcData pixi.TileAccessLayer, coord, start, end pix
 	return nil
 }
 
-func applySampleDecimation(samples []pixi.Sample, fields pixi.FieldSet, method DecimationMethod) pixi.Sample {
+func applySampleDecimation(samples []pixi.Sample, channels pixi.ChannelSet, method DecimationMethod) pixi.Sample {
 	if len(samples) == 1 {
 		return samples[0]
 	}
 
-	// Apply method per field
-	result := make(pixi.Sample, len(fields))
-	for fieldIdx, field := range fields {
-		result[fieldIdx] = applyFieldDecimation(samples, fieldIdx, field, method)
+	// Apply method per channel
+	result := make(pixi.Sample, len(channels))
+	for channelIdx, channel := range channels {
+		result[channelIdx] = applyChannelDecimation(samples, channelIdx, channel, method)
 	}
 
 	return result
 }
 
-func applyFieldDecimation(samples []pixi.Sample, fieldIdx int, field pixi.Field, method DecimationMethod) any {
+func applyChannelDecimation(samples []pixi.Sample, channelIdx int, channel pixi.Channel, method DecimationMethod) any {
 	switch method {
 	case MethodFirst:
-		return samples[0][fieldIdx]
+		return samples[0][channelIdx]
 	case MethodCenter:
-		return samples[len(samples)/2][fieldIdx]
+		return samples[len(samples)/2][channelIdx]
 	case MethodMax:
-		return findMaxField(samples, fieldIdx, field)
+		return findMaxChannel(samples, channelIdx, channel)
 	case MethodMin:
-		return findMinField(samples, fieldIdx, field)
+		return findMinChannel(samples, channelIdx, channel)
 	case MethodMean:
-		return calculateMeanField(samples, fieldIdx)
+		return calculateMeanChannel(samples, channelIdx)
 	case MethodMedian:
-		return calculateMedianField(samples, fieldIdx, field)
+		return calculateMedianChannel(samples, channelIdx, channel)
 	default:
-		return samples[0][fieldIdx]
+		return samples[0][channelIdx]
 	}
 }
 
-func findMaxField(samples []pixi.Sample, fieldIdx int, field pixi.Field) any {
-	maxVal := samples[0][fieldIdx]
+func findMaxChannel(samples []pixi.Sample, channelIdx int, channel pixi.Channel) any {
+	maxVal := samples[0][channelIdx]
 
 	for i := 1; i < len(samples); i++ {
-		val := samples[i][fieldIdx]
-		if field.Type.CompareValues(val, maxVal) > 0 {
+		val := samples[i][channelIdx]
+		if channel.Type.CompareValues(val, maxVal) > 0 {
 			maxVal = val
 		}
 	}
@@ -352,12 +309,12 @@ func findMaxField(samples []pixi.Sample, fieldIdx int, field pixi.Field) any {
 	return maxVal
 }
 
-func findMinField(samples []pixi.Sample, fieldIdx int, field pixi.Field) any {
-	minVal := samples[0][fieldIdx]
+func findMinChannel(samples []pixi.Sample, channelIdx int, channel pixi.Channel) any {
+	minVal := samples[0][channelIdx]
 
 	for i := 1; i < len(samples); i++ {
-		val := samples[i][fieldIdx]
-		if field.Type.CompareValues(val, minVal) < 0 {
+		val := samples[i][channelIdx]
+		if channel.Type.CompareValues(val, minVal) < 0 {
 			minVal = val
 		}
 	}
@@ -365,68 +322,68 @@ func findMinField(samples []pixi.Sample, fieldIdx int, field pixi.Field) any {
 	return minVal
 }
 
-func calculateMeanField(samples []pixi.Sample, fieldIdx int) any {
-	first := samples[0][fieldIdx]
+func calculateMeanChannel(samples []pixi.Sample, channelIdx int) any {
+	first := samples[0][channelIdx]
 
 	switch first.(type) {
 	case float32:
 		var sum float64
 		for _, sample := range samples {
-			sum += float64(sample[fieldIdx].(float32))
+			sum += float64(sample[channelIdx].(float32))
 		}
 		return float32(sum / float64(len(samples)))
 	case float64:
 		var sum float64
 		for _, sample := range samples {
-			sum += sample[fieldIdx].(float64)
+			sum += sample[channelIdx].(float64)
 		}
 		return sum / float64(len(samples))
 	case int8:
 		var sum int64
 		for _, sample := range samples {
-			sum += int64(sample[fieldIdx].(int8))
+			sum += int64(sample[channelIdx].(int8))
 		}
 		return int8(sum / int64(len(samples)))
 	case int16:
 		var sum int64
 		for _, sample := range samples {
-			sum += int64(sample[fieldIdx].(int16))
+			sum += int64(sample[channelIdx].(int16))
 		}
 		return int16(sum / int64(len(samples)))
 	case int32:
 		var sum int64
 		for _, sample := range samples {
-			sum += int64(sample[fieldIdx].(int32))
+			sum += int64(sample[channelIdx].(int32))
 		}
 		return int32(sum / int64(len(samples)))
 	case int64:
 		var sum int64
 		for _, sample := range samples {
-			sum += sample[fieldIdx].(int64)
+			sum += sample[channelIdx].(int64)
 		}
 		return sum / int64(len(samples))
 	case uint8:
 		var sum uint64
 		for _, sample := range samples {
-			sum += uint64(sample[fieldIdx].(uint8))
+			sum += uint64(sample[channelIdx].(uint8))
 		}
 		return uint8(sum / uint64(len(samples)))
 	case uint16:
 		var sum uint64
 		for _, sample := range samples {
-			sum += uint64(sample[fieldIdx].(uint16))
+			sum += uint64(sample[channelIdx].(uint16))
 		}
 		return uint16(sum / uint64(len(samples)))
 	case uint32:
 		var sum uint64
 		for _, sample := range samples {
-			sum += uint64(sample[fieldIdx].(uint32))
+			sum += uint64(sample[channelIdx].(uint32))
 		}
 		return uint32(sum / uint64(len(samples)))
 	case uint64:
 		var sum uint64
 		for _, sample := range samples {
-			sum += sample[fieldIdx].(uint64)
+			sum += sample[channelIdx].(uint64)
 		}
 		return sum / uint64(len(samples))
 	default:
@@ -435,13 +392,13 @@ func calculateMeanField(samples []pixi.Sample, fieldIdx int) any {
 	}
 }
 
-func calculateMedianField(samples []pixi.Sample, fieldIdx int, field pixi.Field) any {
+func calculateMedianChannel(samples []pixi.Sample, channelIdx int, channel pixi.Channel) any {
 	values := make([]any, len(samples))
 	for i, sample := range samples {
-		values[i] = sample[fieldIdx]
+		values[i] = sample[channelIdx]
 	}
 
-	slices.SortFunc(values, field.Type.CompareValues)
+	slices.SortFunc(values, channel.Type.CompareValues)
 
 	mid := len(values) / 2
 	if len(values)%2 == 0 {

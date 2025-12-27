@@ -12,9 +12,20 @@ type TagSection struct {
 	NextTagsStart int64             // A byte-index offset from the start of the file pointing to the next tag section. 0 if this is the last tag section.
 }
 
+// Writes the tag section header in binary to the given stream, according to the specification
+// in the Pixi header. This only writes the header (number of tags and offset to next section),
+// not the actual tags themselves.
+func (t *TagSection) WriteHeader(w io.Writer, h *Header) error {
+	err := h.Write(w, uint32(len(t.Tags)))
+	if err != nil {
+		return err
+	}
+	return h.WriteOffset(w, t.NextTagsStart)
+}
+
 // Writes the tag section in binary to the given stream, according to the specification
 // in the Pixi header.
-func (t *TagSection) Write(w io.Writer, h *PixiHeader) error {
+func (t *TagSection) Write(w io.Writer, h *Header) error {
 	// write number of tags, then each key-value pair for tags
 	err := h.Write(w, uint32(len(t.Tags)))
 	if err != nil {
@@ -30,14 +41,18 @@ func (t *TagSection) Write(w io.Writer, h *PixiHeader) error {
 			return err
 		}
 	}
-	return h.WriteOffset(w, t.NextTagsStart)
+	return nil
 }
 
 // Reads a tag section from the given binary stream, according to the specification
 // in the Pixi header.
-func (t *TagSection) Read(r io.Reader, h *PixiHeader) error {
+func (t *TagSection) Read(r io.Reader, h *Header) error {
 	var tagCount uint32
 	err := h.Read(r, &tagCount)
+	if err != nil {
+		return err
+	}
+	t.NextTagsStart, err = h.ReadOffset(r)
 	if err != nil {
 		return err
 	}
@@ -53,6 +68,5 @@ func (t *TagSection) Read(r io.Reader, h *PixiHeader) error {
 		}
 		t.Tags[key] = val
 	}
-	t.NextTagsStart, err = h.ReadOffset(r)
-	return err
+	return nil
 }

@@ -45,18 +45,18 @@ func main() {
 		for dimInd, dim := range layer.Dimensions {
 			fmt.Printf("\t\t\tDim %d (%s): %d / %d (%d tiles)\n", dimInd, dim.Name, dim.Size, dim.TileSize, dim.Tiles())
 		}
-		fmt.Printf("\t\tFields: %d\n", len(layer.Fields))
-		for fieldInd, field := range layer.Fields {
-			if field.Max != nil {
-				if field.Min != nil {
-					fmt.Printf("\t\t\tField %d (%s) : %s [min: %v, max: %v]\n", fieldInd, field.Name, field.Type, field.Min, field.Max)
+		fmt.Printf("\t\tChannels: %d\n", len(layer.Channels))
+		for channelInd, channel := range layer.Channels {
+			if channel.Max != nil {
+				if channel.Min != nil {
+					fmt.Printf("\t\t\tChannel %d (%s) : %s [min: %v, max: %v]\n", channelInd, channel.Name, channel.Type, channel.Min, channel.Max)
 				} else {
-					fmt.Printf("\t\t\tField %d (%s) : %s [max: %v]\n", fieldInd, field.Name, field.Type, field.Max)
+					fmt.Printf("\t\t\tChannel %d (%s) : %s [max: %v]\n", channelInd, channel.Name, channel.Type, channel.Max)
 				}
-			} else if field.Min != nil {
-				fmt.Printf("\t\t\tField %d (%s) : %s [min: %v]\n", fieldInd, field.Name, field.Type, field.Min)
+			} else if channel.Min != nil {
+				fmt.Printf("\t\t\tChannel %d (%s) : %s [min: %v]\n", channelInd, channel.Name, channel.Type, channel.Min)
 			} else {
-				fmt.Printf("\t\t\tField %d (%s) : %s\n", fieldInd, field.Name, field.Type)
+				fmt.Printf("\t\t\tChannel %d (%s) : %s\n", channelInd, channel.Name, channel.Type)
 			}
 		}
 	}

@@ -26,7 +26,7 @@ This repository contains the specification of a the Pixi file format. To start, 
 
 ### Layers
 
-### Fields
+### Channels
 
 ### Separation
 
@@ -54,7 +54,7 @@ Following this offset is the tagging offset. This will be the offset in the file
 
 ### Tagging Section
 
-### Field Header
+### Channel Header
 
 ## Compression
 

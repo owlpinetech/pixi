@@ -14,7 +14,7 @@ import (
 
 func main() {
 	dstFileName := flag.String("dst", "", "name of the output pixi file")
-	separatedArg := flag.Bool("sep", false, "whether to separate fields of layers in the output file")
+	separatedArg := flag.Bool("sep", false, "whether to separate channels of layers in the output file")
 	compressionArg := flag.String("comp", "none", "compression type for output file (none, flate, lzw-lsb, lzw-msb)")
 	flag.Parse()
 
@@ -45,6 +45,11 @@ func main() {
 		return
 	}
 
+	layerOpts := []pixi.LayerOption{pixi.WithCompression(compression)}
+	if *separatedArg {
+		layerOpts = append(layerOpts, pixi.WithPlanar())
+	}
+
 	srcFileNames := flag.Args()
 
 	// open input files
@@ -61,7 +66,7 @@ func main() {
 	}
 
 	targetLayerCount := -1
-	targetHeader := &pixi.PixiHeader{}
+	targetHeader := &pixi.Header{}
 	targetDimensions := []pixi.DimensionSet{}
 	srcPixis := []*pixi.Pixi{}
 	srcReaders := map[int][]*pixi.TileOrderReadIterator{}
@@ -117,98 +122,70 @@ func main() {
 	}
 	defer dstFile.Close()
 
-	dstPixi := &pixi.PixiHeader{
-		Version:    pixi.Version,
-		OffsetSize: targetHeader.OffsetSize,
-		ByteOrder:  targetHeader.ByteOrder,
-	}
+	dstPixi := pixi.NewHeader(targetHeader.ByteOrder, targetHeader.OffsetSize)
 	err = dstPixi.WriteHeader(dstFile)
 	if err != nil {
 		fmt.Println("Failed to write Pixi header to destination Pixi file.")
 		return
 	}
+	summary := &pixi.Pixi{
+		Header: dstPixi,
+	}
 
-	tagSection := pixi.TagSection{Tags: tags}
-	err = tagSection.Write(dstFile, dstPixi)
+	err = summary.AppendTags(dstFile, tags)
 	if err != nil {
 		fmt.Println("Failed to write tags to destination Pixi file.")
 		return
 	}
 
-	previousOffset := dstPixi.FirstLayerOffset
-	var previousLayer *pixi.Layer
 	for layerIndex, layerReaders := range srcReaders {
-		mergedFields := pixi.FieldSet{}
+		mergedChannels := pixi.ChannelSet{}
 		for _, reader := range layerReaders {
-			for _, field := range reader.Layer().Fields {
-				mergedFields = append(mergedFields, field)
+			for _, channel := range reader.Layer().Channels {
+				mergedChannels = append(mergedChannels, channel)
 			}
 		}
 
 		mergedLayer := pixi.NewLayer(
 			strings.Join(layerNames[layerIndex], "+"),
-			*separatedArg,
-			compression,
 			targetDimensions[layerIndex],
-			mergedFields,
+			mergedChannels,
+			layerOpts...,
 		)
-		previousLayer = mergedLayer
 
-		dstLayerWriter := pixi.NewTileOrderWriteIterator(dstFile, dstPixi, mergedLayer)
-
-		for dstLayerWriter.Next() {
-			// advance all readers by one too
-			readerAdvanceSuccess := true
-			for _, reader := range layerReaders {
-				readerAdvanceSuccess = readerAdvanceSuccess && reader.Next()
-			}
-			if !readerAdvanceSuccess {
-				fmt.Println("Failed to advance tile readers for source Pixi files.")
+		err = summary.AppendIterativeLayer(dstFile, mergedLayer, func(dstLayerWriter pixi.IterativeLayerWriter) error {
+			for dstLayerWriter.Next() {
+				// advance all readers by one too
+				readerAdvanceSuccess := true
 				for _, reader := range layerReaders {
-					if reader.Error() != nil {
-						fmt.Println("  Reader error:", reader.Error())
+					readerAdvanceSuccess = readerAdvanceSuccess && reader.Next()
+				}
+				if !readerAdvanceSuccess {
+					for _, reader := range layerReaders {
+						if reader.Error() != nil {
+							return reader.Error()
+						}
 					}
 				}
-				return
-			}
 
-			dstIndex := 0
-			for _, reader := range layerReaders {
-				sample := reader.Sample()
-				for _, field := range sample {
-					dstLayerWriter.SetField(dstIndex, field)
-					dstIndex += 1
+				dstIndex := 0
+				for _, reader := range layerReaders {
+					sample := reader.Sample()
+					for _, channel := range sample {
+						dstLayerWriter.SetChannel(dstIndex, channel)
+						dstIndex += 1
+					}
 				}
 			}
-		}
+			return nil
+		})
 
 		for _, reader := range layerReaders {
 			reader.Done()
 		}
 
-		dstLayerWriter.Done()
-
-		offset, err := dstFile.Seek(0, io.SeekCurrent)
 		if err != nil {
-			fmt.Println("Failed to seek in destination Pixi file.")
-			return
-		}
-		if previousLayer != nil {
-			previousLayer.NextLayerStart = offset
-			previousLayer.OverwriteHeader(dstFile, dstPixi, previousOffset)
-		} else {
-			dstPixi.OverwriteOffsets(dstFile, offset, int64(dstPixi.DiskSize()))
-		}
-		previousOffset = offset
-
-		err = mergedLayer.WriteHeader(dstFile, dstPixi)
-		if err != nil {
-			fmt.Println("Failed to write layer header to destination Pixi file.")
-			return
-		}
-
-		if dstLayerWriter.Error() != nil {
-			fmt.Println("Failed to finalize layer writing to destination Pixi file.")
+			fmt.Printf("Failed to write merged layer %d to destination Pixi file.\n", layerIndex)
 			return
 		}
 	}

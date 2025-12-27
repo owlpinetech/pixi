@@ -48,9 +48,9 @@ func main() {
 	targetLayerCount := -1
 	targetSeparated := []bool{}
 	targetCompressions := []pixi.Compression{}
-	targetHeader := &pixi.PixiHeader{}
+	targetHeader := &pixi.Header{}
 	targetDimensions := []pixi.DimensionSet{}
-	targetFields := []pixi.FieldSet{}
+	targetChannels := []pixi.ChannelSet{}
 	srcPixis := []*pixi.Pixi{}
 	srcReaders := map[int][]pixi.TileAccessLayer{}
 	layerNames := map[int][]string{}
@@ -75,7 +75,7 @@ func main() {
 			targetHeader = srcPixi.Header
 			for _, layer := range srcPixi.Layers {
 				targetDimensions = append(targetDimensions, slices.Clone(layer.Dimensions))
-				targetFields = append(targetFields, slices.Clone(layer.Fields))
+				targetChannels = append(targetChannels, slices.Clone(layer.Channels))
 				targetCompressions = append(targetCompressions, layer.Compression)
 				targetSeparated = append(targetSeparated, layer.Separated)
 			}
@@ -88,9 +88,9 @@ func main() {
 					fmt.Printf("Source Pixi file '%s' has different number of dimensions for layer %d than previous files.\n", srcFileNames[srcIndex], layerInd)
 					return
 				}
-				for fieldInd, field := range layer.Fields {
-					if field.Type != targetFields[layerInd][fieldInd].Type {
-						fmt.Printf("Source Pixi file '%s' has different field types/sizes for layer %d than previous files.\n", srcFileNames[srcIndex], layerInd)
+				for channelInd, channel := range layer.Channels {
+					if channel.Type != targetChannels[layerInd][channelInd].Type {
+						fmt.Printf("Source Pixi file '%s' has different channel types/sizes for layer %d than previous files.\n", srcFileNames[srcIndex], layerInd)
 						return
 					}
 				}
@@ -120,84 +120,60 @@ func main() {
 	}
 	defer dstFile.Close()
 
-	dstPixi := &pixi.PixiHeader{
-		Version:    pixi.Version,
-		OffsetSize: targetHeader.OffsetSize,
-		ByteOrder:  targetHeader.ByteOrder,
-	}
+	dstPixi := pixi.NewHeader(targetHeader.ByteOrder, targetHeader.OffsetSize)
 	err = dstPixi.WriteHeader(dstFile)
 	if err != nil {
 		fmt.Println("Failed to write Pixi header to destination Pixi file.")
 		return
 	}
+	dstSummary := &pixi.Pixi{
+		Header: dstPixi,
+	}
 
-	tagSection := pixi.TagSection{Tags: tags}
-	err = tagSection.Write(dstFile, dstPixi)
+	err = dstSummary.AppendTags(dstFile, tags)
 	if err != nil {
 		fmt.Println("Failed to write tags to destination Pixi file.")
 		return
 	}
 
-	previousOffset := dstPixi.FirstLayerOffset
-	var previousLayer *pixi.Layer
 	for layerIndex, layerReaders := range srcReaders {
+		opts := []pixi.LayerOption{pixi.WithCompression(targetCompressions[layerIndex])}
+		if targetSeparated[layerIndex] {
+			opts = append(opts, pixi.WithPlanar())
+		}
 		mergedLayer := pixi.NewLayer(
 			strings.Join(layerNames[layerIndex], "+"),
-			targetSeparated[layerIndex],
-			targetCompressions[layerIndex],
 			targetDimensions[layerIndex],
-			targetFields[layerIndex],
+			targetChannels[layerIndex],
+			opts...,
 		)
-		previousLayer = mergedLayer
 
-		dstLayerWriter := pixi.NewTileOrderWriteIterator(dstFile, dstPixi, mergedLayer)
+		err = dstSummary.AppendIterativeLayer(dstFile, mergedLayer, func(dstLayerWriter pixi.IterativeLayerWriter) error {
+			for dstLayerWriter.Next() {
+				coord := dstLayerWriter.Coordinate()
 
-		for dstLayerWriter.Next() {
-			coord := dstLayerWriter.Coordinate()
-
-			// determine which source reader to pull from
-			stitchPos := coord[*stitchDimension]
-			srcReaderIndex := 0
-			for ; srcReaderIndex < len(layerReaders)-1; srcReaderIndex++ {
-				if stitchPos < layerReaders[srcReaderIndex].Layer().Dimensions[*stitchDimension].Size {
-					break
+				// determine which source reader to pull from
+				stitchPos := coord[*stitchDimension]
+				srcReaderIndex := 0
+				for ; srcReaderIndex < len(layerReaders)-1; srcReaderIndex++ {
+					if stitchPos < layerReaders[srcReaderIndex].Layer().Dimensions[*stitchDimension].Size {
+						break
+					}
+					stitchPos -= layerReaders[srcReaderIndex].Layer().Dimensions[*stitchDimension].Size
 				}
-				stitchPos -= layerReaders[srcReaderIndex].Layer().Dimensions[*stitchDimension].Size
+				// adjust coordinate to source reader space
+				coord[*stitchDimension] = stitchPos
+				sample, err := pixi.SampleAt(layerReaders[srcReaderIndex], coord)
+				if err != nil {
+					return fmt.Errorf("Failed to retrieve sample from source Pixi files: %v", err)
+				}
+
+				dstLayerWriter.SetSample(sample)
 			}
-			// adjust coordinate to source reader space
-			coord[*stitchDimension] = stitchPos
-			sample, err := pixi.SampleAt(layerReaders[srcReaderIndex], coord)
-			if err != nil {
-				fmt.Println("Error at coordinate:", coord, "original:", dstLayerWriter.Coordinate(), "dimensions:", layerReaders[srcReaderIndex].Layer().Dimensions)
-				fmt.Println("Failed to retrieve sample from source Pixi files: ", err)
-				return
-			}
-
-			dstLayerWriter.SetSample(sample)
-		}
-
-		dstLayerWriter.Done()
-		if dstLayerWriter.Error() != nil {
-			fmt.Println("Failed to finalize layer writing to destination Pixi file.")
-			return
-		}
-
-		offset, err := dstFile.Seek(0, io.SeekCurrent)
+			return nil
+		})
 		if err != nil {
-			fmt.Println("Failed to seek in destination Pixi file.")
-			return
-		}
-		if previousLayer != nil {
-			previousLayer.NextLayerStart = offset
-			previousLayer.OverwriteHeader(dstFile, dstPixi, previousOffset)
-		} else {
-			dstPixi.OverwriteOffsets(dstFile, offset, int64(dstPixi.DiskSize()))
-		}
-		previousOffset = offset
-
-		err = mergedLayer.WriteHeader(dstFile, dstPixi)
-		if err != nil {
-			fmt.Println("Failed to write layer header to destination Pixi file.")
+			fmt.Println("Failed to write layer to destination Pixi file.")
 			return
 		}
 	}

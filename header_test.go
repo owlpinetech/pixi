@@ -28,7 +28,7 @@ func TestWriteReadHeader(t *testing.T) {
 			}
 
 			rdBuf := bytes.NewReader(buf.Bytes())
-			rdHeader := &PixiHeader{}
+			rdHeader := &Header{}
 			err = rdHeader.ReadHeader(rdBuf)
 			if err != nil {
 				t.Fatal(err)
@@ -46,7 +46,7 @@ func TestWriteReadHeader(t *testing.T) {
 			}
 
 			rdBuf = bytes.NewReader(buf.Bytes())
-			rdHeader = &PixiHeader{}
+			rdHeader = &Header{}
 			err = rdHeader.ReadHeader(rdBuf)
 			if err != nil {
 				t.Fatal(err)

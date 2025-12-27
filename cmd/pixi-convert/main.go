@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"flag"
 	"fmt"
+	"image"
 	"image/jpeg"
 	"image/png"
 	"io"
@@ -32,6 +33,7 @@ func main() {
 	fromPixiFlags := flag.NewFlagSet("fromPixi", flag.ExitOnError)
 	fromSrcFile := fromPixiFlags.String("src", "", "Pixi file to convert")
 	fromDstFile := fromPixiFlags.String("dst", "", "name of the file resulting from Pixi conversion")
+	fromModel := fromPixiFlags.String("model", "image", "the target model to convert the Pixi file to (image)")
 
 	switch os.Args[1] {
 	case "to":
@@ -52,7 +54,7 @@ func main() {
 			return
 		}
 
-		if err := pixiToOther(*fromSrcFile, *fromDstFile); err != nil {
+		if err := pixiToOther(*fromSrcFile, *fromDstFile, *fromModel); err != nil {
 			fmt.Println(err)
 			return
 		}
@@ -85,12 +87,6 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int, endiann
 
 		srcStream = rdFile
 	}
-
-	pixiFile, err := os.Create(dstFile)
-	if err != nil {
-		return err
-	}
-	defer pixiFile.Close()
 
 	compression := pixi.CompressionNone
 	switch comp {
@@ -129,44 +125,58 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int, endiann
 		Tags:        map[string]string{},
 	}
 
+	var img image.Image
+	var err error
 	switch strings.ToLower(path.Ext(srcFile)) {
 	case ".bmp":
-		img, err := bmp.Decode(srcStream)
+		img, err = bmp.Decode(srcStream)
 		if err != nil {
 			return err
 		}
-		return pixi.PixiFromImage(pixiFile, img, options)
 
 	case ".png":
-		img, err := png.Decode(srcStream)
+		img, err = png.Decode(srcStream)
 		if err != nil {
 			return err
 		}
-		return pixi.PixiFromImage(pixiFile, img, options)
 
 	case ".jpg":
 		fallthrough
 	case ".jpeg":
-		img, err := jpeg.Decode(srcStream)
+		img, err = jpeg.Decode(srcStream)
 		if err != nil {
 			return err
 		}
-		return pixi.PixiFromImage(pixiFile, img, options)
 
 	case ".tif":
 		fallthrough
 	case ".tiff":
-		img, err := tiff.Decode(srcStream)
+		img, err = tiff.Decode(srcStream)
 		if err != nil {
 			return err
 		}
-		return pixi.PixiFromImage(pixiFile, img, options)
+
+	default:
+		return pixi.ErrUnsupported("image format not yet supported for conversion to Pixi")
 	}
 
-	return pixi.ErrUnsupported("image format not yet supported for conversion to Pixi")
+	pixiFile, err := os.Create(dstFile)
+	if err != nil {
+		return err
+	}
+	defer pixiFile.Close()
+
+	summary := &pixi.Pixi{
+		Header: pixi.NewHeader(order, pixi.OffsetSize(offsetSize)),
+	}
+	if err := summary.Header.WriteHeader(pixiFile); err != nil {
+		return err
+	}
+
+	return summary.AppendImage(pixiFile, img, options)
 }
 
-func pixiToOther(srcFile string, dstFile string) error {
+func pixiToOther(srcFile string, dstFile string, srcModel string) error {
 	pixiStream, err := pixi.OpenFileOrHttp(srcFile)
 	if err != nil {
 		return err
@@ -184,7 +194,7 @@ func pixiToOther(srcFile string, dstFile string) error {
 		return err
 	}
 
-	img, err := pixi.LayerAsImage(pixiStream, pixiSum, pixiSum.Layers[0])
+	img, err := pixi.LayerAsImage(pixiStream, pixiSum, pixiSum.Layers[0], srcModel)
 	if err != nil {
 		return err
 	}

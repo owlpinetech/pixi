@@ -23,12 +23,12 @@ func (e ErrDataIntegrity) Error() string {
 	return fmt.Sprintf("pixi: data integrity compromised - tile %d, layer '%s'", e.TileIndex, e.LayerName)
 }
 
-type ErrFieldNotFound struct {
-	FieldName string
+type ErrChannelNotFound struct {
+	ChannelName string
 }
 
-func (e ErrFieldNotFound) Error() string {
-	return fmt.Sprintf("pixi: field not found - '%s'", e.FieldName)
+func (e ErrChannelNotFound) Error() string {
+	return fmt.Sprintf("pixi: channel not found - '%s'", e.ChannelName)
 }
 
 type ErrTileNotFound struct {

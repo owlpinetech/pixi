@@ -7,7 +7,7 @@ import (
 
 type MemoryLayer struct {
 	lock    sync.RWMutex
-	header  *Header
+	header  Header
 	layer   *Layer
 	backing io.ReadWriteSeeker
 	tiles   map[int][]byte
@@ -16,7 +16,7 @@ type MemoryLayer struct {
 var _ TileAccessLayer = (*MemoryLayer)(nil)
 var _ TileModifierLayer = (*MemoryLayer)(nil)
 
-func NewMemoryLayer(backing io.ReadWriteSeeker, header *Header, layer *Layer) *MemoryLayer {
+func NewMemoryLayer(backing io.ReadWriteSeeker, header Header, layer *Layer) *MemoryLayer {
 	return &MemoryLayer{
 		header:  header,
 		layer:   layer,
@@ -29,7 +29,7 @@ func (s *MemoryLayer) Layer() *Layer {
 	return s.layer
 }
 
-func (s *MemoryLayer) Header() *Header {
+func (s *MemoryLayer) Header() Header {
 	return s.header
 }
 

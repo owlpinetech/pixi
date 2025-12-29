@@ -32,15 +32,15 @@ func (set ChannelSet) Offset(channelIndex int) int {
 	return offset
 }
 
-// The byte offset of the channel with the given name within a sample. This is the sum of the sizes of all preceding channels.
-// Panics if the channel is not found in the set.
-func (set ChannelSet) NamedOffset(channelName string) int {
+// NamedOffset returns the byte offset of the channel with the given name within a sample.
+// Returns the offset and true if found, or 0 and false if not found.
+func (set ChannelSet) NamedOffset(channelName string) (int, bool) {
 	offset := 0
 	for _, channel := range set {
 		if channel.Name == channelName {
-			return offset
+			return offset, true
 		}
 		offset += channel.Size()
 	}
-	panic("pixi: channel not found in channel set")
+	return 0, false
 }

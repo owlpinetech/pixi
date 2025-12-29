@@ -114,7 +114,7 @@ func TestLayerHeaderWriteRead(t *testing.T) {
 				}
 
 				readBuf := buffer.NewBufferFrom(buf.Bytes())
-				readHdr := &Header{}
+				readHdr := Header{}
 				err = readHdr.ReadHeader(readBuf)
 				if err != nil {
 					t.Fatal("read header", err)
@@ -122,12 +122,12 @@ func TestLayerHeaderWriteRead(t *testing.T) {
 
 				readLayers := []*Layer{}
 				for range tc.layers {
-					readLayer := Layer{}
-					err = (&readLayer).ReadLayer(readBuf, readHdr)
+					readLayer := &Layer{}
+					err = readLayer.ReadLayer(readBuf, readHdr)
 					if err != nil {
 						t.Fatal("read layer", err)
 					}
-					readLayers = append(readLayers, &readLayer)
+					readLayers = append(readLayers, readLayer)
 				}
 
 				if !reflect.DeepEqual(tc.layers, readLayers) {

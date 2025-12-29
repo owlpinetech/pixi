@@ -28,8 +28,10 @@ type Header struct {
 	FirstTagsOffset  int64
 }
 
-func NewHeader(byteOrder binary.ByteOrder, offsetSize OffsetSize) *Header {
-	return &Header{
+// Creates a new Pixi header struct with the given byte order and offset size, setting
+// the version to the current supported version.
+func NewHeader(byteOrder binary.ByteOrder, offsetSize OffsetSize) Header {
+	return Header{
 		Version:    Version,
 		OffsetSize: offsetSize,
 		ByteOrder:  byteOrder,
@@ -37,24 +39,24 @@ func NewHeader(byteOrder binary.ByteOrder, offsetSize OffsetSize) *Header {
 }
 
 // Get the size in bytes of the full Pixi header (including first tag section and first layer offsets) as it is laid out and written to disk.
-func (s *Header) DiskSize() int {
+func (s Header) DiskSize() int {
 	return 4 + 2 + 1 + 1 + 2*int(s.OffsetSize)
 }
 
 // Writes a fixed size value, or a slice of such values, using the byte order given in the header.
-func (s *Header) Write(w io.Writer, val any) error {
+func (s Header) Write(w io.Writer, val any) error {
 	return binary.Write(w, s.ByteOrder, val)
 }
 
 // Reads a fixed-size value, or a slice of such values, using the byte order given in the header.
-func (s *Header) Read(r io.Reader, val any) error {
+func (s Header) Read(r io.Reader, val any) error {
 	return binary.Read(r, s.ByteOrder, val)
 }
 
 // Writes a file offset to the current position in the writer stream, based on the offset size
 // specified in the header. Panics if the file offset size has not yet been set, and returns
 // an error if writing fails.
-func (s *Header) WriteOffset(w io.Writer, offset int64) error {
+func (s Header) WriteOffset(w io.Writer, offset int64) error {
 	switch s.OffsetSize {
 	case 4:
 		return binary.Write(w, s.ByteOrder, int32(offset))
@@ -67,7 +69,7 @@ func (s *Header) WriteOffset(w io.Writer, offset int64) error {
 // Reads a file offset from the current position in the reader, based on the offset size
 // read earlier in the file. Panics if the file offset size has not yet been set, and returns
 // an error if reading fails.
-func (s *Header) ReadOffset(r io.Reader) (int64, error) {
+func (s Header) ReadOffset(r io.Reader) (int64, error) {
 	switch s.OffsetSize {
 	case 4:
 		var offset int32
@@ -84,7 +86,7 @@ func (s *Header) ReadOffset(r io.Reader) (int64, error) {
 // Writes a slice of offsets to the current position in the writer stream, based on the offset size
 // specified in the header. Panics if the file offset size has not yet been set, and returns
 // an error if writing fails.
-func (s *Header) WriteOffsets(w io.Writer, offsets []int64) error {
+func (s Header) WriteOffsets(w io.Writer, offsets []int64) error {
 	switch s.OffsetSize {
 	case 4:
 		smallOffs := make([]int32, len(offsets))
@@ -101,7 +103,7 @@ func (s *Header) WriteOffsets(w io.Writer, offsets []int64) error {
 // Reads a slice of offsets from the current position in the reader, based on the offset size
 // read earlier in the file. Panics if the file offset size has not yet been set, and returns
 // an error if reading fails.
-func (s *Header) ReadOffsets(r io.Reader, offsets []int64) error {
+func (s Header) ReadOffsets(r io.Reader, offsets []int64) error {
 	switch s.OffsetSize {
 	case 4:
 		smallOffs := make([]int32, len(offsets))
@@ -122,7 +124,7 @@ func (s *Header) ReadOffsets(r io.Reader, offsets []int64) error {
 // Writes a 'friendly' name from to the writer stream at the current position. A
 // 'friendly' string is always the same format, specified by a 16-bit length followed
 // by that number of bytes of UTF8 string.
-func (s *Header) WriteFriendly(w io.Writer, friendly string) error {
+func (s Header) WriteFriendly(w io.Writer, friendly string) error {
 	strBytes := []byte(friendly)
 	err := s.Write(w, uint16(len(strBytes)))
 	if err != nil {
@@ -134,7 +136,7 @@ func (s *Header) WriteFriendly(w io.Writer, friendly string) error {
 // Read a 'friendly' name from the reader stream at the current position. 'Friendly'
 // strings are always the same format, specified by a 16-bit length followed by that
 // number of bytes interpreted as a UTF8 string.
-func (s *Header) ReadFriendly(r io.Reader) (string, error) {
+func (s Header) ReadFriendly(r io.Reader) (string, error) {
 	var strLen uint16
 	err := s.Read(r, &strLen)
 	if err != nil {
@@ -146,7 +148,7 @@ func (s *Header) ReadFriendly(r io.Reader) (string, error) {
 }
 
 // Write the information in this header to the current position in the writer stream.
-func (h *Header) WriteHeader(w io.Writer) error {
+func (h Header) WriteHeader(w io.Writer) error {
 	// write file type (4 bytes)
 	_, err := w.Write([]byte(FileType))
 	if err != nil {
@@ -283,8 +285,8 @@ func (h *Header) OverwriteOffsets(w io.WriteSeeker, firstLayer int64, firstTags 
 	return nil
 }
 
-func allHeaderVariants(version int) []*Header {
-	return []*Header{
+func allHeaderVariants(version int) []Header {
+	return []Header{
 		{Version: version, ByteOrder: binary.BigEndian, OffsetSize: 4},
 		{Version: version, ByteOrder: binary.BigEndian, OffsetSize: 8},
 		{Version: version, ByteOrder: binary.LittleEndian, OffsetSize: 4},

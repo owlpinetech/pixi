@@ -66,7 +66,7 @@ func main() {
 	}
 
 	targetLayerCount := -1
-	targetHeader := &pixi.Header{}
+	targetHeader := pixi.Header{}
 	targetDimensions := []pixi.DimensionSet{}
 	srcPixis := []*pixi.Pixi{}
 	srcReaders := map[int][]*pixi.TileOrderReadIterator{}

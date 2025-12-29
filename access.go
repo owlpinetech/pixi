@@ -6,7 +6,7 @@ type Accessor interface {
 
 type TileAccessLayer interface {
 	Accessor
-	Header() *Header
+	Header() Header
 	Tile(tile int) ([]byte, error)
 }
 
@@ -84,10 +84,6 @@ func ChannelAt(accessor TileAccessLayer, coord SampleCoordinate, channelIndex in
 }
 
 func SetSampleAt(modifier TileModifierLayer, coord SampleCoordinate, values Sample) error {
-	if len(values) != len(modifier.Layer().Channels) {
-		panic("pixi: values length does not match channel count")
-	}
-
 	// Update Min/Max for all channels
 	for channelIndex, value := range values {
 		modifier.Layer().Channels[channelIndex].UpdateMinMax(value)
@@ -129,10 +125,6 @@ func SetSampleAt(modifier TileModifierLayer, coord SampleCoordinate, values Samp
 }
 
 func SetChannelAt(modifier TileModifierLayer, coord SampleCoordinate, channelIndex int, value any) error {
-	if channelIndex < 0 || channelIndex >= len(modifier.Layer().Channels) {
-		panic("pixi: channel index out of range")
-	}
-
 	// Update Min/Max for the channel
 	modifier.Layer().Channels[channelIndex].UpdateMinMax(value)
 

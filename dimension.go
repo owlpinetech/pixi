@@ -15,7 +15,7 @@ type Dimension struct {
 }
 
 // Get the size in bytes of this dimension description as it is laid out and written to disk.
-func (d Dimension) HeaderSize(h *Header) int {
+func (d Dimension) HeaderSize(h Header) int {
 	return 2 + len([]byte(d.Name)) + 2*int(h.OffsetSize)
 }
 
@@ -32,7 +32,7 @@ func (d Dimension) Tiles() int {
 
 // Writes the binary description of the dimenson to the given stream, according to the specification
 // in the Pixi header h.
-func (d Dimension) Write(w io.Writer, h *Header) error {
+func (d Dimension) Write(w io.Writer, h Header) error {
 	if d.Size <= 0 || d.TileSize <= 0 {
 		return ErrFormat("dimension size and tile size must be greater than 0")
 	}
@@ -53,7 +53,7 @@ func (d Dimension) Write(w io.Writer, h *Header) error {
 
 // Reads a description of the dimension from the given binary stream, according to the specification
 // in the Pixi header h.
-func (d *Dimension) Read(r io.Reader, h *Header) error {
+func (d *Dimension) Read(r io.Reader, h Header) error {
 	name, err := h.ReadFriendly(r)
 	if err != nil {
 		return err

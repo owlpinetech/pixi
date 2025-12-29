@@ -48,7 +48,7 @@ func main() {
 	targetLayerCount := -1
 	targetSeparated := []bool{}
 	targetCompressions := []pixi.Compression{}
-	targetHeader := &pixi.Header{}
+	targetHeader := pixi.Header{}
 	targetDimensions := []pixi.DimensionSet{}
 	targetChannels := []pixi.ChannelSet{}
 	srcPixis := []*pixi.Pixi{}

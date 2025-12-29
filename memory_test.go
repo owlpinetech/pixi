@@ -10,7 +10,7 @@ import (
 )
 
 func TestMemorySampleChannelConcurrent(t *testing.T) {
-	header := &Header{
+	header := Header{
 		Version:    Version,
 		OffsetSize: 4,
 		ByteOrder:  binary.BigEndian,
@@ -57,7 +57,7 @@ func TestMemorySampleChannelConcurrent(t *testing.T) {
 }
 
 func TestMemorySetSampleAt(t *testing.T) {
-	header := &Header{
+	header := Header{
 		Version:    Version,
 		OffsetSize: 4,
 		ByteOrder:  binary.BigEndian,

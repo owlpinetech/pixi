@@ -43,7 +43,7 @@ func (c Channel) PutValue(val any, order binary.ByteOrder, raw []byte) {
 }
 
 // Get the size in bytes of this dimension description as it is laid out and written to disk.
-func (c Channel) HeaderSize(h *Header) int {
+func (c Channel) HeaderSize(h Header) int {
 	size := 2 + len([]byte(c.Name)) + 4 // base size: name + channel type
 
 	// Add size for optional Min value
@@ -61,7 +61,7 @@ func (c Channel) HeaderSize(h *Header) int {
 
 // Writes the binary description of the channel to the given stream, according to the specification
 // in the Pixi header h.
-func (c Channel) Write(w io.Writer, h *Header) error {
+func (c Channel) Write(w io.Writer, h Header) error {
 	// Set flags based on presence of Min/Max values
 	encodedType := c.Type.WithMin(c.Min != nil).WithMax(c.Max != nil)
 
@@ -101,7 +101,7 @@ func (c Channel) Write(w io.Writer, h *Header) error {
 
 // Reads a description of the channel from the given binary stream, according to the specification
 // in the Pixi header h.
-func (c *Channel) Read(r io.Reader, h *Header) error {
+func (c *Channel) Read(r io.Reader, h Header) error {
 	name, err := h.ReadFriendly(r)
 	if err != nil {
 		return err

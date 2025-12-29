@@ -25,7 +25,7 @@ func newRandomValidDimensionSet(maxDims int, maxDimSize int, maxTileSize int) Di
 // assumes that the PixiHeader has already been written to the backing stream, and that the stream cursor is at the correct
 // offset for writing the layer header. If the write fails partway through, an error is returned, but the backing stream may be
 // partially written. Otherwise, returns a pointer to the created Layer, with supporting channels ready for further read/write access.
-func newBlankUncompressedLayer(backing io.WriteSeeker, header *Header, name string, dimensions DimensionSet, channels ChannelSet, opts ...LayerOption) (*Layer, error) {
+func newBlankUncompressedLayer(backing io.WriteSeeker, header Header, name string, dimensions DimensionSet, channels ChannelSet, opts ...LayerOption) (*Layer, error) {
 	uncompOpts := append(opts, WithCompression(CompressionNone))
 	layer := NewLayer(name, dimensions, channels, uncompOpts...)
 	err := layer.WriteHeader(backing, header)

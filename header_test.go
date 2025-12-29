@@ -34,7 +34,7 @@ func TestWriteReadHeader(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if *header != *rdHeader {
+			if header != *rdHeader {
 				t.Errorf("read header %v was different than written header %v", *rdHeader, header)
 			}
 
@@ -52,7 +52,7 @@ func TestWriteReadHeader(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if *header != *rdHeader {
+			if header != *rdHeader {
 				t.Errorf("read header %v was different than written header with new offsets %v", *rdHeader, header)
 			}
 		}

@@ -1,4 +1,4 @@
-package pixi
+package gopixi
 
 // A sample is a list of channel values, in channel-index order, for at a single index / coordinate in a layer.
 type Sample []any

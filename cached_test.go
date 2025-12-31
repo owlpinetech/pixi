@@ -1,4 +1,4 @@
-package pixi
+package gopixi
 
 import (
 	"encoding/binary"
@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/owlpinetech/pixi/internal/buffer"
+	"github.com/gracefulearth/gopixi/internal/buffer"
 )
 
 func testSampleAtSameAsRaw(t *testing.T, wg *sync.WaitGroup, layer TileAccessLayer, coord SampleCoordinate, expect any) {

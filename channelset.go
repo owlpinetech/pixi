@@ -1,4 +1,4 @@
-package pixi
+package gopixi
 
 // An ordered set of named channels present in each sample of a layer in a Pixi file.
 type ChannelSet []Channel

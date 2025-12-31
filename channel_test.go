@@ -1,4 +1,4 @@
-package pixi
+package gopixi
 
 import (
 	"bytes"
@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/chenxingqiang/go-floatx"
+	"github.com/gracefulearth/gopixi/internal/buffer"
 	"github.com/kshard/float8"
-	"github.com/owlpinetech/pixi/internal/buffer"
 	"github.com/shogo82148/float128"
 	"github.com/shogo82148/int128"
 	"github.com/x448/float16"

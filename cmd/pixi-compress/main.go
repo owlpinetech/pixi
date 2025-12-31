@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/owlpinetech/pixi"
+	"github.com/gracefulearth/gopixi"
 )
 
 func main() {
@@ -15,25 +15,25 @@ func main() {
 	flag.Parse()
 
 	// determine compression method
-	var compression pixi.Compression
+	var compression gopixi.Compression
 	switch *method {
 	case "flate":
-		compression = pixi.CompressionFlate
+		compression = gopixi.CompressionFlate
 	case "lzw_lsb":
-		compression = pixi.CompressionLzwLsb
+		compression = gopixi.CompressionLzwLsb
 	case "lzw_msb":
-		compression = pixi.CompressionLzwMsb
+		compression = gopixi.CompressionLzwMsb
 	case "rle8":
-		compression = pixi.CompressionRle8
+		compression = gopixi.CompressionRle8
 	case "none":
-		compression = pixi.CompressionNone
+		compression = gopixi.CompressionNone
 	default:
 		fmt.Println("Invalid compression method. Must be one of: flate, lzw_lsb, lzw_msb, none")
 		return
 	}
 
 	// open source and destination files
-	srcStream, err := pixi.OpenFileOrHttp(*srcFileName)
+	srcStream, err := gopixi.OpenFileOrHttp(*srcFileName)
 	if err != nil {
 		fmt.Println("Failed to open source Pixi file:", err)
 		return
@@ -41,7 +41,7 @@ func main() {
 	defer srcStream.Close()
 
 	// read source Pixi file and validate layer index
-	srcPixi, err := pixi.ReadPixi(srcStream)
+	srcPixi, err := gopixi.ReadPixi(srcStream)
 	if err != nil {
 		fmt.Println("Failed to read source Pixi file.")
 		return
@@ -55,8 +55,8 @@ func main() {
 	defer dstFile.Close()
 
 	// create destination Pixi file with compressed layers
-	dstPixi := pixi.NewHeader(srcPixi.Header.ByteOrder, srcPixi.Header.OffsetSize)
-	summary := &pixi.Pixi{
+	dstPixi := gopixi.NewHeader(srcPixi.Header.ByteOrder, srcPixi.Header.OffsetSize)
+	summary := &gopixi.Pixi{
 		Header: dstPixi,
 	}
 
@@ -67,17 +67,17 @@ func main() {
 	}
 
 	for _, srcLayer := range srcPixi.Layers {
-		opts := []pixi.LayerOption{pixi.WithCompression(compression)}
+		opts := []gopixi.LayerOption{gopixi.WithCompression(compression)}
 		if srcLayer.Separated {
-			opts = append(opts, pixi.WithPlanar())
+			opts = append(opts, gopixi.WithPlanar())
 		}
-		dstLayer := pixi.NewLayer(srcLayer.Name, srcLayer.Dimensions, srcLayer.Channels, opts...)
-		srcData := pixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, srcLayer, 4)
+		dstLayer := gopixi.NewLayer(srcLayer.Name, srcLayer.Dimensions, srcLayer.Channels, opts...)
+		srcData := gopixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, srcLayer, 4)
 
-		err = summary.AppendIterativeLayer(dstFile, dstLayer, func(dstIterator pixi.IterativeLayerWriter) error {
+		err = summary.AppendIterativeLayer(dstFile, dstLayer, func(dstIterator gopixi.IterativeLayerWriter) error {
 			for dstIterator.Next() {
 				coord := dstIterator.Coordinate()
-				pixel, err := pixi.SampleAt(srcData, coord)
+				pixel, err := gopixi.SampleAt(srcData, coord)
 				if err != nil {
 					return fmt.Errorf("Failed to read sample from source Pixi file.")
 				}

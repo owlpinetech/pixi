@@ -1,4 +1,4 @@
-package pixi
+package gopixi
 
 import (
 	"iter"

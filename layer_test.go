@@ -1,4 +1,4 @@
-package pixi
+package gopixi
 
 import (
 	"compress/flate"
@@ -8,7 +8,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/owlpinetech/pixi/internal/buffer"
+	"github.com/gracefulearth/gopixi/internal/buffer"
 )
 
 func TestLayerHeaderWriteRead(t *testing.T) {

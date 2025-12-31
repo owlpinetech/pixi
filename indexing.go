@@ -1,4 +1,4 @@
-package pixi
+package gopixi
 
 // Represents a linear index into the samples of a DimensionSet. This is the result of converting
 // the multidimensional SampleCoordinate into a single integer in the range [0, Samples()).

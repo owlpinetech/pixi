@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/owlpinetech/pixi"
+	"github.com/gracefulearth/gopixi"
 )
 
 func main() {
@@ -28,26 +28,26 @@ func main() {
 		return
 	}
 
-	compression := pixi.CompressionNone
+	compression := gopixi.CompressionNone
 	switch *compressionArg {
 	case "none":
-		compression = pixi.CompressionNone
+		compression = gopixi.CompressionNone
 	case "flate":
-		compression = pixi.CompressionFlate
+		compression = gopixi.CompressionFlate
 	case "lzw-lsb":
-		compression = pixi.CompressionLzwLsb
+		compression = gopixi.CompressionLzwLsb
 	case "lzw-msb":
-		compression = pixi.CompressionLzwMsb
+		compression = gopixi.CompressionLzwMsb
 	case "rle8":
-		compression = pixi.CompressionRle8
+		compression = gopixi.CompressionRle8
 	default:
 		fmt.Printf("Unsupported compression type: %s\n", *compressionArg)
 		return
 	}
 
-	layerOpts := []pixi.LayerOption{pixi.WithCompression(compression)}
+	layerOpts := []gopixi.LayerOption{gopixi.WithCompression(compression)}
 	if *separatedArg {
-		layerOpts = append(layerOpts, pixi.WithPlanar())
+		layerOpts = append(layerOpts, gopixi.WithPlanar())
 	}
 
 	srcFileNames := flag.Args()
@@ -55,7 +55,7 @@ func main() {
 	// open input files
 	srcStreams := []io.ReadSeekCloser{}
 	for _, srcFileName := range srcFileNames {
-		srcStream, err := pixi.OpenFileOrHttp(srcFileName)
+		srcStream, err := gopixi.OpenFileOrHttp(srcFileName)
 		if err != nil {
 			fmt.Printf("Failed to open source Pixi file '%s'.\n", srcFileName)
 			return
@@ -66,14 +66,14 @@ func main() {
 	}
 
 	targetLayerCount := -1
-	targetHeader := pixi.Header{}
-	targetDimensions := []pixi.DimensionSet{}
-	srcPixis := []*pixi.Pixi{}
-	srcReaders := map[int][]*pixi.TileOrderReadIterator{}
+	targetHeader := gopixi.Header{}
+	targetDimensions := []gopixi.DimensionSet{}
+	srcPixis := []*gopixi.Pixi{}
+	srcReaders := map[int][]*gopixi.TileOrderReadIterator{}
 	layerNames := map[int][]string{}
 	tags := map[string]string{}
 	for srcIndex, srcStream := range srcStreams {
-		srcPixi, err := pixi.ReadPixi(srcStream)
+		srcPixi, err := gopixi.ReadPixi(srcStream)
 		if err != nil {
 			fmt.Printf("Failed to read source Pixi file '%s'.\n", srcFileNames[srcIndex])
 			return
@@ -106,7 +106,7 @@ func main() {
 		}
 
 		for layerIndex, layer := range srcPixi.Layers {
-			layerReader := pixi.NewTileOrderReadIterator(srcStream, srcPixi.Header, layer)
+			layerReader := gopixi.NewTileOrderReadIterator(srcStream, srcPixi.Header, layer)
 			srcReaders[layerIndex] = append(srcReaders[layerIndex], layerReader)
 			if !slices.Contains(layerNames[layerIndex], layer.Name) {
 				layerNames[layerIndex] = append(layerNames[layerIndex], layer.Name)
@@ -122,13 +122,13 @@ func main() {
 	}
 	defer dstFile.Close()
 
-	dstPixi := pixi.NewHeader(targetHeader.ByteOrder, targetHeader.OffsetSize)
+	dstPixi := gopixi.NewHeader(targetHeader.ByteOrder, targetHeader.OffsetSize)
 	err = dstPixi.WriteHeader(dstFile)
 	if err != nil {
 		fmt.Println("Failed to write Pixi header to destination Pixi file.")
 		return
 	}
-	summary := &pixi.Pixi{
+	summary := &gopixi.Pixi{
 		Header: dstPixi,
 	}
 
@@ -139,21 +139,21 @@ func main() {
 	}
 
 	for layerIndex, layerReaders := range srcReaders {
-		mergedChannels := pixi.ChannelSet{}
+		mergedChannels := gopixi.ChannelSet{}
 		for _, reader := range layerReaders {
 			for _, channel := range reader.Layer().Channels {
 				mergedChannels = append(mergedChannels, channel)
 			}
 		}
 
-		mergedLayer := pixi.NewLayer(
+		mergedLayer := gopixi.NewLayer(
 			strings.Join(layerNames[layerIndex], "+"),
 			targetDimensions[layerIndex],
 			mergedChannels,
 			layerOpts...,
 		)
 
-		err = summary.AppendIterativeLayer(dstFile, mergedLayer, func(dstLayerWriter pixi.IterativeLayerWriter) error {
+		err = summary.AppendIterativeLayer(dstFile, mergedLayer, func(dstLayerWriter gopixi.IterativeLayerWriter) error {
 			for dstLayerWriter.Next() {
 				// advance all readers by one too
 				readerAdvanceSuccess := true

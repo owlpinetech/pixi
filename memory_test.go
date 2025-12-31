@@ -1,4 +1,4 @@
-package pixi
+package gopixi
 
 import (
 	"encoding/binary"
@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/owlpinetech/pixi/internal/buffer"
+	"github.com/gracefulearth/gopixi/internal/buffer"
 )
 
 func TestMemorySampleChannelConcurrent(t *testing.T) {

@@ -1,4 +1,4 @@
-module github.com/owlpinetech/pixi
+module github.com/gracefulearth/gopixi
 
 go 1.25.4
 

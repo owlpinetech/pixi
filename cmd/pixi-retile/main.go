@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/owlpinetech/pixi"
+	"github.com/gracefulearth/gopixi"
 )
 
 func main() {
@@ -39,7 +39,7 @@ func main() {
 	}
 
 	// open source and destination files
-	srcStream, err := pixi.OpenFileOrHttp(*srcFileName)
+	srcStream, err := gopixi.OpenFileOrHttp(*srcFileName)
 	if err != nil {
 		fmt.Println("Failed to open source Pixi file:", err)
 		return
@@ -54,7 +54,7 @@ func main() {
 	defer dstFile.Close()
 
 	// read source Pixi file and validate layer index
-	srcPixi, err := pixi.ReadPixi(srcStream)
+	srcPixi, err := gopixi.ReadPixi(srcStream)
 	if err != nil {
 		fmt.Println("Failed to read source Pixi file.")
 		return
@@ -71,13 +71,13 @@ func main() {
 	}
 
 	// create destination Pixi file with updated layer
-	dstPixi := pixi.NewHeader(srcPixi.Header.ByteOrder, srcPixi.Header.OffsetSize)
+	dstPixi := gopixi.NewHeader(srcPixi.Header.ByteOrder, srcPixi.Header.OffsetSize)
 	err = dstPixi.WriteHeader(dstFile)
 	if err != nil {
 		fmt.Println("Failed to write Pixi header to destination Pixi file.")
 		return
 	}
-	dstSummary := &pixi.Pixi{
+	dstSummary := &gopixi.Pixi{
 		Header: dstPixi,
 	}
 
@@ -87,26 +87,26 @@ func main() {
 		return
 	}
 
-	dstDims := make(pixi.DimensionSet, len(srcLayer.Dimensions))
+	dstDims := make(gopixi.DimensionSet, len(srcLayer.Dimensions))
 	for i, dim := range srcLayer.Dimensions {
-		dstDims[i] = pixi.Dimension{
+		dstDims[i] = gopixi.Dimension{
 			Name:     dim.Name,
 			Size:     dim.Size,
 			TileSize: tileSizes[i],
 		}
 	}
-	opts := []pixi.LayerOption{pixi.WithCompression(srcLayer.Compression)}
+	opts := []gopixi.LayerOption{gopixi.WithCompression(srcLayer.Compression)}
 	if srcLayer.Separated {
-		opts = append(opts, pixi.WithPlanar())
+		opts = append(opts, gopixi.WithPlanar())
 	}
-	dstLayer := pixi.NewLayer(srcLayer.Name, dstDims, srcLayer.Channels, opts...)
+	dstLayer := gopixi.NewLayer(srcLayer.Name, dstDims, srcLayer.Channels, opts...)
 
-	srcData := pixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, srcLayer, 4)
+	srcData := gopixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, srcLayer, 4)
 
-	err = dstSummary.AppendIterativeLayer(dstFile, dstLayer, func(dstIterator pixi.IterativeLayerWriter) error {
+	err = dstSummary.AppendIterativeLayer(dstFile, dstLayer, func(dstIterator gopixi.IterativeLayerWriter) error {
 		for dstIterator.Next() {
 			coord := dstIterator.Coordinate()
-			pixel, err := pixi.SampleAt(srcData, coord)
+			pixel, err := gopixi.SampleAt(srcData, coord)
 			if err != nil {
 				return fmt.Errorf("Failed to read sample from source Pixi file.")
 			}

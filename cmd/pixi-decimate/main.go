@@ -8,7 +8,7 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/owlpinetech/pixi"
+	"github.com/gracefulearth/gopixi"
 )
 
 // DecimationMethod defines the method for combining higher resolution pixels
@@ -89,7 +89,7 @@ func main() {
 	}
 
 	// Open source file
-	srcStream, err := pixi.OpenFileOrHttp(*srcFileName)
+	srcStream, err := gopixi.OpenFileOrHttp(*srcFileName)
 	if err != nil {
 		fmt.Println("Failed to open source Pixi file:", err)
 		return
@@ -97,7 +97,7 @@ func main() {
 	defer srcStream.Close()
 
 	// Read source Pixi file
-	srcPixi, err := pixi.ReadPixi(srcStream)
+	srcPixi, err := gopixi.ReadPixi(srcStream)
 	if err != nil {
 		fmt.Println("Failed to read source Pixi file:", err)
 		return
@@ -111,8 +111,8 @@ func main() {
 	}
 	defer dstFile.Close()
 
-	dstHeader := pixi.NewHeader(srcPixi.Header.ByteOrder, srcPixi.Header.OffsetSize)
-	dstSummary := &pixi.Pixi{
+	dstHeader := gopixi.NewHeader(srcPixi.Header.ByteOrder, srcPixi.Header.OffsetSize)
+	dstSummary := &gopixi.Pixi{
 		Header: dstHeader,
 	}
 
@@ -126,12 +126,12 @@ func main() {
 	for layerIdx, srcLayer := range srcPixi.Layers {
 
 		// Calculate new dimensions
-		newDims := make(pixi.DimensionSet, len(srcLayer.Dimensions))
+		newDims := make(gopixi.DimensionSet, len(srcLayer.Dimensions))
 		for i, dim := range srcLayer.Dimensions {
 			newSize := max(int(math.Ceil(float64(dim.Size)*factor)), 1)
 			// Keep tile size proportional but ensure it's at least 1 and not larger than the new size
 			newTileSize := min(max(int(math.Ceil(float64(dim.TileSize)*factor)), 1), newSize)
-			newDims[i] = pixi.Dimension{
+			newDims[i] = gopixi.Dimension{
 				Name:     dim.Name,
 				Size:     newSize,
 				TileSize: newTileSize,
@@ -139,11 +139,11 @@ func main() {
 		}
 
 		// Create destination layer
-		opts := []pixi.LayerOption{pixi.WithCompression(srcLayer.Compression)}
+		opts := []gopixi.LayerOption{gopixi.WithCompression(srcLayer.Compression)}
 		if srcLayer.Separated {
-			opts = append(opts, pixi.WithPlanar())
+			opts = append(opts, gopixi.WithPlanar())
 		}
-		dstLayer := pixi.NewLayer(
+		dstLayer := gopixi.NewLayer(
 			srcLayer.Name+"_decimated",
 			newDims,
 			srcLayer.Channels,
@@ -151,9 +151,9 @@ func main() {
 		)
 
 		// Create cached reader for source layer
-		srcData := pixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, srcLayer, 4)
+		srcData := gopixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, srcLayer, 4)
 
-		err = dstSummary.AppendIterativeLayer(dstFile, dstLayer, func(dstIterator pixi.IterativeLayerWriter) error {
+		err = dstSummary.AppendIterativeLayer(dstFile, dstLayer, func(dstIterator gopixi.IterativeLayerWriter) error {
 			return decimateLayer(srcData, dstIterator, srcLayer.Dimensions, decimationMethod, factor)
 		})
 		if err != nil {
@@ -163,7 +163,7 @@ func main() {
 	}
 }
 
-func decimateLayer(srcData pixi.TileAccessLayer, dstIterator pixi.IterativeLayerWriter, srcDims pixi.DimensionSet, method DecimationMethod, factor float64) error {
+func decimateLayer(srcData gopixi.TileAccessLayer, dstIterator gopixi.IterativeLayerWriter, srcDims gopixi.DimensionSet, method DecimationMethod, factor float64) error {
 	// Iterate through each output sample
 	for dstIterator.Next() {
 		dstCoord := dstIterator.Coordinate()
@@ -185,8 +185,8 @@ func decimateLayer(srcData pixi.TileAccessLayer, dstIterator pixi.IterativeLayer
 	return nil
 }
 
-func collectSourceSamples(srcData pixi.TileAccessLayer, dstCoord pixi.SampleCoordinate, srcDims pixi.DimensionSet, factor float64) ([]pixi.Sample, error) {
-	var samples []pixi.Sample
+func collectSourceSamples(srcData gopixi.TileAccessLayer, dstCoord gopixi.SampleCoordinate, srcDims gopixi.DimensionSet, factor float64) ([]gopixi.Sample, error) {
+	var samples []gopixi.Sample
 
 	// Calculate the number of source samples per destination sample in each dimension
 	samplesPerDst := make([]int, len(dstCoord))
@@ -195,7 +195,7 @@ func collectSourceSamples(srcData pixi.TileAccessLayer, dstCoord pixi.SampleCoor
 	}
 
 	// Calculate the source region center for this destination coordinate
-	srcCenter := make(pixi.SampleCoordinate, len(dstCoord))
+	srcCenter := make(gopixi.SampleCoordinate, len(dstCoord))
 	for i, dstPos := range dstCoord {
 		// Map destination coordinate to source center
 		srcCenterFloat := (float64(dstPos) + 0.5) / factor
@@ -203,8 +203,8 @@ func collectSourceSamples(srcData pixi.TileAccessLayer, dstCoord pixi.SampleCoor
 	}
 
 	// Calculate the source region bounds around the center
-	srcStart := make(pixi.SampleCoordinate, len(dstCoord))
-	srcEnd := make(pixi.SampleCoordinate, len(dstCoord))
+	srcStart := make(gopixi.SampleCoordinate, len(dstCoord))
+	srcEnd := make(gopixi.SampleCoordinate, len(dstCoord))
 
 	for i := range dstCoord {
 		halfSize := samplesPerDst[i] / 2
@@ -231,19 +231,19 @@ func collectSourceSamples(srcData pixi.TileAccessLayer, dstCoord pixi.SampleCoor
 	return samples, nil
 }
 
-func collectSamplesInRegion(srcData pixi.TileAccessLayer, start, end pixi.SampleCoordinate, dims pixi.DimensionSet, samples *[]pixi.Sample) error {
+func collectSamplesInRegion(srcData gopixi.TileAccessLayer, start, end gopixi.SampleCoordinate, dims gopixi.DimensionSet, samples *[]gopixi.Sample) error {
 	// Recursive function to iterate through N-dimensional region
-	coord := make(pixi.SampleCoordinate, len(start))
+	coord := make(gopixi.SampleCoordinate, len(start))
 	copy(coord, start)
 
 	return collectSamplesRecursive(srcData, coord, start, end, dims, 0, samples)
 }
 
-func collectSamplesRecursive(srcData pixi.TileAccessLayer, coord, start, end pixi.SampleCoordinate, dims pixi.DimensionSet, dimIndex int, samples *[]pixi.Sample) error {
+func collectSamplesRecursive(srcData gopixi.TileAccessLayer, coord, start, end gopixi.SampleCoordinate, dims gopixi.DimensionSet, dimIndex int, samples *[]gopixi.Sample) error {
 	if dimIndex >= len(coord) {
 		// We've filled all dimensions, collect this sample
 		if dims.ContainsCoordinate(coord) {
-			sample, err := pixi.SampleAt(srcData, coord)
+			sample, err := gopixi.SampleAt(srcData, coord)
 			if err != nil {
 				return err
 			}
@@ -263,13 +263,13 @@ func collectSamplesRecursive(srcData pixi.TileAccessLayer, coord, start, end pix
 	return nil
 }
 
-func applySampleDecimation(samples []pixi.Sample, channels pixi.ChannelSet, method DecimationMethod) pixi.Sample {
+func applySampleDecimation(samples []gopixi.Sample, channels gopixi.ChannelSet, method DecimationMethod) gopixi.Sample {
 	if len(samples) == 1 {
 		return samples[0]
 	}
 
 	// Apply method per channel
-	result := make(pixi.Sample, len(channels))
+	result := make(gopixi.Sample, len(channels))
 	for channelIdx, channel := range channels {
 		result[channelIdx] = applyChannelDecimation(samples, channelIdx, channel, method)
 	}
@@ -277,7 +277,7 @@ func applySampleDecimation(samples []pixi.Sample, channels pixi.ChannelSet, meth
 	return result
 }
 
-func applyChannelDecimation(samples []pixi.Sample, channelIdx int, channel pixi.Channel, method DecimationMethod) any {
+func applyChannelDecimation(samples []gopixi.Sample, channelIdx int, channel gopixi.Channel, method DecimationMethod) any {
 	switch method {
 	case MethodFirst:
 		return samples[0][channelIdx]
@@ -296,7 +296,7 @@ func applyChannelDecimation(samples []pixi.Sample, channelIdx int, channel pixi.
 	}
 }
 
-func findMaxChannel(samples []pixi.Sample, channelIdx int, channel pixi.Channel) any {
+func findMaxChannel(samples []gopixi.Sample, channelIdx int, channel gopixi.Channel) any {
 	maxVal := samples[0][channelIdx]
 
 	for i := 1; i < len(samples); i++ {
@@ -309,7 +309,7 @@ func findMaxChannel(samples []pixi.Sample, channelIdx int, channel pixi.Channel)
 	return maxVal
 }
 
-func findMinChannel(samples []pixi.Sample, channelIdx int, channel pixi.Channel) any {
+func findMinChannel(samples []gopixi.Sample, channelIdx int, channel gopixi.Channel) any {
 	minVal := samples[0][channelIdx]
 
 	for i := 1; i < len(samples); i++ {
@@ -322,7 +322,7 @@ func findMinChannel(samples []pixi.Sample, channelIdx int, channel pixi.Channel)
 	return minVal
 }
 
-func calculateMeanChannel(samples []pixi.Sample, channelIdx int) any {
+func calculateMeanChannel(samples []gopixi.Sample, channelIdx int) any {
 	first := samples[0][channelIdx]
 
 	switch first.(type) {
@@ -392,7 +392,7 @@ func calculateMeanChannel(samples []pixi.Sample, channelIdx int) any {
 	}
 }
 
-func calculateMedianChannel(samples []pixi.Sample, channelIdx int, channel pixi.Channel) any {
+func calculateMedianChannel(samples []gopixi.Sample, channelIdx int, channel gopixi.Channel) any {
 	values := make([]any, len(samples))
 	for i, sample := range samples {
 		values[i] = sample[channelIdx]

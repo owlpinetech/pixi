@@ -1,4 +1,4 @@
-package pixi
+package gopixi
 
 type Accessor interface {
 	Layer() Layer

@@ -1,11 +1,11 @@
-package pixi
+package gopixi
 
 import (
 	"math/rand"
 	"reflect"
 	"testing"
 
-	"github.com/owlpinetech/pixi/internal/buffer"
+	"github.com/gracefulearth/gopixi/internal/buffer"
 )
 
 func TestDimensionHeaderSize(t *testing.T) {

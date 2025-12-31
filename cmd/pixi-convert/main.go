@@ -13,9 +13,9 @@ import (
 	"path"
 	"strings"
 
+	"github.com/gracefulearth/gopixi"
 	"github.com/gracefulearth/image/bmp"
 	"github.com/gracefulearth/image/tiff"
-	"github.com/owlpinetech/pixi"
 )
 
 // This application converts images to Pixi files, or Pixi files of a compatible structure to images. It serves
@@ -88,18 +88,18 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int, endiann
 		srcStream = rdFile
 	}
 
-	compression := pixi.CompressionNone
+	compression := gopixi.CompressionNone
 	switch comp {
 	case 0:
-		compression = pixi.CompressionNone
+		compression = gopixi.CompressionNone
 	case 1:
-		compression = pixi.CompressionFlate
+		compression = gopixi.CompressionFlate
 	case 2:
-		compression = pixi.CompressionLzwLsb
+		compression = gopixi.CompressionLzwLsb
 	case 3:
-		compression = pixi.CompressionLzwMsb
+		compression = gopixi.CompressionLzwMsb
 	case 4:
-		compression = pixi.CompressionRle8
+		compression = gopixi.CompressionRle8
 	}
 
 	if offsetSize != 4 && offsetSize != 8 {
@@ -116,9 +116,9 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int, endiann
 		return fmt.Errorf("invalid endianness: %s; must be 'big' or 'little'", endianness)
 	}
 
-	options := pixi.FromImageOptions{
+	options := gopixi.FromImageOptions{
 		Compression: compression,
-		OffsetSize:  pixi.OffsetSize(offsetSize),
+		OffsetSize:  gopixi.OffsetSize(offsetSize),
 		ByteOrder:   order,
 		XTileSize:   tileSize,
 		YTileSize:   tileSize,
@@ -157,7 +157,7 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int, endiann
 		}
 
 	default:
-		return pixi.ErrUnsupported("image format not yet supported for conversion to Pixi")
+		return gopixi.ErrUnsupported("image format not yet supported for conversion to Pixi")
 	}
 
 	pixiFile, err := os.Create(dstFile)
@@ -166,8 +166,8 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int, endiann
 	}
 	defer pixiFile.Close()
 
-	summary := &pixi.Pixi{
-		Header: pixi.NewHeader(order, pixi.OffsetSize(offsetSize)),
+	summary := &gopixi.Pixi{
+		Header: gopixi.NewHeader(order, gopixi.OffsetSize(offsetSize)),
 	}
 	if err := summary.Header.WriteHeader(pixiFile); err != nil {
 		return err
@@ -177,7 +177,7 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int, endiann
 }
 
 func pixiToOther(srcFile string, dstFile string, srcModel string) error {
-	pixiStream, err := pixi.OpenFileOrHttp(srcFile)
+	pixiStream, err := gopixi.OpenFileOrHttp(srcFile)
 	if err != nil {
 		return err
 	}
@@ -189,12 +189,12 @@ func pixiToOther(srcFile string, dstFile string, srcModel string) error {
 	}
 	defer imgFile.Close()
 
-	pixiSum, err := pixi.ReadPixi(pixiStream)
+	pixiSum, err := gopixi.ReadPixi(pixiStream)
 	if err != nil {
 		return err
 	}
 
-	img, err := pixi.LayerAsImage(pixiStream, pixiSum, pixiSum.Layers[0], srcModel)
+	img, err := gopixi.LayerAsImage(pixiStream, pixiSum, pixiSum.Layers[0], srcModel)
 	if err != nil {
 		return err
 	}
@@ -225,7 +225,7 @@ func pixiToOther(srcFile string, dstFile string, srcModel string) error {
 			return err
 		}
 	default:
-		return pixi.ErrUnsupported("image format not yet supported for conversion from Pixi")
+		return gopixi.ErrUnsupported("image format not yet supported for conversion from Pixi")
 	}
 	return nil
 }

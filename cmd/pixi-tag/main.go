@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/owlpinetech/pixi"
+	"github.com/gracefulearth/gopixi"
 )
 
 func main() {
@@ -30,7 +30,7 @@ func main() {
 			fmt.Println("Invalid URL:", err)
 			return
 		}
-		pixiStream, err = pixi.OpenBufferedHttp(pixiUrl, nil)
+		pixiStream, err = gopixi.OpenBufferedHttp(pixiUrl, nil)
 		if err != nil {
 			fmt.Println("Failed to open remote Pixi file:", err)
 			return
@@ -52,7 +52,7 @@ func main() {
 		pixiStream = file
 	}
 
-	root, err := pixi.ReadPixi(pixiStream)
+	root, err := gopixi.ReadPixi(pixiStream)
 	if err != nil {
 		fmt.Println("Failed to read source Pixi file.", err)
 		return

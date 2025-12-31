@@ -1,10 +1,10 @@
-package pixi
+package gopixi
 
 import (
 	"io"
 	"sync"
 
-	"github.com/owlpinetech/pixi/internal/preload"
+	"github.com/gracefulearth/gopixi/internal/preload"
 )
 
 const (

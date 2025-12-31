@@ -1,10 +1,10 @@
-package pixi
+package gopixi
 
 import (
 	"encoding/binary"
 	"testing"
 
-	"github.com/owlpinetech/pixi/internal/buffer"
+	"github.com/gracefulearth/gopixi/internal/buffer"
 )
 
 func TestTileOrderReadIterator(t *testing.T) {

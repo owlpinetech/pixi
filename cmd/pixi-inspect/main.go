@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/owlpinetech/pixi"
+	"github.com/gracefulearth/gopixi"
 )
 
 func main() {
@@ -16,14 +16,14 @@ func main() {
 		return
 	}
 
-	pixiStream, err := pixi.OpenFileOrHttp(*pixiPath)
+	pixiStream, err := gopixi.OpenFileOrHttp(*pixiPath)
 	if err != nil {
 		fmt.Println("Failed to open source Pixi file:", err)
 		return
 	}
 	defer pixiStream.Close()
 
-	summary, err := pixi.ReadPixi(pixiStream)
+	summary, err := gopixi.ReadPixi(pixiStream)
 
 	fmt.Printf("Inspecting %s\n", *pixiPath)
 	fmt.Printf("\tVersion: %d\n", summary.Header.Version)

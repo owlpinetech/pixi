@@ -9,7 +9,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/owlpinetech/pixi"
+	"github.com/gracefulearth/gopixi"
 )
 
 func main() {
@@ -35,7 +35,7 @@ func main() {
 	// open input files
 	srcStreams := []io.ReadSeekCloser{}
 	for _, srcFileName := range srcFileNames {
-		srcStream, err := pixi.OpenFileOrHttp(srcFileName)
+		srcStream, err := gopixi.OpenFileOrHttp(srcFileName)
 		if err != nil {
 			fmt.Printf("Failed to open source Pixi file '%s'.\n", srcFileName)
 			return
@@ -47,16 +47,16 @@ func main() {
 
 	targetLayerCount := -1
 	targetSeparated := []bool{}
-	targetCompressions := []pixi.Compression{}
-	targetHeader := pixi.Header{}
-	targetDimensions := []pixi.DimensionSet{}
-	targetChannels := []pixi.ChannelSet{}
-	srcPixis := []*pixi.Pixi{}
-	srcReaders := map[int][]pixi.TileAccessLayer{}
+	targetCompressions := []gopixi.Compression{}
+	targetHeader := gopixi.Header{}
+	targetDimensions := []gopixi.DimensionSet{}
+	targetChannels := []gopixi.ChannelSet{}
+	srcPixis := []*gopixi.Pixi{}
+	srcReaders := map[int][]gopixi.TileAccessLayer{}
 	layerNames := map[int][]string{}
 	tags := map[string]string{}
 	for srcIndex, srcStream := range srcStreams {
-		srcPixi, err := pixi.ReadPixi(srcStream)
+		srcPixi, err := gopixi.ReadPixi(srcStream)
 		if err != nil {
 			fmt.Printf("Failed to read source Pixi file '%s'.\n", srcFileNames[srcIndex])
 			return
@@ -104,7 +104,7 @@ func main() {
 		}
 
 		for layerIndex, layer := range srcPixi.Layers {
-			layerReader := pixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, layer, 16)
+			layerReader := gopixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, layer, 16)
 			srcReaders[layerIndex] = append(srcReaders[layerIndex], layerReader)
 			if !slices.Contains(layerNames[layerIndex], layer.Name) {
 				layerNames[layerIndex] = append(layerNames[layerIndex], layer.Name)
@@ -120,13 +120,13 @@ func main() {
 	}
 	defer dstFile.Close()
 
-	dstPixi := pixi.NewHeader(targetHeader.ByteOrder, targetHeader.OffsetSize)
+	dstPixi := gopixi.NewHeader(targetHeader.ByteOrder, targetHeader.OffsetSize)
 	err = dstPixi.WriteHeader(dstFile)
 	if err != nil {
 		fmt.Println("Failed to write Pixi header to destination Pixi file.")
 		return
 	}
-	dstSummary := &pixi.Pixi{
+	dstSummary := &gopixi.Pixi{
 		Header: dstPixi,
 	}
 
@@ -137,18 +137,18 @@ func main() {
 	}
 
 	for layerIndex, layerReaders := range srcReaders {
-		opts := []pixi.LayerOption{pixi.WithCompression(targetCompressions[layerIndex])}
+		opts := []gopixi.LayerOption{gopixi.WithCompression(targetCompressions[layerIndex])}
 		if targetSeparated[layerIndex] {
-			opts = append(opts, pixi.WithPlanar())
+			opts = append(opts, gopixi.WithPlanar())
 		}
-		mergedLayer := pixi.NewLayer(
+		mergedLayer := gopixi.NewLayer(
 			strings.Join(layerNames[layerIndex], "+"),
 			targetDimensions[layerIndex],
 			targetChannels[layerIndex],
 			opts...,
 		)
 
-		err = dstSummary.AppendIterativeLayer(dstFile, mergedLayer, func(dstLayerWriter pixi.IterativeLayerWriter) error {
+		err = dstSummary.AppendIterativeLayer(dstFile, mergedLayer, func(dstLayerWriter gopixi.IterativeLayerWriter) error {
 			for dstLayerWriter.Next() {
 				coord := dstLayerWriter.Coordinate()
 
@@ -163,7 +163,7 @@ func main() {
 				}
 				// adjust coordinate to source reader space
 				coord[*stitchDimension] = stitchPos
-				sample, err := pixi.SampleAt(layerReaders[srcReaderIndex], coord)
+				sample, err := gopixi.SampleAt(layerReaders[srcReaderIndex], coord)
 				if err != nil {
 					return fmt.Errorf("Failed to retrieve sample from source Pixi files: %v", err)
 				}

@@ -1,4 +1,4 @@
-package pixi
+package gopixi
 
 // Packs a boolean value into a bit channel byte array at the specified bit index. Used
 // for boolean channels in separated mode only.

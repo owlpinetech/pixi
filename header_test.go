@@ -1,11 +1,11 @@
-package pixi
+package gopixi
 
 import (
 	"bytes"
 	"math/rand/v2"
 	"testing"
 
-	"github.com/owlpinetech/pixi/internal/buffer"
+	"github.com/gracefulearth/gopixi/internal/buffer"
 )
 
 func TestWriteReadHeader(t *testing.T) {

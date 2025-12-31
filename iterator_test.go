@@ -8,7 +8,7 @@ import (
 )
 
 func TestTileOrderReadIterator(t *testing.T) {
-	header := &Header{
+	header := Header{
 		Version:    Version,
 		OffsetSize: 4,
 		ByteOrder:  binary.BigEndian,
@@ -90,7 +90,7 @@ func TestTileOrderReadIterator(t *testing.T) {
 }
 
 func TestTileOrderWriteIterator(t *testing.T) {
-	header := &Header{
+	header := Header{
 		Version:    Version,
 		OffsetSize: 4,
 		ByteOrder:  binary.BigEndian,

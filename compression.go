@@ -38,7 +38,7 @@ func (c Compression) String() string {
 // Compresses the given chunk of data according to the selected compression scheme, and writes
 // the compressed data to the writer. Returns the number of compressed bytes written, or an error
 // if the write failed.
-func (c Compression) writeChunk(w io.Writer, layer *Layer, tileIndex int, chunk []byte) (int, error) {
+func (c Compression) writeChunk(w io.Writer, layer Layer, tileIndex int, chunk []byte) (int, error) {
 	switch c {
 	case CompressionNone:
 		return w.Write(chunk)
@@ -87,9 +87,6 @@ func (c Compression) writeChunk(w io.Writer, layer *Layer, tileIndex int, chunk 
 		writeAmt, err := io.Copy(w, buf)
 		return int(writeAmt), err
 	case CompressionRle8:
-		if layer == nil {
-			return 0, ErrFormat("RLE compression requires layer information")
-		}
 		if len(layer.Channels) == 0 {
 			return 0, ErrFormat("RLE compression requires layer channels to be defined")
 		}
@@ -179,7 +176,7 @@ func (c Compression) writeChunk(w io.Writer, layer *Layer, tileIndex int, chunk 
 
 // Reads a compressed chunk of data into the given slice which must be the size of the desired
 // uncompressed data. Returns the number of bytes read or and error if the read failed.
-func (c Compression) readChunk(r io.Reader, layer *Layer, tileIndex int, chunk []byte) (int, error) {
+func (c Compression) readChunk(r io.Reader, layer Layer, tileIndex int, chunk []byte) (int, error) {
 	switch c {
 	case CompressionNone:
 		return r.Read(chunk)
@@ -205,9 +202,6 @@ func (c Compression) readChunk(r io.Reader, layer *Layer, tileIndex int, chunk [
 		copy(chunk, bufRd.Bytes())
 		return int(amtRd), err
 	case CompressionRle8:
-		if layer == nil {
-			return 0, ErrFormat("RLE compression requires layer information")
-		}
 		if len(layer.Channels) == 0 {
 			return 0, ErrFormat("RLE compression requires layer channels to be defined")
 		}

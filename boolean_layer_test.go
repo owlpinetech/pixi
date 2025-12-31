@@ -8,7 +8,7 @@ import (
 )
 
 func TestMemoryLayerBooleanChannels(t *testing.T) {
-	header := &Header{
+	header := Header{
 		Version:    Version,
 		ByteOrder:  binary.BigEndian,
 		OffsetSize: 8,
@@ -144,7 +144,7 @@ func TestMemoryLayerBooleanChannels(t *testing.T) {
 }
 
 func TestCachedLayerBooleanChannels(t *testing.T) {
-	header := &Header{
+	header := Header{
 		Version:    Version,
 		ByteOrder:  binary.BigEndian,
 		OffsetSize: 8,
@@ -279,7 +279,7 @@ func TestCachedLayerBooleanChannels(t *testing.T) {
 }
 
 func TestBooleanChannelBitPacking(t *testing.T) {
-	header := &Header{
+	header := Header{
 		Version:    Version,
 		ByteOrder:  binary.BigEndian,
 		OffsetSize: 8,
@@ -336,7 +336,7 @@ func TestBooleanChannelBitPacking(t *testing.T) {
 }
 
 func TestTileOrderReadIteratorBooleanChannels(t *testing.T) {
-	header := &Header{
+	header := Header{
 		Version:    Version,
 		ByteOrder:  binary.BigEndian,
 		OffsetSize: 8,
@@ -469,7 +469,7 @@ func TestTileOrderReadIteratorBooleanChannels(t *testing.T) {
 }
 
 func TestTileOrderWriteIteratorBooleanChannels(t *testing.T) {
-	header := &Header{
+	header := Header{
 		Version:    Version,
 		ByteOrder:  binary.BigEndian,
 		OffsetSize: 8,

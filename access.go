@@ -1,12 +1,12 @@
 package pixi
 
 type Accessor interface {
-	Layer() *Layer
+	Layer() Layer
 }
 
 type TileAccessLayer interface {
 	Accessor
-	Header() *Header
+	Header() Header
 	Tile(tile int) ([]byte, error)
 }
 
@@ -17,12 +17,13 @@ type TileModifierLayer interface {
 }
 
 func SampleAt(accessor TileAccessLayer, coord SampleCoordinate) (Sample, error) {
-	tileSelector := coord.ToTileSelector(accessor.Layer().Dimensions)
-	sample := make([]any, len(accessor.Layer().Channels))
+	layer := accessor.Layer()
+	tileSelector := coord.ToTileSelector(layer.Dimensions)
+	sample := make([]any, len(layer.Channels))
 
-	if accessor.Layer().Separated {
-		for channelIndex, channel := range accessor.Layer().Channels {
-			channelTile := tileSelector.Tile + accessor.Layer().Dimensions.Tiles()*channelIndex
+	if layer.Separated {
+		for channelIndex, channel := range layer.Channels {
+			channelTile := tileSelector.Tile + layer.Dimensions.Tiles()*channelIndex
 
 			tileData, err := accessor.Tile(channelTile)
 			if err != nil {
@@ -37,13 +38,13 @@ func SampleAt(accessor TileAccessLayer, coord SampleCoordinate) (Sample, error) 
 			}
 		}
 	} else {
-		channelOffset := tileSelector.InTile * accessor.Layer().Channels.Size()
+		channelOffset := tileSelector.InTile * layer.Channels.Size()
 
 		tileData, err := accessor.Tile(tileSelector.Tile)
 		if err != nil {
 			return nil, err
 		}
-		for i, channel := range accessor.Layer().Channels {
+		for i, channel := range layer.Channels {
 			sample[i] = channel.Value(tileData[channelOffset:], accessor.Header().ByteOrder)
 			channelOffset += channel.Size()
 		}
@@ -53,11 +54,12 @@ func SampleAt(accessor TileAccessLayer, coord SampleCoordinate) (Sample, error) 
 }
 
 func ChannelAt(accessor TileAccessLayer, coord SampleCoordinate, channelIndex int) (any, error) {
-	tileSelector := coord.ToTileSelector(accessor.Layer().Dimensions)
-	channel := accessor.Layer().Channels[channelIndex]
+	layer := accessor.Layer()
+	tileSelector := coord.ToTileSelector(layer.Dimensions)
+	channel := layer.Channels[channelIndex]
 
-	if accessor.Layer().Separated {
-		channelTile := tileSelector.Tile + accessor.Layer().Dimensions.Tiles()*channelIndex
+	if layer.Separated {
+		channelTile := tileSelector.Tile + layer.Dimensions.Tiles()*channelIndex
 
 		tileData, err := accessor.Tile(channelTile)
 		if err != nil {
@@ -75,8 +77,8 @@ func ChannelAt(accessor TileAccessLayer, coord SampleCoordinate, channelIndex in
 		if err != nil {
 			return nil, err
 		}
-		channelOffset := tileSelector.InTile * accessor.Layer().Channels.Size()
-		for _, channel := range accessor.Layer().Channels[:channelIndex] {
+		channelOffset := tileSelector.InTile * layer.Channels.Size()
+		for _, channel := range layer.Channels[:channelIndex] {
 			channelOffset += channel.Size()
 		}
 		return channel.Value(tileData[channelOffset:], accessor.Header().ByteOrder), nil
@@ -84,20 +86,17 @@ func ChannelAt(accessor TileAccessLayer, coord SampleCoordinate, channelIndex in
 }
 
 func SetSampleAt(modifier TileModifierLayer, coord SampleCoordinate, values Sample) error {
-	if len(values) != len(modifier.Layer().Channels) {
-		panic("pixi: values length does not match channel count")
-	}
-
+	layer := modifier.Layer()
 	// Update Min/Max for all channels
 	for channelIndex, value := range values {
-		modifier.Layer().Channels[channelIndex].UpdateMinMax(value)
+		layer.Channels[channelIndex] = layer.Channels[channelIndex].WithMinMax(value)
 	}
 
-	tileSelector := coord.ToTileSelector(modifier.Layer().Dimensions)
+	tileSelector := coord.ToTileSelector(layer.Dimensions)
 
-	if modifier.Layer().Separated {
-		for channelIndex, channel := range modifier.Layer().Channels {
-			channelTile := tileSelector.Tile + modifier.Layer().Dimensions.Tiles()*channelIndex
+	if layer.Separated {
+		for channelIndex, channel := range layer.Channels {
+			channelTile := tileSelector.Tile + layer.Dimensions.Tiles()*channelIndex
 
 			tileData, err := modifier.Tile(channelTile)
 			if err != nil {
@@ -112,13 +111,13 @@ func SetSampleAt(modifier TileModifierLayer, coord SampleCoordinate, values Samp
 			modifier.SetDirty(channelTile)
 		}
 	} else {
-		channelOffset := tileSelector.InTile * modifier.Layer().Channels.Size()
+		channelOffset := tileSelector.InTile * layer.Channels.Size()
 
 		tileData, err := modifier.Tile(tileSelector.Tile)
 		if err != nil {
 			return err
 		}
-		for i, channel := range modifier.Layer().Channels {
+		for i, channel := range layer.Channels {
 			channel.PutValue(values[i], modifier.Header().ByteOrder, tileData[channelOffset:])
 			channelOffset += channel.Size()
 		}
@@ -129,18 +128,15 @@ func SetSampleAt(modifier TileModifierLayer, coord SampleCoordinate, values Samp
 }
 
 func SetChannelAt(modifier TileModifierLayer, coord SampleCoordinate, channelIndex int, value any) error {
-	if channelIndex < 0 || channelIndex >= len(modifier.Layer().Channels) {
-		panic("pixi: channel index out of range")
-	}
-
+	layer := modifier.Layer()
 	// Update Min/Max for the channel
-	modifier.Layer().Channels[channelIndex].UpdateMinMax(value)
+	layer.Channels[channelIndex] = layer.Channels[channelIndex].WithMinMax(value)
 
-	tileSelector := coord.ToTileSelector(modifier.Layer().Dimensions)
-	channel := modifier.Layer().Channels[channelIndex]
+	tileSelector := coord.ToTileSelector(layer.Dimensions)
+	channel := layer.Channels[channelIndex]
 
-	if modifier.Layer().Separated {
-		channelTile := tileSelector.Tile + modifier.Layer().Dimensions.Tiles()*channelIndex
+	if layer.Separated {
+		channelTile := tileSelector.Tile + layer.Dimensions.Tiles()*channelIndex
 
 		tileData, err := modifier.Tile(channelTile)
 		if err != nil {
@@ -159,8 +155,8 @@ func SetChannelAt(modifier TileModifierLayer, coord SampleCoordinate, channelInd
 		if err != nil {
 			return err
 		}
-		channelOffset := tileSelector.InTile * modifier.Layer().Channels.Size()
-		for _, channel := range modifier.Layer().Channels[:channelIndex] {
+		channelOffset := tileSelector.InTile * layer.Channels.Size()
+		for _, channel := range layer.Channels[:channelIndex] {
 			channelOffset += channel.Size()
 		}
 		channel.PutValue(value, modifier.Header().ByteOrder, tileData[channelOffset:])

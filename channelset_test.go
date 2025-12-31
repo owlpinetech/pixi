@@ -120,49 +120,49 @@ func TestChannelSetNamedOffset(t *testing.T) {
 		channels    ChannelSet
 		channelName string
 		wantOffset  int
-		wantPanic   bool
+		wantMissing bool
 	}{
 		{
 			name:        "Offset of first channel",
 			channels:    ChannelSet{{Name: "channel1", Type: ChannelInt8}, {Name: "channel2", Type: ChannelInt16}},
 			channelName: "channel1",
 			wantOffset:  0,
-			wantPanic:   false,
+			wantMissing: false,
 		},
 		{
 			name:        "Offset of second channel",
 			channels:    ChannelSet{{Name: "channel1", Type: ChannelInt8}, {Name: "channel2", Type: ChannelInt16}},
 			channelName: "channel2",
 			wantOffset:  1, // size of int8
-			wantPanic:   false,
+			wantMissing: false,
 		},
 		{
 			name:        "Offset of third channel",
 			channels:    ChannelSet{{Name: "channel1", Type: ChannelInt8}, {Name: "channel2", Type: ChannelInt16}, {Name: "channel3", Type: ChannelFloat32}},
 			channelName: "channel3",
 			wantOffset:  3, // size of int8 + size of int16
-			wantPanic:   false,
+			wantMissing: false,
 		},
 		{
 			name:        "Channel does not exist",
 			channels:    ChannelSet{{Name: "channel1", Type: ChannelInt8}, {Name: "channel2", Type: ChannelInt16}},
 			channelName: "channel3",
 			wantOffset:  0,
-			wantPanic:   true,
+			wantMissing: true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			defer func() {
-				if r := recover(); r != nil {
-					if !test.wantPanic {
-						t.Errorf("did not expect to panic for test")
-					}
-				}
-			}()
-
-			gotOffset := test.channels.NamedOffset(test.channelName)
+			gotOffset, found := test.channels.NamedOffset(test.channelName)
+			if test.wantMissing && found {
+				t.Errorf("channels.NamedOffset(%q) found channel, but expected missing", test.channelName)
+				return
+			}
+			if !found && !test.wantMissing {
+				t.Errorf("channels.NamedOffset(%q) did not find channel, but expected found", test.channelName)
+				return
+			}
 			if gotOffset != test.wantOffset {
 				t.Errorf("channels.NamedOffset(%q) = %d, want %d", test.channelName, gotOffset, test.wantOffset)
 			}

@@ -63,13 +63,13 @@ type Layer struct {
 }
 
 // Helper constructor to ensure that certain invariants in a layer are maintained when it is created.
-func NewLayer(name string, dimensions DimensionSet, channels ChannelSet, opts ...LayerOption) *Layer {
+func NewLayer(name string, dimensions DimensionSet, channels ChannelSet, opts ...LayerOption) Layer {
 	options := layerOptions{} // zero values are defaults, interleaved sample values and no compression
 	for _, o := range opts {
 		o.applyLayer(&options)
 	}
 
-	l := &Layer{
+	l := Layer{
 		Name:        name,
 		Separated:   options.separated,
 		Compression: options.compression,
@@ -86,7 +86,7 @@ func NewLayer(name string, dimensions DimensionSet, channels ChannelSet, opts ..
 // the same. However, for separated data sets, each channel is tiled (so the number of on-disk
 // tiles is actually channelCount * Tiles()). Hence, the tile size changes depending on which
 // channel is being accessed.
-func (d *Layer) DiskTileSize(tileIndex int) int {
+func (d Layer) DiskTileSize(tileIndex int) int {
 	if d.Dimensions.Tiles() == 0 {
 		return 0
 	}
@@ -107,7 +107,7 @@ func (d *Layer) DiskTileSize(tileIndex int) int {
 // The number of discrete data tiles actually stored in the backing file. This number differs based
 // on whether channels are stored 'contiguous' or 'separated'; in the former case, DiskTiles() == Tiles(),
 // in the latter case, DiskTiles() == Tiles() * number of channels.
-func (d *Layer) DiskTiles() int {
+func (d Layer) DiskTiles() int {
 	tiles := d.Dimensions.Tiles()
 	if d.Separated {
 		tiles *= len(d.Channels)
@@ -116,7 +116,7 @@ func (d *Layer) DiskTiles() int {
 }
 
 // Get the total number of bytes that will be occupied in the file by this layer's header.
-func (d *Layer) HeaderSize(h Header) int {
+func (d Layer) HeaderSize(h Header) int {
 	headerSize := 4 + 4                   // 4 bytes each for configuration and compression
 	headerSize += 2 + len([]byte(d.Name)) // 2 bytes for name length, then name
 	headerSize += 4                       // four bytes for dimension count
@@ -135,7 +135,7 @@ func (d *Layer) HeaderSize(h Header) int {
 
 // The on-disk size in bytes of the (potentially compressed) data set. Does not include the dataset
 // header size.
-func (d *Layer) DataSize() int64 {
+func (d Layer) DataSize() int64 {
 	size := int64(0)
 	for _, b := range d.TileBytes {
 		size += b
@@ -145,7 +145,7 @@ func (d *Layer) DataSize() int64 {
 
 // Writes the binary description of the layer to the given stream, according to the specification
 // in the Pixi header h.
-func (d *Layer) WriteHeader(w io.Writer, h Header) error {
+func (d Layer) WriteHeader(w io.Writer, h Header) error {
 	tiles := d.DiskTiles()
 	if tiles != len(d.TileBytes) {
 		return ErrFormat("invalid TileBytes: must have same number of elements as tiles in data set for valid pixi files")
@@ -298,7 +298,7 @@ func (d *Layer) ReadLayer(r io.Reader, h Header) error {
 // For a layer header which has already been written to the given position, writes the layer header again
 // to the same location before returning the stream cursor to the position it was at previously. Generally
 // this is used to update tile byte counts and tile offsets after they've been written to a stream.
-func (l *Layer) OverwriteHeader(w io.WriteSeeker, h Header, headerStartOffset int64) error {
+func (l Layer) OverwriteHeader(w io.WriteSeeker, h Header, headerStartOffset int64) error {
 	oldPos, err := w.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return err
@@ -322,7 +322,7 @@ func (l *Layer) OverwriteHeader(w io.WriteSeeker, h Header, headerStartOffset in
 // data is written with a 4-byte checksum directly after it, which is used to verify data integrity
 // when reading the tile later. The compression attribute of the layer is used to apply compression
 // to the tile data before writing it to the stream.
-func (l *Layer) WriteTile(w io.WriteSeeker, h Header, tileIndex int, data []byte) error {
+func (l Layer) WriteTile(w io.WriteSeeker, h Header, tileIndex int, data []byte) error {
 	streamOffset, err := w.Seek(0, io.SeekCurrent)
 	if err != nil {
 		return err
@@ -342,7 +342,7 @@ func (l *Layer) WriteTile(w io.WriteSeeker, h Header, tileIndex int, data []byte
 // Overwrite the already-written tile at the given tile index with new data. Seeks to the correct
 // position in the stream before writing. Panics if the tile at the given index has not already
 // been written. Does not seek back to the original position after writing.
-func (l *Layer) OverwriteTile(w io.WriteSeeker, h Header, tileIndex int, data []byte) error {
+func (l Layer) OverwriteTile(w io.WriteSeeker, h Header, tileIndex int, data []byte) error {
 	if l.TileOffsets[tileIndex] == 0 {
 		panic("cannot overwrite a tile that has not already been written")
 	}
@@ -360,7 +360,7 @@ func (l *Layer) OverwriteTile(w io.WriteSeeker, h Header, tileIndex int, data []
 // The data is verified for integrity using a four-byte checksum placed directly after the saved
 // tile data, and an error is returned (along with the data read into the chunk) if the checksum
 // check fails.
-func (l *Layer) ReadTile(r io.ReadSeeker, h Header, tileIndex int, data []byte) error {
+func (l Layer) ReadTile(r io.ReadSeeker, h Header, tileIndex int, data []byte) error {
 	if tileIndex < 0 || tileIndex >= len(l.TileBytes) {
 		return ErrTileNotFound{TileIndex: tileIndex}
 	}

@@ -15,7 +15,7 @@ type TagSection struct {
 // Writes the tag section header in binary to the given stream, according to the specification
 // in the Pixi header. This only writes the header (number of tags and offset to next section),
 // not the actual tags themselves.
-func (t *TagSection) WriteHeader(w io.Writer, h Header) error {
+func (t TagSection) WriteHeader(w io.Writer, h Header) error {
 	err := h.Write(w, uint32(len(t.Tags)))
 	if err != nil {
 		return err
@@ -25,7 +25,7 @@ func (t *TagSection) WriteHeader(w io.Writer, h Header) error {
 
 // Writes the tag section in binary to the given stream, according to the specification
 // in the Pixi header.
-func (t *TagSection) Write(w io.Writer, h Header) error {
+func (t TagSection) Write(w io.Writer, h Header) error {
 	// write number of tags, then each key-value pair for tags
 	err := h.Write(w, uint32(len(t.Tags)))
 	if err != nil {

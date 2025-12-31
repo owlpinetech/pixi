@@ -355,18 +355,15 @@ func TestTileOrderWriteIteratorMinMaxTracking(t *testing.T) {
 		buf := buffer.NewBuffer(1000)
 
 		// Create a simple layer with one int32 channel
-		layer := &Layer{
-			Name:        "test",
-			Separated:   false,
-			Compression: CompressionNone,
-			Dimensions: DimensionSet{
+		layer := NewLayer("test",
+			DimensionSet{
 				{Name: "x", Size: 4, TileSize: 2},
 				{Name: "y", Size: 4, TileSize: 2},
 			},
-			Channels: ChannelSet{
+			ChannelSet{
 				{Name: "value", Type: ChannelInt32},
 			},
-		}
+		)
 		layer.TileBytes = make([]int64, layer.Dimensions.Tiles())
 		layer.TileOffsets = make([]int64, layer.Dimensions.Tiles())
 

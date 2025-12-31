@@ -88,7 +88,7 @@ func (p *Pixi) AppendImage(w io.WriteSeeker, img image.Image, options FromImageO
 	})
 }
 
-func ImageToLayer(img image.Image, layerName string, separated bool, compression Compression, xTileSize int, yTileSize int) (*Layer, error) {
+func ImageToLayer(img image.Image, layerName string, separated bool, compression Compression, xTileSize int, yTileSize int) (Layer, error) {
 	var channels ChannelSet
 	switch img.ColorModel() {
 	case color.NRGBAModel:
@@ -152,7 +152,7 @@ func ImageToLayer(img image.Image, layerName string, separated bool, compression
 			{Name: "Y", Type: ChannelInt16},
 		}
 	default:
-		return nil, ErrUnsupported("color model of the image not yet supported for conversion to Pixi")
+		return Layer{}, ErrUnsupported("color model of the image not yet supported for conversion to Pixi")
 	}
 
 	width := img.Bounds().Dx()
@@ -180,7 +180,7 @@ func ImageToLayer(img image.Image, layerName string, separated bool, compression
 		opts...), nil
 }
 
-func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer *Layer, srcModel string) (image.Image, error) {
+func LayerAsImage(r io.ReadSeeker, pixImg *Pixi, layer Layer, srcModel string) (image.Image, error) {
 	width := layer.Dimensions[0].Size
 	height := layer.Dimensions[1].Size
 

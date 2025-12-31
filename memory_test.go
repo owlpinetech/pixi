@@ -107,19 +107,15 @@ func TestMemoryLayerMinMaxTracking(t *testing.T) {
 		buf := buffer.NewBuffer(1000)
 
 		// Create a layer with multiple channels
-		layer := &Layer{
-			Name:        "test",
-			Separated:   false,
-			Compression: CompressionNone,
-			Dimensions: DimensionSet{
+		layer := NewLayer("test",
+			DimensionSet{
 				{Name: "x", Size: 2, TileSize: 2},
 				{Name: "y", Size: 2, TileSize: 2},
 			},
-			Channels: ChannelSet{
+			ChannelSet{
 				{Name: "temperature", Type: ChannelFloat32},
 				{Name: "count", Type: ChannelInt16},
-			},
-		}
+			})
 		layer.TileBytes = make([]int64, layer.Dimensions.Tiles())
 		layer.TileOffsets = make([]int64, layer.Dimensions.Tiles())
 

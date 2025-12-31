@@ -15,7 +15,7 @@ func TestFlateCompressionWriteRead(t *testing.T) {
 		}
 
 		buf := bytes.NewBuffer([]byte{})
-		amtWrt, err := CompressionFlate.writeChunk(buf, nil, 0, chunk)
+		amtWrt, err := CompressionFlate.writeChunk(buf, Layer{}, 0, chunk)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -26,7 +26,7 @@ func TestFlateCompressionWriteRead(t *testing.T) {
 
 		rdr := bytes.NewReader(buf.Bytes())
 		rdChunk := make([]byte, len(chunk))
-		amtRcv, err := CompressionFlate.readChunk(rdr, nil, 0, rdChunk)
+		amtRcv, err := CompressionFlate.readChunk(rdr, Layer{}, 0, rdChunk)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -48,7 +48,7 @@ func TestLzwLsbCompressionWriteRead(t *testing.T) {
 		}
 
 		buf := bytes.NewBuffer([]byte{})
-		amtWrt, err := CompressionLzwLsb.writeChunk(buf, nil, 0, chunk)
+		amtWrt, err := CompressionLzwLsb.writeChunk(buf, Layer{}, 0, chunk)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -59,7 +59,7 @@ func TestLzwLsbCompressionWriteRead(t *testing.T) {
 
 		rdr := bytes.NewReader(buf.Bytes())
 		rdChunk := make([]byte, len(chunk))
-		amtRcv, err := CompressionLzwLsb.readChunk(rdr, nil, 0, rdChunk)
+		amtRcv, err := CompressionLzwLsb.readChunk(rdr, Layer{}, 0, rdChunk)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -81,7 +81,7 @@ func TestLzwMsbCompressionWriteRead(t *testing.T) {
 		}
 
 		buf := bytes.NewBuffer([]byte{})
-		amtWrt, err := CompressionLzwMsb.writeChunk(buf, nil, 0, chunk)
+		amtWrt, err := CompressionLzwMsb.writeChunk(buf, Layer{}, 0, chunk)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -92,7 +92,7 @@ func TestLzwMsbCompressionWriteRead(t *testing.T) {
 
 		rdr := bytes.NewReader(buf.Bytes())
 		rdChunk := make([]byte, len(chunk))
-		amtRcv, err := CompressionLzwMsb.readChunk(rdr, nil, 0, rdChunk)
+		amtRcv, err := CompressionLzwMsb.readChunk(rdr, Layer{}, 0, rdChunk)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -142,7 +142,7 @@ func TestRle8CompressionWriteReadCondensedLayer(t *testing.T) {
 		}
 
 		buf := bytes.NewBuffer([]byte{})
-		layer := &Layer{Channels: channels, Separated: false}
+		layer := Layer{Channels: channels, Separated: false}
 		amtWrt, err := CompressionRle8.writeChunk(buf, layer, 0, chunk)
 		if err != nil {
 			t.Fatal(err)

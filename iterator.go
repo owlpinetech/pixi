@@ -14,7 +14,7 @@ const (
 type TileOrderReadIterator struct {
 	backing io.ReadSeeker
 	header  Header
-	layer   *Layer
+	layer   Layer
 
 	tile         int
 	sampleInTile int
@@ -24,7 +24,9 @@ type TileOrderReadIterator struct {
 	currentError error
 }
 
-func NewTileOrderReadIterator(backing io.ReadSeeker, header Header, layer *Layer) *TileOrderReadIterator {
+var _ IterativeLayerReader = (*TileOrderReadIterator)(nil)
+
+func NewTileOrderReadIterator(backing io.ReadSeeker, header Header, layer Layer) *TileOrderReadIterator {
 	iterator := &TileOrderReadIterator{
 		backing:      backing,
 		header:       header,
@@ -43,7 +45,7 @@ func NewTileOrderReadIterator(backing io.ReadSeeker, header Header, layer *Layer
 	return iterator
 }
 
-func (t *TileOrderReadIterator) Layer() *Layer {
+func (t *TileOrderReadIterator) Layer() Layer {
 	return t.layer
 }
 
@@ -166,7 +168,7 @@ func (t *TileOrderReadIterator) readTiles(tileIndex int) (map[int][]byte, error)
 type TileOrderWriteIterator struct {
 	backing io.WriteSeeker
 	header  Header
-	layer   *Layer
+	layer   Layer
 
 	tile         int
 	sampleInTile int
@@ -179,7 +181,9 @@ type TileOrderWriteIterator struct {
 	tiles map[int][]byte
 }
 
-func NewTileOrderWriteIterator(backing io.WriteSeeker, header Header, layer *Layer) *TileOrderWriteIterator {
+var _ IterativeLayerWriter = (*TileOrderWriteIterator)(nil)
+
+func NewTileOrderWriteIterator(backing io.WriteSeeker, header Header, layer Layer) *TileOrderWriteIterator {
 	iterator := &TileOrderWriteIterator{
 		backing: backing,
 		header:  header,
@@ -219,7 +223,7 @@ func NewTileOrderWriteIterator(backing io.WriteSeeker, header Header, layer *Lay
 	return iterator
 }
 
-func (t *TileOrderWriteIterator) Layer() *Layer {
+func (t *TileOrderWriteIterator) Layer() Layer {
 	return t.layer
 }
 

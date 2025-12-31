@@ -15,7 +15,7 @@ type FifoCacheReadLayer struct {
 	cacheLock sync.RWMutex
 	backing   io.ReadSeeker
 	header    Header
-	layer     *Layer
+	layer     Layer
 	cache     map[int]FifoCacheLayerTile
 	maxSize   int
 }
@@ -23,7 +23,7 @@ type FifoCacheReadLayer struct {
 // Compile-time check to ensure LayerReadFifoCache implements TileAccessLayer
 var _ TileAccessLayer = (*FifoCacheReadLayer)(nil)
 
-func NewFifoCacheReadLayer(backing io.ReadSeeker, header Header, layer *Layer, maxSize int) *FifoCacheReadLayer {
+func NewFifoCacheReadLayer(backing io.ReadSeeker, header Header, layer Layer, maxSize int) *FifoCacheReadLayer {
 	return &FifoCacheReadLayer{
 		backing: backing,
 		header:  header,
@@ -33,7 +33,7 @@ func NewFifoCacheReadLayer(backing io.ReadSeeker, header Header, layer *Layer, m
 	}
 }
 
-func (c *FifoCacheReadLayer) Layer() *Layer {
+func (c *FifoCacheReadLayer) Layer() Layer {
 	return c.layer
 }
 
@@ -84,7 +84,7 @@ type FifoCacheLayer struct {
 // Compile-time check to ensure LayerFifoCache implements CachedLayerCache
 var _ TileModifierLayer = (*FifoCacheLayer)(nil)
 
-func NewFifoCacheLayer(backing io.ReadWriteSeeker, header Header, layer *Layer, maxSize int) *FifoCacheLayer {
+func NewFifoCacheLayer(backing io.ReadWriteSeeker, header Header, layer Layer, maxSize int) *FifoCacheLayer {
 	return &FifoCacheLayer{
 		FifoCacheReadLayer: FifoCacheReadLayer{
 			backing: backing,

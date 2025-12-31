@@ -1,7 +1,7 @@
 package pixi
 
 type Accessor interface {
-	Layer() *Layer
+	Layer() Layer
 }
 
 type TileAccessLayer interface {

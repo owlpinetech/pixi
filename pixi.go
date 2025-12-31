@@ -15,9 +15,9 @@ const (
 // Represents a single pixi file composed of one or more layers. Functions as a handle
 // to access the description of the each layer as well as the data stored in each layer.
 type Pixi struct {
-	Header Header        // The metadata about the file version and how to read information from the file.
-	Layers []*Layer      // The metadata information about each layer in the file.
-	Tags   []*TagSection // The string tags of the file, broken up into sections for easy appending.
+	Header Header       // The metadata about the file version and how to read information from the file.
+	Layers []Layer      // The metadata information about each layer in the file.
+	Tags   []TagSection // The string tags of the file, broken up into sections for easy appending.
 }
 
 // Convenience function to read all the metadata information from a Pixi file into a single
@@ -25,8 +25,8 @@ type Pixi struct {
 func ReadPixi(r io.ReadSeeker) (*Pixi, error) {
 	pixi := &Pixi{
 		Header: Header{},
-		Layers: make([]*Layer, 0),
-		Tags:   make([]*TagSection, 0),
+		Layers: make([]Layer, 0),
+		Tags:   make([]TagSection, 0),
 	}
 
 	seenOffsets := []int64{}
@@ -47,7 +47,7 @@ func ReadPixi(r io.ReadSeeker) (*Pixi, error) {
 		if err != nil {
 			return pixi, ErrFormat(fmt.Sprintf("seeking to layer at offset %d: %s", layerOffset, err))
 		}
-		rdLayer := &Layer{}
+		rdLayer := Layer{}
 		err = rdLayer.ReadLayer(r, pixi.Header)
 		if err != nil {
 			return pixi, ErrFormat(fmt.Sprintf("reading layer at offset %d: %s", layerOffset, err))
@@ -66,7 +66,7 @@ func ReadPixi(r io.ReadSeeker) (*Pixi, error) {
 		if err != nil {
 			return pixi, err
 		}
-		rdTags := &TagSection{}
+		rdTags := TagSection{}
 		err = rdTags.Read(r, pixi.Header)
 		if err != nil {
 			return pixi, err
@@ -105,7 +105,7 @@ func (p *Pixi) AppendTags(w io.WriteSeeker, tags map[string]string) error {
 	if err != nil {
 		return err
 	}
-	newTagSection := &TagSection{
+	newTagSection := TagSection{
 		Tags: tags,
 	}
 	err = newTagSection.Write(w, p.Header)
@@ -142,7 +142,7 @@ func (p *Pixi) AppendTags(w io.WriteSeeker, tags map[string]string) error {
 }
 
 // Appends a new layer to the end of the file, using the provided generator function for writing samples to the layer.
-func (p *Pixi) AppendIterativeLayer(w io.WriteSeeker, layer *Layer, generator func(writer IterativeLayerWriter) error) error {
+func (p *Pixi) AppendIterativeLayer(w io.WriteSeeker, layer Layer, generator func(writer IterativeLayerWriter) error) error {
 	// append the new layer to the end of the file
 	_, err := w.Seek(0, io.SeekEnd)
 	if err != nil {

@@ -145,22 +145,18 @@ func (c *Channel) Read(r io.Reader, h Header) error {
 }
 
 // Updates the channel's Min and Max values based on a new value. Returns true if the channel was modified.
-func (channel *Channel) UpdateMinMax(value any) bool {
-	changed := false
-
+func (channel Channel) WithMinMax(value any) Channel {
 	// Update Min if needed
 	if channel.Min == nil || channel.Type.CompareValues(value, channel.Min) < 0 {
 		channel.Min = value
-		changed = true
 	}
 
 	// Update Max if needed
 	if channel.Max == nil || channel.Type.CompareValues(value, channel.Max) > 0 {
 		channel.Max = value
-		changed = true
 	}
 
-	return changed
+	return channel
 }
 
 // Describes the size and interpretation of a channel.

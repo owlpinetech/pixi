@@ -334,7 +334,7 @@ func TestChannelUpdateMinMax(t *testing.T) {
 			channel := tt.channel
 
 			for _, value := range tt.values {
-				channel.UpdateMinMax(value)
+				channel = channel.WithMinMax(value)
 			}
 
 			if !reflect.DeepEqual(channel.Min, tt.expMin) {

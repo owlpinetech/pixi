@@ -289,7 +289,7 @@ func (t *TileOrderWriteIterator) SetChannel(channelIndex int, value any) {
 	}
 
 	// Update Min/Max for the channel
-	t.layer.Channels[channelIndex].UpdateMinMax(value)
+	t.layer.Channels[channelIndex] = t.layer.Channels[channelIndex].WithMinMax(value)
 
 	if t.layer.Separated {
 		tileData := t.tiles[channelIndex]
@@ -314,7 +314,7 @@ func (t *TileOrderWriteIterator) SetSample(value Sample) {
 
 	// Update Min/Max for all channels in the sample
 	for channelIndex, channelValue := range value {
-		t.layer.Channels[channelIndex].UpdateMinMax(channelValue)
+		t.layer.Channels[channelIndex] = t.layer.Channels[channelIndex].WithMinMax(channelValue)
 	}
 
 	if t.layer.Separated {

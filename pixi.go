@@ -142,7 +142,7 @@ func (p *Pixi) AppendTags(w io.WriteSeeker, tags map[string]string) error {
 }
 
 // Appends a new layer to the end of the file, using the provided generator function for writing samples to the layer.
-func (p *Pixi) AppendIterativeLayer(w io.WriteSeeker, layer Layer, generator func(writer IterativeLayerWriter) error) error {
+func (p *Pixi) AppendIterativeLayer(w io.WriteSeeker, layer Layer, writer IterativeLayerWriter, generator func(writer IterativeLayerWriter) error) error {
 	// append the new layer to the end of the file
 	_, err := w.Seek(0, io.SeekEnd)
 	if err != nil {
@@ -150,12 +150,11 @@ func (p *Pixi) AppendIterativeLayer(w io.WriteSeeker, layer Layer, generator fun
 	}
 
 	// write out all the tile data
-	writerIterator := NewTileOrderWriteIterator(w, p.Header, layer)
-	if err := generator(writerIterator); err != nil {
+	if err := generator(writer); err != nil {
 		return err
 	}
-	writerIterator.Done()
-	if err := writerIterator.Error(); err != nil {
+	writer.Done()
+	if err := writer.Error(); err != nil {
 		return err
 	}
 

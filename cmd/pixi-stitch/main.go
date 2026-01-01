@@ -148,7 +148,8 @@ func main() {
 			opts...,
 		)
 
-		err = dstSummary.AppendIterativeLayer(dstFile, mergedLayer, func(dstLayerWriter gopixi.IterativeLayerWriter) error {
+		iterator := gopixi.NewTileOrderWriteIterator(dstFile, dstPixi, mergedLayer)
+		err = dstSummary.AppendIterativeLayer(dstFile, mergedLayer, iterator, func(dstLayerWriter gopixi.IterativeLayerWriter) error {
 			for dstLayerWriter.Next() {
 				coord := dstLayerWriter.Coordinate()
 

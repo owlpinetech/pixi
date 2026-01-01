@@ -153,7 +153,8 @@ func main() {
 			layerOpts...,
 		)
 
-		err = summary.AppendIterativeLayer(dstFile, mergedLayer, func(dstLayerWriter gopixi.IterativeLayerWriter) error {
+		iterator := gopixi.NewTileOrderWriteIterator(dstFile, dstPixi, mergedLayer)
+		err = summary.AppendIterativeLayer(dstFile, mergedLayer, iterator, func(dstLayerWriter gopixi.IterativeLayerWriter) error {
 			for dstLayerWriter.Next() {
 				// advance all readers by one too
 				readerAdvanceSuccess := true

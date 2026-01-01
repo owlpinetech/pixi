@@ -45,7 +45,8 @@ func (p *Pixi) AppendImage(w io.WriteSeeker, img image.Image, options FromImageO
 
 	p.AppendTags(w, options.Tags)
 
-	return p.AppendIterativeLayer(w, layer, func(writerIterator IterativeLayerWriter) error {
+	iterator := NewTileOrderWriteIterator(w, p.Header, layer)
+	return p.AppendIterativeLayer(w, layer, iterator, func(writerIterator IterativeLayerWriter) error {
 		for writerIterator.Next() {
 			coord := writerIterator.Coordinate()
 			pixel := img.At(coord[0], coord[1])

@@ -152,8 +152,8 @@ func main() {
 
 		// Create cached reader for source layer
 		srcData := gopixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, srcLayer, 4)
-
-		err = dstSummary.AppendIterativeLayer(dstFile, dstLayer, func(dstIterator gopixi.IterativeLayerWriter) error {
+		iterator := gopixi.NewTileOrderWriteIterator(dstFile, dstHeader, dstLayer)
+		err = dstSummary.AppendIterativeLayer(dstFile, dstLayer, iterator, func(dstIterator gopixi.IterativeLayerWriter) error {
 			return decimateLayer(srcData, dstIterator, srcLayer.Dimensions, decimationMethod, factor)
 		})
 		if err != nil {

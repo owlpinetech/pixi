@@ -27,7 +27,7 @@ func main() {
 	toDstFile := toPixiFlags.String("dst", "", "name of the resulting Pixi file")
 	toTileSize := toPixiFlags.Int("tileSize", 0, "the size of tiles to generate in the Pixi file, if zero (default) will be the same size as the image")
 	toComp := toPixiFlags.Int("compression", 0, "compression to be used for data in Pixi (none, flate, lzw-lsb, lzw-msb, rle8) represented as 0, 1, 2, 3, 4 respectively")
-	toOrder := toPixiFlags.String("endian", "little", "the endianness byte order (big, little) to use in the Pixi file")
+	toOrder := toPixiFlags.String("endian", "native", "the endianness byte order (big, little, native) to use in the Pixi file")
 	toOffsetSize := toPixiFlags.Int("offsetSize", 4, "the size in bytes of offsets in the Pixi file (4 or 8)")
 
 	fromPixiFlags := flag.NewFlagSet("fromPixi", flag.ExitOnError)
@@ -112,6 +112,8 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int, endiann
 		order = binary.BigEndian
 	case "little":
 		order = binary.LittleEndian
+	case "native":
+		order = binary.NativeEndian
 	default:
 		return fmt.Errorf("invalid endianness: %s; must be 'big' or 'little'", endianness)
 	}

@@ -74,7 +74,8 @@ func main() {
 		dstLayer := gopixi.NewLayer(srcLayer.Name, srcLayer.Dimensions, srcLayer.Channels, opts...)
 		srcData := gopixi.NewFifoCacheReadLayer(srcStream, srcPixi.Header, srcLayer, 4)
 
-		err = summary.AppendIterativeLayer(dstFile, dstLayer, func(dstIterator gopixi.IterativeLayerWriter) error {
+		iterator := gopixi.NewTileOrderWriteIterator(dstFile, dstPixi, dstLayer)
+		err = summary.AppendIterativeLayer(dstFile, dstLayer, iterator, func(dstIterator gopixi.IterativeLayerWriter) error {
 			for dstIterator.Next() {
 				coord := dstIterator.Coordinate()
 				pixel, err := gopixi.SampleAt(srcData, coord)

@@ -27,7 +27,7 @@ func (t TagSection) WriteHeader(w io.Writer, h Header) error {
 // in the Pixi header.
 func (t TagSection) Write(w io.Writer, h Header) error {
 	// write number of tags, then each key-value pair for tags
-	err := h.Write(w, uint32(len(t.Tags)))
+	err := t.WriteHeader(w, h)
 	if err != nil {
 		return err
 	}

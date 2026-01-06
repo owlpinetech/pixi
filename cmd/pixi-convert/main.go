@@ -34,6 +34,7 @@ func main() {
 	fromSrcFile := fromPixiFlags.String("src", "", "Pixi file to convert")
 	fromDstFile := fromPixiFlags.String("dst", "", "name of the file resulting from Pixi conversion")
 	fromModel := fromPixiFlags.String("model", "image", "the target model to convert the Pixi file to (image)")
+	fromLayer := fromPixiFlags.Int("layer", 0, "the index of the layer to convert from the Pixi file (default 0)")
 
 	switch os.Args[1] {
 	case "to":
@@ -54,7 +55,7 @@ func main() {
 			return
 		}
 
-		if err := pixiToOther(*fromSrcFile, *fromDstFile, *fromModel); err != nil {
+		if err := pixiToOther(*fromSrcFile, *fromDstFile, *fromModel, *fromLayer); err != nil {
 			fmt.Println(err)
 			return
 		}
@@ -178,25 +179,32 @@ func otherToPixi(srcFile string, dstFile string, tileSize int, comp int, endiann
 	return summary.AppendImage(pixiFile, img, options)
 }
 
-func pixiToOther(srcFile string, dstFile string, srcModel string) error {
+func pixiToOther(srcFile string, dstFile string, srcModel string, srcLayer int) error {
 	pixiStream, err := gopixi.OpenFileOrHttp(srcFile)
 	if err != nil {
+		fmt.Printf("failed to open source Pixi file: %v\n", err)
 		return err
 	}
 	defer pixiStream.Close()
 
 	imgFile, err := os.Create(dstFile)
 	if err != nil {
+		fmt.Printf("failed to create destination file: %v\n", err)
 		return err
 	}
 	defer imgFile.Close()
 
 	pixiSum, err := gopixi.ReadPixi(pixiStream)
 	if err != nil {
+		fmt.Printf("failed to read source Pixi file: %v\n", err)
 		return err
 	}
 
-	img, err := gopixi.LayerAsImage(pixiStream, pixiSum, pixiSum.Layers[0], srcModel)
+	if srcLayer < 0 || srcLayer >= len(pixiSum.Layers) {
+		return fmt.Errorf("invalid layer index: %d", srcLayer)
+	}
+
+	img, err := gopixi.LayerAsImage(pixiStream, pixiSum, pixiSum.Layers[srcLayer], srcModel)
 	if err != nil {
 		return err
 	}

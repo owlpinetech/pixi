@@ -21,6 +21,7 @@ func TestTagSectionWriteRead(t *testing.T) {
 			"author":      "testuser",
 			"description": "this is a test image",
 		},
+		NextTagsStart: 1000,
 	}
 	err := tags.Write(wrtBuf, header)
 	if err != nil {
@@ -33,6 +34,14 @@ func TestTagSectionWriteRead(t *testing.T) {
 	err = readTags.Read(rdBuffer, header)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if readTags.NextTagsStart != tags.NextTagsStart {
+		t.Errorf("NextTagsStart mismatch: expected %d, got %d", tags.NextTagsStart, readTags.NextTagsStart)
+	}
+
+	if len(readTags.Tags) != len(tags.Tags) {
+		t.Errorf("number of tags mismatch: expected %d, got %d", len(tags.Tags), len(readTags.Tags))
 	}
 
 	// compare tags

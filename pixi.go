@@ -64,12 +64,12 @@ func ReadPixi(r io.ReadSeeker) (*Pixi, error) {
 		seenOffsets = append(seenOffsets, layerOffset)
 		_, err := r.Seek(tagOffset, io.SeekStart)
 		if err != nil {
-			return pixi, err
+			return pixi, ErrFormat(fmt.Sprintf("seeking to tag section at offset %d: %s", tagOffset, err))
 		}
 		rdTags := TagSection{}
 		err = rdTags.Read(r, pixi.Header)
 		if err != nil {
-			return pixi, err
+			return pixi, ErrFormat(fmt.Sprintf("reading tag section at offset %d: %s", tagOffset, err))
 		}
 		pixi.Tags = append(pixi.Tags, rdTags)
 		tagOffset = rdTags.NextTagsStart

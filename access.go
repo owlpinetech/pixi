@@ -53,6 +53,49 @@ func SampleAt(accessor TileAccessLayer, coord SampleCoordinate) (Sample, error) 
 	return sample, nil
 }
 
+// SampleInto fills the provided sample slice with channel values at the given coordinate.
+// This is a zero-allocation version of SampleAt that reuses an existing slice.
+// The sample slice must have at least len(layer.Channels) capacity.
+func SampleInto(accessor TileAccessLayer, coord SampleCoordinate, sample Sample) error {
+	layer := accessor.Layer()
+
+	// Resize slice to exact channel count
+	sample = sample[:len(layer.Channels)]
+
+	tileSelector := coord.ToTileSelector(layer.Dimensions)
+
+	if layer.Separated {
+		for channelIndex, channel := range layer.Channels {
+			channelTile := tileSelector.Tile + layer.Dimensions.Tiles()*channelIndex
+
+			tileData, err := accessor.Tile(channelTile)
+			if err != nil {
+				return err
+			}
+
+			if channel.Type == ChannelBool {
+				sample[channelIndex] = UnpackBool(tileData, tileSelector.InTile)
+			} else {
+				channelOffset := tileSelector.InTile * channel.Size()
+				sample[channelIndex] = channel.Value(tileData[channelOffset:], accessor.Header().ByteOrder)
+			}
+		}
+	} else {
+		channelOffset := tileSelector.InTile * layer.Channels.Size()
+
+		tileData, err := accessor.Tile(tileSelector.Tile)
+		if err != nil {
+			return err
+		}
+		for i, channel := range layer.Channels {
+			sample[i] = channel.Value(tileData[channelOffset:], accessor.Header().ByteOrder)
+			channelOffset += channel.Size()
+		}
+	}
+
+	return nil
+}
+
 func ChannelAt(accessor TileAccessLayer, coord SampleCoordinate, channelIndex int) (any, error) {
 	layer := accessor.Layer()
 	tileSelector := coord.ToTileSelector(layer.Dimensions)

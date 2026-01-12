@@ -55,7 +55,7 @@ func SampleAt(accessor TileAccessLayer, coord SampleCoordinate) (Sample, error) 
 
 // SampleInto fills the provided sample slice with channel values at the given coordinate.
 // This is a zero-allocation version of SampleAt that reuses an existing slice.
-// The sample slice must have at least len(layer.Channels) capacity.
+// The sample slice must have length at least len(layer.Channels).
 func SampleInto(accessor TileAccessLayer, coord SampleCoordinate, sample Sample) error {
 	layer := accessor.Layer()
 

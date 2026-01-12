@@ -28,7 +28,10 @@ func setupBenchmarkLayer(b *testing.B, dims DimensionSet, channels ChannelSet, s
 	memLayer := NewMemoryLayer(buf, header, layer)
 
 	// Pre-populate some test data to ensure realistic performance
-	coord := SampleCoordinate{dims[0].Size / 2, dims[1].Size / 2}
+	coord := make(SampleCoordinate, len(dims))
+	for i, d := range dims {
+		coord[i] = d.Size / 2
+	}
 	sample := make(Sample, len(channels))
 	for i, ch := range channels {
 		switch ch.Type {

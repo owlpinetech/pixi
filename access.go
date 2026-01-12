@@ -59,9 +59,6 @@ func SampleAt(accessor TileAccessLayer, coord SampleCoordinate) (Sample, error) 
 func SampleInto(accessor TileAccessLayer, coord SampleCoordinate, sample Sample) error {
 	layer := accessor.Layer()
 
-	// Resize slice to exact channel count
-	sample = sample[:len(layer.Channels)]
-
 	tileSelector := coord.ToTileSelector(layer.Dimensions)
 
 	if layer.Separated {
